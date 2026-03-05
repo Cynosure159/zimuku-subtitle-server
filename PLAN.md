@@ -18,10 +18,10 @@
 
 ## 阶段 3：下载服务与 MCP 协议集成
 **目标**: 实现完整下载流程与 AI 代理支持。
-- [ ] **Task 3.1**: 开发下载路由。处理多步跳转下载。
-- [ ] **Task 3.2**: 开发 `ArchiveManager`。支持 ZIP/7z 解压与压缩包内乱码修正（`CP437` -> `GBK`）。
-- [ ] **Task 3.3**: 集成 MCP SDK。暴露搜索与下载为 MCP Tools。
-- [ ] **Task 3.4**: 手动在 Claude/Gemini 中通过 MCP 测试下载功能。
+- [x] **Task 3.1**: 开发下载路由。处理多步跳转下载。
+- [x] **Task 3.2**: 开发 `ArchiveManager`。支持 ZIP/7z 解压与压缩包内乱码修正（`CP437` -> `GBK`）。
+- [x] **Task 3.3**: 集成 MCP SDK。暴露搜索与下载为 MCP Tools。
+- [x] **Task 3.4**: 手动在 Claude/Gemini 中通过 MCP 测试下载功能。
 
 ## 阶段 4：Web UI 面板开发
 **目标**: 提升用户体验。

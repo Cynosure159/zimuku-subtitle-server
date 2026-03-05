@@ -7,3 +7,5 @@ sqlmodel
 python-multipart
 pyyaml
 ruff
+py7zr
+mcp

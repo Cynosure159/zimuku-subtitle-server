@@ -25,13 +25,13 @@ async def lifespan(app: FastAPI):
     logger.info("正在关闭应用...")
 
 
-from .api import search, settings
+from .api import download, search, settings
 
 app = FastAPI(
     title="Zimuku Subtitle Server",
     description="独立的字幕管理与刮削服务",
     version="0.1.0",
-    lifespan=lifespan,
+    lifespan=lifespan
 )
 
 
@@ -46,6 +46,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 app.include_router(search.router)
 app.include_router(settings.router)
+app.include_router(download.router)
 
 
 @app.get("/health", tags=["System"])
