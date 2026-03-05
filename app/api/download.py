@@ -1,7 +1,6 @@
 import logging
 import os
 from datetime import datetime
-from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlmodel import Session, select
@@ -16,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 from ..core.archive import ArchiveManager
+
 
 async def run_download_task(task_id: int, session: Session):
     """后台下载任务逻辑"""
@@ -38,7 +38,7 @@ async def run_download_task(task_id: int, session: Session):
         # 2. 执行下载
         referer = task.source_url.replace("/detail/", "/dld/")
         download_url = dld_links[0]
-        
+
         filename, content = await agent.download_file(download_url, referer)
         if not filename or not content:
             raise Exception("文件下载失败，返回内容为空")
@@ -46,7 +46,7 @@ async def run_download_task(task_id: int, session: Session):
         # 3. 保存原始文件
         storage_path = ConfigManager.get("storage_path", "storage/downloads")
         os.makedirs(storage_path, exist_ok=True)
-        
+
         file_path = os.path.join(storage_path, filename)
         with open(file_path, "wb") as f:
             f.write(content)
@@ -55,7 +55,7 @@ async def run_download_task(task_id: int, session: Session):
         if ArchiveManager.is_archive(filename):
             extract_to = os.path.join(storage_path, os.path.splitext(filename)[0])
             try:
-                extracted_files = ArchiveManager.extract(file_path, extract_to)
+                ArchiveManager.extract(file_path, extract_to)
                 # 更新任务状态，记录解压路径
                 task.save_path = extract_to
                 logger.info(f"成功解压到: {extract_to}")
@@ -68,7 +68,7 @@ async def run_download_task(task_id: int, session: Session):
 
         task.status = "completed"
         task.filename = filename
-        
+
     except Exception as e:
         logger.error(f"下载任务 {task_id} 失败: {e}")
         task.status = "failed"
@@ -82,10 +82,7 @@ async def run_download_task(task_id: int, session: Session):
 
 @router.post("/")
 async def create_download_task(
-    title: str, 
-    source_url: str, 
-    background_tasks: BackgroundTasks, 
-    session: Session = Depends(get_session)
+    title: str, source_url: str, background_tasks: BackgroundTasks, session: Session = Depends(get_session)
 ):
     """创建下载任务"""
     task = SubtitleTask(title=title, source_url=source_url)

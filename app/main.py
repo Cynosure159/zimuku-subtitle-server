@@ -28,10 +28,7 @@ async def lifespan(app: FastAPI):
 from .api import download, search, settings
 
 app = FastAPI(
-    title="Zimuku Subtitle Server",
-    description="独立的字幕管理与刮削服务",
-    version="0.1.0",
-    lifespan=lifespan
+    title="Zimuku Subtitle Server", description="独立的字幕管理与刮削服务", version="0.1.0", lifespan=lifespan
 )
 
 

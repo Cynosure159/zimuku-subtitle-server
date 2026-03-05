@@ -1,7 +1,7 @@
 import logging
 import os
 import zipfile
-from typing import List, Optional
+from typing import List
 
 import py7zr
 
@@ -18,7 +18,7 @@ class ArchiveManager:
             raise FileNotFoundError(f"File not found: {file_path}")
 
         os.makedirs(extract_to, exist_ok=True)
-        
+
         if file_path.lower().endswith(".zip"):
             return ArchiveManager._extract_zip(file_path, extract_to)
         elif file_path.lower().endswith(".7z"):
@@ -47,14 +47,14 @@ class ArchiveManager:
                 filename = os.path.basename(filename)
                 if not filename:
                     continue
-                
+
                 target_path = os.path.join(extract_to, filename)
                 with open(target_path, "wb") as f:
                     f.write(z.read(info.filename))
-                
+
                 extracted_files.append(target_path)
                 logger.info(f"Extracted: {filename}")
-        
+
         return extracted_files
 
     @staticmethod
@@ -69,7 +69,7 @@ class ArchiveManager:
                 if os.path.isfile(full_path):
                     extracted_files.append(full_path)
                     logger.info(f"Extracted (7z): {name}")
-        
+
         return extracted_files
 
     @staticmethod
