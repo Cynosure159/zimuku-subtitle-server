@@ -6,7 +6,7 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from sqlmodel import Session
 
-from ..api.download import run_download_task
+from ..api.tasks import run_download_task
 from ..core.scraper import ZimukuAgent
 from ..db.models import SubtitleTask
 from ..db.session import engine

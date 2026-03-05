@@ -37,3 +37,14 @@ class SubtitleTask(SQLModel, table=True):
     error_msg: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
+
+
+class MediaPath(SQLModel, table=True):
+    """媒体库扫描路径表"""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    path: str = Field(index=True, unique=True)
+    type: str = Field(default="movie")  # movie, tv
+    enabled: bool = Field(default=True)
+    last_scanned_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.now)

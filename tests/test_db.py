@@ -1,18 +1,21 @@
 from datetime import datetime, timedelta
 
 import pytest
-from sqlmodel import Session, select
+from sqlmodel import Session, SQLModel, create_engine, select
 
 from app.db.models import SearchCache, Setting, SubtitleTask
-from app.db.session import create_db_and_tables, engine
+
+# 使用内存数据库进行测试
+sqlite_url = "sqlite://"
+test_engine = create_engine(sqlite_url, connect_args={"check_same_thread": False})
 
 
 @pytest.fixture(name="session")
 def session_fixture():
-    # 使用独立的测试数据库或直接在原库操作（此处为简单起见，且由于 sqlite 默认是本地文件，直接初始化即可）
-    create_db_and_tables()
-    with Session(engine) as session:
+    SQLModel.metadata.create_all(test_engine)
+    with Session(test_engine) as session:
         yield session
+    SQLModel.metadata.drop_all(test_engine)
 
 
 def test_create_setting(session: Session):
