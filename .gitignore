@@ -9,6 +9,7 @@ storage/zimuku.db
 storage/downloads/
 storage/tmp/
 app.log
+refer/
 config/settings.yaml
 dist/
 build/
