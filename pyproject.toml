@@ -1,0 +1,25 @@
+[tool.ruff]
+# 设置目标 Python 版本
+target-version = "py312"
+# 行长度限制调整为 120，更适合现代屏幕
+line-length = 120
+# 排除不需要检查的目录
+exclude = [
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+]
+
+[tool.ruff.lint]
+# 包含的 lint 规则 (E, F, W, I 分别代表 Error, Pyflakes, Warning, Isort)
+select = ["E", "F", "W", "I"]
+ignore = [
+    "E402", # 允许在某些地方模块级导入不在文件顶部（如 main.py 中的 lifespan 逻辑）
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"

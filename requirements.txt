@@ -6,3 +6,4 @@ lxml
 sqlmodel
 python-multipart
 pyyaml
+ruff
