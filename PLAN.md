@@ -2,11 +2,11 @@
 
 ## 阶段 1：核心爬虫与 OCR 引擎开发 (关键路径)
 **目标**: 实现无需 UI 的搜索与验证码绕过。
-- [ ] **Task 1.1**: 搭建 Python 虚拟环境，安装 `httpx`, `beautifulsoup4`, `lxml`。
-- [ ] **Task 1.2**: 实现 `SimpleOCR`。复刻像素采样逻辑，能够识别 Base64 验证码。
-- [ ] **Task 1.3**: 实现 `ZimukuAgent` 的核心搜索逻辑。支持多级页面解析。
-- [ ] **Task 1.4**: 实现验证码挑战机制。模拟重定向获取授权 Cookie。
-- [ ] **Task 1.5**: 编写测试脚本（`tests/test_scraper.py`），验证搜索与 OCR 识别率。
+- [x] **Task 1.1**: 搭建 Python 虚拟环境，安装 `httpx`, `beautifulsoup4`, `lxml`。
+- [x] **Task 1.2**: 实现 `SimpleOCR`。复刻像素采样逻辑，能够识别 Base64 验证码。
+- [x] **Task 1.3**: 实现 `ZimukuAgent` 的核心搜索逻辑。支持多级页面解析。
+- [x] **Task 1.4**: 实现验证码挑战机制。模拟重定向获取授权 Cookie。
+- [x] **Task 1.5**: 编写测试脚本（`tests/test_scraper.py`），验证搜索与 OCR 识别率。
 
 ## 阶段 2：数据库与 FastAPI 基础架构
 **目标**: 提供持久化支持与 REST 接口。
@@ -19,7 +19,7 @@
 ## 阶段 3：下载服务与 MCP 协议集成
 **目标**: 实现完整下载流程与 AI 代理支持。
 - [ ] **Task 3.1**: 开发下载路由。处理多步跳转下载。
-- [ ] **Task 3.2**: 开发 `ArchiveManager`。支持解压与文件名乱码修正（`CP437` -> `GBK`）。
+- [ ] **Task 3.2**: 开发 `ArchiveManager`。支持 ZIP/7z 解压与压缩包内乱码修正（`CP437` -> `GBK`）。
 - [ ] **Task 3.3**: 集成 MCP SDK。暴露搜索与下载为 MCP Tools。
 - [ ] **Task 3.4**: 手动在 Claude/Gemini 中通过 MCP 测试下载功能。
 
