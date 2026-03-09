@@ -48,3 +48,19 @@ class MediaPath(SQLModel, table=True):
     enabled: bool = Field(default=True)
     last_scanned_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.now)
+
+
+class ScannedFile(SQLModel, table=True):
+    """扫描到的媒体文件"""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    path_id: int = Field(foreign_key="mediapath.id")
+    type: str = Field(default="movie")  # movie, tv
+    file_path: str = Field(index=True, unique=True)
+    filename: str
+    extracted_title: Optional[str] = None
+    year: Optional[str] = None
+    season: Optional[int] = None
+    episode: Optional[int] = None
+    has_subtitle: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=datetime.now)

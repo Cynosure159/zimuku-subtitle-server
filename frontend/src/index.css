@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+:root {
+  --bg_main: #F8FAFC;
+  --border_light: #E2E8F0;
+  --primary: #3B82F6;
+  --primary_hover: #2563EB;
+  --radius_card: 16px;
+  --shadow_card: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --text_primary: #0F172A;
+  --text_secondary: #64748B;
+}
+
+@layer base {
+  html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg_main);
+    color: var(--text_primary);
+  }
+
+  #root {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+}

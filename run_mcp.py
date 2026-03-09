@@ -1,5 +1,6 @@
 import asyncio
 import logging
+
 from app.mcp import server
 
 if __name__ == "__main__":

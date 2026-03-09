@@ -1,5 +1,7 @@
 import pytest
+
 from app.core.scraper import ZimukuAgent
+
 
 @pytest.mark.asyncio
 async def test_parse_search_results_logic(mocker):
@@ -25,29 +27,31 @@ async def test_parse_search_results_logic(mocker):
         </body>
     </html>
     """
-    
+
     # Mock httpx.AsyncClient.get
     mock_response = mocker.Mock()
     mock_response.status_code = 200
     mock_response.text = mock_html
     mock_response.headers = {}
-    
+
     agent = ZimukuAgent()
     mocker.patch.object(agent.client, "get", return_value=mock_response)
-    
+
     results = await agent.search("test")
-    
+
     assert len(results) == 2
     assert results[0].title == "Avengers"
     assert "简体" in results[0].lang
     assert "英语" in results[0].lang
     assert results[1].title == "Avatar"
     assert "繁体" in results[1].lang
-    
+
     await agent.close()
+
 
 def test_ocr_pixel_logic():
     from app.core.ocr import SimpleOCREngine
+
     ocr = SimpleOCREngine()
     assert ocr is not None
     # 测试空输入

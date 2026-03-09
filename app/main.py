@@ -1,13 +1,20 @@
 import logging
+
+# 配置日志
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .db.session import create_db_and_tables
 
-# 配置日志
-logging.basicConfig(level=logging.INFO)
+log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(
+    level=getattr(logging, log_level, logging.INFO),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
 logger = logging.getLogger(__name__)
 
 
@@ -29,6 +36,14 @@ from .api import media, search, settings, system, tasks
 
 app = FastAPI(
     title="Zimuku Subtitle Server", description="独立的字幕管理与刮削服务", version="0.1.0", lifespan=lifespan
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
