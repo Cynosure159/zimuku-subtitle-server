@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, delete
 
-from app.db.models import MediaPath, SubtitleTask
+from app.db.models import MediaPath, ScannedFile, SubtitleTask
 from app.db.session import create_db_and_tables, engine
 from app.main import app
 
@@ -43,9 +43,21 @@ def test_media_paths_api():
     assert response.json()["enabled"] is False
 
     # 4. 删除路径
+    # 先加一个文件关联到此路径
+    with Session(engine) as session:
+        session.add(ScannedFile(path_id=path_id, file_path="F:/movies/m1.mkv", filename="m1.mkv", type="movie"))
+        session.commit()
+
     response = client.delete(f"/media/paths/{path_id}")
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+
+    # 验证 ScannedFile 是否也被删除
+    with Session(engine) as session:
+        from sqlmodel import select
+
+        res = session.exec(select(ScannedFile).where(ScannedFile.path_id == path_id)).first()
+        assert res is None
 
 
 def test_system_stats_api():
@@ -84,3 +96,12 @@ def test_trigger_match_api():
     response = client.post("/media/match")
     assert response.status_code == 200
     assert "started" in response.json()["message"]
+
+
+def test_media_status_api():
+    response = client.get("/media/status")
+    assert response.status_code == 200
+    data = response.json()
+    assert "is_scanning" in data
+    assert "matching_files" in data
+    assert "matching_seasons" in data

@@ -114,7 +114,7 @@ async def delete_media_path(path_id: int, session: Session = Depends(get_session
     file_records = session.exec(statement).all()
     for file_record in file_records:
         session.delete(file_record)
-    
+
     # 彻底提交删除文件记录的任务，再删路径
     session.commit()
 
@@ -123,7 +123,7 @@ async def delete_media_path(path_id: int, session: Session = Depends(get_session
     if db_path:
         session.delete(db_path)
         session.commit()
-    
+
     return {"status": "ok", "message": f"Path {path_id} and its {len(file_records)} files deleted"}
 
 
@@ -166,11 +166,13 @@ async def list_scanned_files(
 async def run_auto_match_process(file_id: int, session_data: Session = None):
     """执行单个视频文件的全自动匹配与下载流程"""
     from sqlmodel import Session
+
     from ..db.session import engine
 
     # 如果没有传入 session，则新建一个
     if session_data is None:
         from ..db.session import engine
+
         with Session(engine) as session:
             return await run_auto_match_process_internal(file_id, session)
     else:
@@ -180,6 +182,7 @@ async def run_auto_match_process(file_id: int, session_data: Session = None):
 async def run_auto_match_process_internal(file_id: int, session_data: Session):
     """内部执行逻辑"""
     import shutil
+
     from ..core.archive import ArchiveManager
     from ..core.scraper import ZimukuAgent
     from ..db.models import ScannedFile
@@ -222,6 +225,7 @@ async def run_auto_match_process_internal(file_id: int, session_data: Session):
                     continue
 
                 from ..core.config import get_storage_path
+
                 tmp_dir = Path(get_storage_path()) / "tmp" / f"auto_{file_id}_{i}"
                 tmp_dir.mkdir(parents=True, exist_ok=True)
 
@@ -311,9 +315,11 @@ async def run_auto_match_process_internal(file_id: int, session_data: Session):
 async def run_season_match_process(title: str, season: int):
     """执行剧集季全自动匹配流程：异步并发执行"""
     import asyncio
+
     from sqlmodel import Session
-    from ..db.session import engine
+
     from ..db.models import ScannedFile
+    from ..db.session import engine
 
     global_task_status.matching_seasons.add((title, season))
     try:
@@ -322,7 +328,7 @@ async def run_season_match_process(title: str, season: int):
                 ScannedFile.extracted_title == title,
                 ScannedFile.type == "tv",
                 ScannedFile.season == season,
-                ScannedFile.has_subtitle == False,
+                ScannedFile.has_subtitle == False,  # noqa: E712
             )
             files = session.exec(statement).all()
 
@@ -337,7 +343,7 @@ async def run_season_match_process(title: str, season: int):
                 await run_auto_match_process(f.id)
                 # 每集完成后停顿 2s，确保稳定性
                 await asyncio.sleep(2)
-            
+
             logger.info(f"剧集 '{title}' 第 {season} 季字幕补全任务完成")
 
     except Exception as e:
@@ -429,7 +435,7 @@ async def run_media_scan_and_match(session_data: Session, path_type: Optional[st
                                 video_count += 1
             except Exception as e:
                 logger.error(f"扫描路径 {mp.path} 出错: {e}")
-            
+
             mp.last_scanned_at = datetime.now()
             session_data.add(mp)
         session_data.commit()

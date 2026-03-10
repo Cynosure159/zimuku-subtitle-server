@@ -96,3 +96,22 @@ async def test_cleanup_non_existent_files(session, temp_media_dir):
     # 验证正常文件还在
     files = session.exec(select(ScannedFile)).all()
     assert len(files) == 3  # 1 movie + 2 tv episodes
+
+
+@pytest.mark.asyncio
+async def test_cleanup_orphan_records(session, temp_media_dir):
+    # 模拟一个孤儿记录（path_id 不存在）
+    sf = ScannedFile(path_id=999, file_path="orphan.mkv", filename="orphan.mkv", extracted_title="Orphan", type="movie")
+    session.add(sf)
+
+    # 添加一个有效的路径
+    mp = MediaPath(path=temp_media_dir, type="movie", enabled=True)
+    session.add(mp)
+    session.commit()
+
+    # 执行扫描
+    await run_media_scan_and_match(session)
+
+    # 验证孤儿记录已被清理
+    orphan = session.exec(select(ScannedFile).where(ScannedFile.path_id == 999)).first()
+    assert orphan is None
