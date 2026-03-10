@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, Settings, Search, Image as ImageIcon } from 'lucide-react';
-import { listMediaPaths, addMediaPath, deleteMediaPath, updateMediaPath, triggerMediaMatch, listScannedFiles, autoMatchFile, matchTVSeason } from '../api';
+import { Play, Settings, Search, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { listMediaPaths, addMediaPath, deleteMediaPath, updateMediaPath, triggerMediaMatch, listScannedFiles, autoMatchFile, matchTVSeason, getMediaStatus } from '../api';
 
 interface MediaPath {
   id: number;
@@ -23,6 +23,12 @@ interface ScannedFile {
   created_at: string;
 }
 
+interface MediaStatus {
+  is_scanning: boolean;
+  matching_files: number[];
+  matching_seasons: { title: string; season: number }[];
+}
+
 export default function SeriesPage() {
   const navigate = useNavigate();
   const [paths, setPaths] = useState<MediaPath[]>([]);
@@ -32,25 +38,48 @@ export default function SeriesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSeriesTitle, setSelectedSeriesTitle] = useState<string | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<number>(1);
+  const [status, setStatus] = useState<MediaStatus>({ is_scanning: false, matching_files: [], matching_seasons: [] });
 
   const fetchData = async () => {
     try {
-      const [pathsData, filesData] = await Promise.all([
+      const [pathsData, filesData, statusData] = await Promise.all([
         listMediaPaths(),
-        listScannedFiles('tv')
+        listScannedFiles('tv'),
+        getMediaStatus()
       ]);
       setPaths(pathsData.filter((p: MediaPath) => p.type === 'tv'));
       setFiles(filesData);
+      setStatus(statusData);
     } catch (err) {
       console.error(err);
     }
   };
 
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    let timer: any;
+    const poll = async () => {
+      try {
+        const [pathsData, filesData, statusData] = await Promise.all([
+          listMediaPaths(),
+          listScannedFiles('tv'),
+          getMediaStatus()
+        ]);
+        setPaths(pathsData.filter((p: MediaPath) => p.type === 'tv'));
+        setFiles(filesData);
+        setStatus(statusData);
+
+        // 根据是否有活动任务决定下一次轮询时间
+        const hasTasks = statusData.is_scanning || statusData.matching_files.length > 0 || statusData.matching_seasons.length > 0;
+        timer = setTimeout(poll, hasTasks ? 2000 : 10000);
+      } catch (err) {
+        console.error(err);
+        timer = setTimeout(poll, 10000); // 出错则默认 10s 后重试
+      }
+    };
+    
+    poll();
+    return () => clearTimeout(timer);
+  }, []); // 仅在挂载时运行一次，内部递归触发
 
   const handleAdd = async () => {
     if (!newPath.trim()) return;
@@ -77,7 +106,7 @@ export default function SeriesPage() {
   const handleMatch = async () => {
     try {
       await triggerMediaMatch('tv');
-      alert('已在后台触发智能关联任务！');
+      // 不再弹出提示
     } catch (err: any) {
       alert('触发失败: ' + err.message);
     }
@@ -86,7 +115,7 @@ export default function SeriesPage() {
   const handleAutoSearch = async (fileId: number) => {
     try {
       await autoMatchFile(fileId);
-      alert('已触发后台自动搜索与匹配！');
+      // 不再弹出提示
     } catch (err: any) {
       alert('自动搜索触发失败: ' + err.message);
     }
@@ -99,7 +128,7 @@ export default function SeriesPage() {
   const handleMatchSeason = async (title: string, season: number) => {
     try {
       await matchTVSeason(title, season);
-      alert(`已启动对剧集《${title}》第 ${season} 季全速补全任务！系统将逐集进行自动化匹配。`);
+      // 不再弹出提示
     } catch (err: any) {
       alert('补全任务触发失败: ' + err.message);
     }
@@ -142,7 +171,7 @@ export default function SeriesPage() {
     
     return Object.values(groups).filter(s => 
       s.title.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    ).sort((a, b) => a.title.localeCompare(b.title));
   }, [files, searchTerm]);
 
   // Auto-select first series
@@ -171,6 +200,11 @@ export default function SeriesPage() {
 
   const currentSeasonFiles = selectedSeries?.seasons[selectedSeason] || [];
 
+  // 判断当前季是否正在补全中
+  const isSelectedSeasonMatching = selectedSeries && status.matching_seasons.some(
+    m => m.title === selectedSeries.title && m.season === selectedSeason
+  );
+
   return (
     <div className="flex flex-col gap-6 w-full h-full">
       {/* Header */}
@@ -186,10 +220,15 @@ export default function SeriesPage() {
           </button>
           <button 
             onClick={handleMatch}
-            className="bg-emerald-500 text-white text-sm px-4 py-2 rounded-lg hover:bg-emerald-600 transition-colors flex items-center gap-2 font-medium"
+            disabled={status.is_scanning}
+            className={`${status.is_scanning ? 'bg-slate-300' : 'bg-emerald-500 hover:bg-emerald-600'} text-white text-sm px-4 py-2 rounded-lg transition-colors flex items-center gap-2 font-medium`}
           >
-            <Play className="w-4 h-4" />
-            刷新剧集
+            {status.is_scanning ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Play className="w-4 h-4" />
+            )}
+            {status.is_scanning ? '刷新中...' : '刷新剧集'}
           </button>
         </div>
       </div>
@@ -312,10 +351,15 @@ export default function SeriesPage() {
               {selectedSeries && (
                 <button
                   onClick={() => handleMatchSeason(selectedSeries.title, selectedSeason)}
-                  className="bg-emerald-50 text-emerald-600 text-xs px-4 py-2 rounded-lg font-bold hover:bg-emerald-100 transition-all flex items-center gap-2 shrink-0 border border-emerald-100 hover:shadow-sm"
+                  disabled={isSelectedSeasonMatching}
+                  className={`${isSelectedSeasonMatching ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' : 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100'} text-xs px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 shrink-0 border hover:shadow-sm`}
                 >
-                  <Search className="w-3.5 h-3.5" />
-                  智能补全本季字幕
+                  {isSelectedSeasonMatching ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Search className="w-3.5 h-3.5" />
+                  )}
+                  {isSelectedSeasonMatching ? '智能补全中...' : '智能补全本季字幕'}
                 </button>
               )}
             </div>
@@ -327,42 +371,50 @@ export default function SeriesPage() {
                 <div className="w-48 text-center">状态与操作</div>
               </div>
               <div className="flex flex-col">
-                {currentSeasonFiles.map((file, i) => (
-                  <div key={file.id} className={`flex items-center px-5 py-4 ${i !== currentSeasonFiles.length - 1 ? 'border-b border-slate-50' : ''}`}>
-                    <div className="flex-1 flex items-center gap-3 overflow-hidden">
-                      <div className="w-10 text-sm font-bold text-slate-400 shrink-0">
-                        E{file.episode?.toString().padStart(2, '0') || '??'}
+                {currentSeasonFiles.map((file, i) => {
+                  const isMatching = status.matching_files.includes(file.id);
+                  return (
+                    <div key={file.id} className={`flex items-center px-5 py-4 ${i !== currentSeasonFiles.length - 1 ? 'border-b border-slate-50' : ''}`}>
+                      <div className="flex-1 flex items-center gap-3 overflow-hidden">
+                        <div className="w-10 text-sm font-bold text-slate-400 shrink-0">
+                          E{file.episode?.toString().padStart(2, '0') || '??'}
+                        </div>
+                        <div className="text-sm text-slate-700 truncate" title={file.filename}>
+                          {file.filename}
+                        </div>
                       </div>
-                      <div className="text-sm text-slate-700 truncate" title={file.filename}>
-                        {file.filename}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0 ml-4">
-                      {file.has_subtitle ? (
-                        <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded font-medium">已匹配</span>
-                      ) : (
-                        <span className="bg-red-50 text-red-600 text-xs px-2 py-1 rounded font-medium">缺字幕</span>
-                      )}
-                      
-                      <div className="flex items-center gap-2">
-                        {!file.has_subtitle && (
-                          <button 
-                            onClick={() => handleAutoSearch(file.id)}
-                            className="bg-emerald-50 text-emerald-600 text-[10px] px-2 py-1 rounded-md font-medium hover:bg-emerald-100 transition-colors"
-                          >
-                            自动搜索
-                          </button>
+                      <div className="flex items-center gap-3 shrink-0 ml-4">
+                        {isMatching ? (
+                          <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded font-medium flex items-center gap-1">
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            搜索中
+                          </span>
+                        ) : file.has_subtitle ? (
+                          <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded font-medium">已匹配</span>
+                        ) : (
+                          <span className="bg-red-50 text-red-600 text-xs px-2 py-1 rounded font-medium">缺字幕</span>
                         )}
-                        <button 
-                          onClick={() => handleManualSearch(file.extracted_title || file.filename)}
-                          className="bg-blue-50 text-blue-600 text-[10px] px-2 py-1 rounded-md font-medium hover:bg-blue-100 transition-colors"
-                        >
-                          手动搜索
-                        </button>
+                        
+                        <div className="flex items-center gap-2">
+                          {!file.has_subtitle && !isMatching && (
+                            <button 
+                              onClick={() => handleAutoSearch(file.id)}
+                              className="bg-emerald-50 text-emerald-600 text-[10px] px-2 py-1 rounded-md font-medium hover:bg-emerald-100 transition-colors"
+                            >
+                              自动搜索
+                            </button>
+                          )}
+                          <button 
+                            onClick={() => handleManualSearch(file.extracted_title || file.filename)}
+                            className="bg-blue-50 text-blue-600 text-[10px] px-2 py-1 rounded-md font-medium hover:bg-blue-100 transition-colors"
+                          >
+                            手动搜索
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {currentSeasonFiles.length === 0 && (
                   <div className="p-8 text-center text-sm text-slate-400">
                     本季暂无视频文件

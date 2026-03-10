@@ -78,6 +78,11 @@ export async function matchTVSeason(title: string, season: number) {
   return response.data;
 }
 
+export async function getMediaStatus() {
+  const response = await api.get('/media/status');
+  return response.data;
+}
+
 // Tasks API
 export const listSettings = async () => {
   const response = await api.get('/settings/');

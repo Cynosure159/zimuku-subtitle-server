@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, Settings, Search, Image as ImageIcon, FolderOpen } from 'lucide-react';
-import { listMediaPaths, addMediaPath, deleteMediaPath, updateMediaPath, triggerMediaMatch, listScannedFiles, autoMatchFile } from '../api';
+import { Play, Settings, Search, Image as ImageIcon, FolderOpen, Loader2 } from 'lucide-react';
+import { listMediaPaths, addMediaPath, deleteMediaPath, updateMediaPath, triggerMediaMatch, listScannedFiles, autoMatchFile, getMediaStatus } from '../api';
 
 interface MediaPath {
   id: number;
@@ -21,6 +21,12 @@ interface ScannedFile {
   created_at: string;
 }
 
+interface MediaStatus {
+  is_scanning: boolean;
+  matching_files: number[];
+  matching_seasons: { title: string; season: number }[];
+}
+
 export default function MoviesPage() {
   const navigate = useNavigate();
   const [paths, setPaths] = useState<MediaPath[]>([]);
@@ -29,24 +35,47 @@ export default function MoviesPage() {
   const [newPath, setNewPath] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMovieTitle, setSelectedMovieTitle] = useState<string | null>(null);
+  const [status, setStatus] = useState<MediaStatus>({ is_scanning: false, matching_files: [], matching_seasons: [] });
 
   const fetchData = async () => {
     try {
-      const [pathsData, filesData] = await Promise.all([
+      const [pathsData, filesData, statusData] = await Promise.all([
         listMediaPaths(),
-        listScannedFiles('movie')
+        listScannedFiles('movie'),
+        getMediaStatus()
       ]);
       setPaths(pathsData.filter((p: MediaPath) => p.type === 'movie'));
       setFiles(filesData);
+      setStatus(statusData);
     } catch (err) {
       console.error(err);
     }
   };
 
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 5000);
-    return () => clearInterval(interval);
+    let timer: any;
+    const poll = async () => {
+      try {
+        const [pathsData, filesData, statusData] = await Promise.all([
+          listMediaPaths(),
+          listScannedFiles('movie'),
+          getMediaStatus()
+        ]);
+        setPaths(pathsData.filter((p: MediaPath) => p.type === 'movie'));
+        setFiles(filesData);
+        setStatus(statusData);
+
+        // 根据是否有活动任务决定下一次轮询时间
+        const hasTasks = statusData.is_scanning || statusData.matching_files.length > 0;
+        timer = setTimeout(poll, hasTasks ? 2000 : 10000);
+      } catch (err) {
+        console.error(err);
+        timer = setTimeout(poll, 10000); // 10s 后重试
+      }
+    };
+    
+    poll();
+    return () => clearTimeout(timer);
   }, []);
 
   const handleAdd = async () => {
@@ -74,7 +103,6 @@ export default function MoviesPage() {
   const handleMatch = async () => {
     try {
       await triggerMediaMatch('movie');
-      alert('已在后台触发智能关联任务！');
     } catch (err: any) {
       alert('触发失败: ' + err.message);
     }
@@ -83,7 +111,6 @@ export default function MoviesPage() {
   const handleAutoSearch = async (fileId: number) => {
     try {
       await autoMatchFile(fileId);
-      alert('已触发后台自动搜索与匹配！');
     } catch (err: any) {
       alert('自动搜索触发失败: ' + err.message);
     }
@@ -106,7 +133,7 @@ export default function MoviesPage() {
     
     return Object.values(groups).filter(m => 
       m.title.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    ).sort((a, b) => a.title.localeCompare(b.title));
   }, [files, searchTerm]);
 
   // Auto-select first movie if none selected
@@ -133,10 +160,15 @@ export default function MoviesPage() {
           </button>
           <button 
             onClick={handleMatch}
-            className="bg-emerald-500 text-white text-sm px-4 py-2 rounded-lg hover:bg-emerald-600 transition-colors flex items-center gap-2 font-medium"
+            disabled={status.is_scanning}
+            className={`${status.is_scanning ? 'bg-slate-300' : 'bg-emerald-500 hover:bg-emerald-600'} text-white text-sm px-4 py-2 rounded-lg transition-colors flex items-center gap-2 font-medium`}
           >
-            <Play className="w-4 h-4" />
-            刷新电影
+            {status.is_scanning ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Play className="w-4 h-4" />
+            )}
+            {status.is_scanning ? '刷新中...' : '刷新电影'}
           </button>
         </div>
       </div>
@@ -243,40 +275,48 @@ export default function MoviesPage() {
             <div className="flex flex-col gap-4">
               <h3 className="text-lg font-semibold text-slate-900">本地视频文件 ({selectedMovie.files.length})</h3>
               <div className="flex flex-col gap-3">
-                {selectedMovie.files.map(file => (
-                  <div key={file.id} className="bg-white p-4 rounded-xl flex items-center justify-between border border-slate-100 shadow-sm">
-                    <div className="flex items-center gap-4 overflow-hidden">
-                      <FolderOpen className="w-5 h-5 text-slate-400 shrink-0" />
-                      <div className="text-sm font-medium text-slate-700 truncate" title={file.filename}>
-                        {file.filename}
+                {selectedMovie.files.map(file => {
+                  const isMatching = status.matching_files.includes(file.id);
+                  return (
+                    <div key={file.id} className="bg-white p-4 rounded-xl flex items-center justify-between border border-slate-100 shadow-sm">
+                      <div className="flex items-center gap-4 overflow-hidden">
+                        <FolderOpen className="w-5 h-5 text-slate-400 shrink-0" />
+                        <div className="text-sm font-medium text-slate-700 truncate" title={file.filename}>
+                          {file.filename}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0 ml-4">
-                      {file.has_subtitle ? (
-                        <div className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded font-medium">已匹配字幕</div>
-                      ) : (
-                        <div className="bg-red-50 text-red-600 text-xs px-2 py-1 rounded font-medium">缺字幕</div>
-                      )}
-                      
-                      <div className="flex items-center gap-2">
-                        {!file.has_subtitle && (
-                          <button 
-                            onClick={() => handleAutoSearch(file.id)}
-                            className="bg-emerald-50 text-emerald-600 text-xs px-3 py-1.5 rounded-md font-medium hover:bg-emerald-100 transition-colors"
-                          >
-                            自动搜索
-                          </button>
+                      <div className="flex items-center gap-3 shrink-0 ml-4">
+                        {isMatching ? (
+                          <div className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded font-medium flex items-center gap-1">
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            搜索中
+                          </div>
+                        ) : file.has_subtitle ? (
+                          <div className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded font-medium">已匹配字幕</div>
+                        ) : (
+                          <div className="bg-red-50 text-red-600 text-xs px-2 py-1 rounded font-medium">缺字幕</div>
                         )}
-                        <button 
-                          onClick={() => handleManualSearch(file.extracted_title || file.filename)}
-                          className="bg-blue-50 text-blue-600 text-xs px-3 py-1.5 rounded-md font-medium hover:bg-blue-100 transition-colors"
-                        >
-                          手动搜索
-                        </button>
+                        
+                        <div className="flex items-center gap-2">
+                          {!file.has_subtitle && !isMatching && (
+                            <button 
+                              onClick={() => handleAutoSearch(file.id)}
+                              className="bg-emerald-50 text-emerald-600 text-xs px-3 py-1.5 rounded-md font-medium hover:bg-emerald-100 transition-colors"
+                            >
+                              自动搜索
+                            </button>
+                          )}
+                          <button 
+                            onClick={() => handleManualSearch(file.extracted_title || file.filename)}
+                            className="bg-blue-50 text-blue-600 text-xs px-3 py-1.5 rounded-md font-medium hover:bg-blue-100 transition-colors"
+                          >
+                            手动搜索
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
