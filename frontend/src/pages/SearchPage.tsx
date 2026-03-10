@@ -26,8 +26,9 @@ export default function SearchPage() {
     try {
       const data = await searchSubtitles(query);
       setResults(data);
-    } catch (err: any) {
-      setError(err.message || '搜索失败');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message || '搜索失败');
     } finally {
       setLoading(false);
     }
@@ -37,8 +38,9 @@ export default function SearchPage() {
     try {
       await createDownloadTask(item.title, item.detail_url);
       alert('已添加到下载任务');
-    } catch (err: any) {
-      alert('添加下载任务失败: ' + err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      alert('添加下载任务失败: ' + message);
     }
   };
 

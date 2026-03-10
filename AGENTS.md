@@ -79,7 +79,12 @@
     - [x] UI 实时显示“搜索中”、“刷新中”、“智能补全中”等状态，优化交互体验
     - [x] **[数据一致性]** 优化目录删除逻辑：同步清理 ScannedFile 并在扫描前执行孤儿记录检查
     - [x] **[性能优化]** 实现前端动态轮询频率：根据后台任务状态自动在 2s 与 10s 之间切换频率
-    - [x] **[测试增强]** 更新单元测试：新增状态查询、删除联动清理、孤儿记录清理的测试用例
+    - [x] **前端代码重构与规范化** (2026-03-11)
+    - [x] 提取抽离 `useMediaPolling` 自定义 Hook，统一媒体路径、文件与状态的轮询逻辑
+    - [x] 提取 `MediaConfigPanel`、`MediaSidebar`、`MediaInfoCard` 等通用业务组件
+    - [x] 重构 `MoviesPage` 与 `SeriesPage`，消除 80% 以上的代码重复
+    - [x] 修复全部 ESLint 告警（包括 `as any` 强制转换、`set-state-in-effect`、未使用的引用等）
+    - [x] 统一前端错误处理模式，从 `catch(err: any)` 迁移至类型安全的 `catch(err: unknown)` Narrowing 模式
 
 
 ## 技术决策记录 (TDR)

@@ -21,7 +21,7 @@ export default function TasksPage() {
     try {
       const data = await listTasks();
       setTasks(data.items);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err);
     } finally {
       setLoading(false);

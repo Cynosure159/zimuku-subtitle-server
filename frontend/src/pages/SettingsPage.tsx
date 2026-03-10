@@ -44,8 +44,9 @@ export default function SettingsPage() {
       await updateSetting(key, newValue, setting?.description);
       alert('保存成功');
       fetchSettings();
-    } catch (err: any) {
-      alert('保存失败: ' + err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      alert('保存失败: ' + message);
     }
   };
 
