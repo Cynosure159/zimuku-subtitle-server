@@ -20,15 +20,9 @@ async def test_mcp_list_tools():
 @pytest.mark.asyncio
 async def test_mcp_call_search_tool(mocker):
     """验证 MCP 调用搜索逻辑"""
-    # Mock ZimukuAgent
-    mock_agent = mocker.patch("app.mcp.server.ZimukuAgent", autospec=True)
-    instance = mock_agent.return_value
-
-    # 准备假结果
-    from app.core.scraper import SubtitleResult
-
-    instance.search.return_value = [SubtitleResult(title="Test", link="http://test", lang=["中文"], rating="10")]
-    instance.close.return_value = None
+    # Mock SearchService
+    mock_search = mocker.patch("app.mcp.server.SearchService.search", autospec=True)
+    mock_search.return_value = [{"title": "Test", "link": "http://test", "lang": ["中文"], "rating": "10"}]
 
     # 调用
     results = await handle_call_tool("search_subtitles", {"query": "Avengers"})
@@ -42,7 +36,7 @@ async def test_mcp_call_search_tool(mocker):
 async def test_mcp_call_download_tool(mocker):
     """验证 MCP 调用下载逻辑"""
     # Mock run_download_task，避免真实下载
-    mocker.patch("app.mcp.server.run_download_task", autospec=True)
+    mocker.patch("app.mcp.server.TaskService.run_download_task", autospec=True)
 
     arguments = {"title": "Avengers", "source_url": "http://zimuku.org/detail/123"}
 

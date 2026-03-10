@@ -6,10 +6,10 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from sqlmodel import Session
 
-from ..api.tasks import run_download_task
-from ..core.scraper import ZimukuAgent
 from ..db.models import SubtitleTask
 from ..db.session import engine
+from ..services.search_service import SearchService
+from ..services.task_service import TaskService
 
 logger = logging.getLogger(__name__)
 
@@ -61,21 +61,18 @@ async def handle_call_tool(
         if not query:
             return [types.TextContent(type="text", text="Error: Missing query")]
 
-        agent = ZimukuAgent()
         try:
-            results = await agent.search(query, season=season, episode=episode)
-            if not results:
+            results_data = await SearchService.search(None, query, season=season, episode=episode)
+            if not results_data:
                 return [types.TextContent(type="text", text=f"未找到关于 '{query}' 的字幕")]
 
-            text = f"找到 {len(results)} 个结果:\n"
-            for r in results:
-                text += f"- [{'/'.join(r.lang)}] {r.title}\n  URL: {r.link}\n"
+            text = f"找到 {len(results_data)} 个结果:\n"
+            for r in results_data:
+                text += f"- [{'/'.join(r['lang'])}] {r['title']}\n  URL: {r['link']}\n"
 
             return [types.TextContent(type="text", text=text)]
         except Exception as e:
             return [types.TextContent(type="text", text=f"搜索出错: {str(e)}")]
-        finally:
-            await agent.close()
 
     elif name == "download_subtitle":
         title = arguments.get("title")
@@ -91,8 +88,8 @@ async def handle_call_tool(
             task_id = task.id
 
             # 在 MCP 这种同步/流式调用中，我们可以选择等待完成或仅返回 ID
-            # 为了更好的体验，我们触发下载
-            await run_download_task(task_id, session)
+            # 触发下载
+            await TaskService.run_download_task(task_id)
 
             # 重新获取状态
             session.refresh(task)

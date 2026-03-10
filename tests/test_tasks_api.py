@@ -27,7 +27,7 @@ async def test_create_and_run_download_task(mocker):
     with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
         zip_file.writestr("test.srt", "subtitle content")
 
-    mock_agent = mocker.patch("app.api.tasks.ZimukuAgent", autospec=True)
+    mock_agent = mocker.patch("app.services.task_service.ZimukuAgent", autospec=True)
     instance = mock_agent.return_value
     instance.get_download_page_links.return_value = ["http://example.com/download/file.zip"]
     instance.download_file.return_value = ("test_subtitle.zip", zip_buffer.getvalue())
@@ -88,7 +88,7 @@ def test_retry_failed_task(mocker):
         session.refresh(task)
         task_id = task.id
 
-    mock_agent = mocker.patch("app.api.tasks.ZimukuAgent", autospec=True)
+    mock_agent = mocker.patch("app.services.task_service.ZimukuAgent", autospec=True)
     instance = mock_agent.return_value
     instance.get_download_page_links.return_value = ["http://example.com/retry.zip"]
     instance.download_file.return_value = ("retry.zip", b"content")

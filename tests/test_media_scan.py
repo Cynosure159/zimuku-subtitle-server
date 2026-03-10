@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from app.api.media import run_media_scan_and_match
 from app.db.models import MediaPath, ScannedFile
+from app.services.media_service import MediaService
 
 
 # 使用内存数据库进行测试
@@ -51,7 +51,7 @@ async def test_run_media_scan_logic(session, temp_media_dir):
     session.refresh(mp)
 
     # 2. 执行扫描
-    await run_media_scan_and_match(session)
+    await MediaService.run_media_scan_and_match(session)
 
     # 3. 验证结果
     files = session.exec(select(ScannedFile)).all()
@@ -87,7 +87,7 @@ async def test_cleanup_non_existent_files(session, temp_media_dir):
     session.commit()
 
     # 2. 执行扫描
-    await run_media_scan_and_match(session)
+    await MediaService.run_media_scan_and_match(session)
 
     # 3. 验证不存在的文件已被删除
     existing_fake = session.exec(select(ScannedFile).where(ScannedFile.file_path == fake_path)).first()
@@ -110,7 +110,7 @@ async def test_cleanup_orphan_records(session, temp_media_dir):
     session.commit()
 
     # 执行扫描
-    await run_media_scan_and_match(session)
+    await MediaService.run_media_scan_and_match(session)
 
     # 验证孤儿记录已被清理
     orphan = session.exec(select(ScannedFile).where(ScannedFile.path_id == 999)).first()
