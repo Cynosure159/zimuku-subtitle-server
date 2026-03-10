@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Play, Settings, Search, Image as ImageIcon, FolderOpen } from 'lucide-react';
-import { listMediaPaths, addMediaPath, deleteMediaPath, updateMediaPath, triggerMediaMatch, listScannedFiles } from '../api';
+import { listMediaPaths, addMediaPath, deleteMediaPath, updateMediaPath, triggerMediaMatch, listScannedFiles, autoMatchFile } from '../api';
 
 interface MediaPath {
   id: number;
@@ -21,9 +22,9 @@ interface ScannedFile {
 }
 
 export default function MoviesPage() {
+  const navigate = useNavigate();
   const [paths, setPaths] = useState<MediaPath[]>([]);
   const [files, setFiles] = useState<ScannedFile[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showConfig, setShowConfig] = useState(false);
   const [newPath, setNewPath] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -39,8 +40,6 @@ export default function MoviesPage() {
       setFiles(filesData);
     } catch (err) {
       console.error(err);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -74,11 +73,24 @@ export default function MoviesPage() {
 
   const handleMatch = async () => {
     try {
-      await triggerMediaMatch();
+      await triggerMediaMatch('movie');
       alert('已在后台触发智能关联任务！');
     } catch (err: any) {
       alert('触发失败: ' + err.message);
     }
+  };
+
+  const handleAutoSearch = async (fileId: number) => {
+    try {
+      await autoMatchFile(fileId);
+      alert('已触发后台自动搜索与匹配！');
+    } catch (err: any) {
+      alert('自动搜索触发失败: ' + err.message);
+    }
+  };
+
+  const handleManualSearch = (query: string) => {
+    navigate(`/search?q=${encodeURIComponent(query)}`);
   };
 
   // Group files by extracted_title
@@ -245,9 +257,23 @@ export default function MoviesPage() {
                       ) : (
                         <div className="bg-red-50 text-red-600 text-xs px-2 py-1 rounded font-medium">缺字幕</div>
                       )}
-                      <button className="bg-blue-50 text-blue-600 text-xs px-3 py-1.5 rounded-md font-medium hover:bg-blue-100 transition-colors">
-                        重新搜索
-                      </button>
+                      
+                      <div className="flex items-center gap-2">
+                        {!file.has_subtitle && (
+                          <button 
+                            onClick={() => handleAutoSearch(file.id)}
+                            className="bg-emerald-50 text-emerald-600 text-xs px-3 py-1.5 rounded-md font-medium hover:bg-emerald-100 transition-colors"
+                          >
+                            自动搜索
+                          </button>
+                        )}
+                        <button 
+                          onClick={() => handleManualSearch(file.extracted_title || file.filename)}
+                          className="bg-blue-50 text-blue-600 text-xs px-3 py-1.5 rounded-md font-medium hover:bg-blue-100 transition-colors"
+                        >
+                          手动搜索
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}

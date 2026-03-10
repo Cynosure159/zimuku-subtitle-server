@@ -30,8 +30,8 @@ async def main():
                 print(f"  - {link}")
 
             if dld_links:
-                print(f"正在尝试下载: {dld_links[0]}")
-                filename, content = await agent.download_file(dld_links[0], first.link.replace("/detail/", "/dld/"))
+                print(f"正在尝试下载，共 {len(dld_links)} 个镜像链接")
+                filename, content = await agent.download_file(dld_links, first.link)
                 if filename and content:
                     print(f"成功下载文件: {filename}, 大小: {len(content)} 字节")
                     # 保存到 storage/tmp (确保目录存在)

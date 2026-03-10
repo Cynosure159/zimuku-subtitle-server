@@ -36,11 +36,8 @@ async def run_download_task(task_id: int, session_data: Session):
         if not dld_links:
             raise Exception("未能提取到下载链接")
 
-        # 2. 执行下载
-        referer = task.source_url.replace("/detail/", "/dld/")
-        download_url = dld_links[0]
-
-        filename, content = await agent.download_file(download_url, referer)
+        # 2. 多链接轮询下载（带文件大小校验）
+        filename, content = await agent.download_file(dld_links, task.source_url)
         if not filename or not content:
             raise Exception("文件下载失败，返回内容为空")
 

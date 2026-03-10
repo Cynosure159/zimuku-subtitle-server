@@ -63,11 +63,22 @@ export const updateMediaPath = async (pathId: number, enabled?: boolean, path_ty
   return response.data;
 };
 
-export const triggerMediaMatch = async () => {
-  const response = await api.post('/media/match');
+export const triggerMediaMatch = async (path_type?: 'movie' | 'tv') => {
+  const response = await api.post('/media/match', null, { params: { path_type } });
   return response.data;
 };
 
+export async function autoMatchFile(fileId: number) {
+  const response = await api.post(`/media/files/${fileId}/auto-match`);
+  return response.data;
+}
+
+export async function matchTVSeason(title: string, season: number) {
+  const response = await api.post(`/media/tv/match-season?title=${encodeURIComponent(title)}&season=${season}`);
+  return response.data;
+}
+
+// Tasks API
 export const listSettings = async () => {
   const response = await api.get('/settings/');
   return response.data;

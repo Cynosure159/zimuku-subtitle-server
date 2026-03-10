@@ -66,3 +66,13 @@ def get_proxy() -> Optional[str]:
 
 def get_base_url() -> str:
     return ConfigManager.get("base_url")
+
+
+def get_storage_path() -> str:
+    """获取存储根目录的绝对路径"""
+    # 默认指向项目根目录下的 storage 文件夹
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    storage_path = os.path.join(base_dir, "storage")
+    if not os.path.exists(storage_path):
+        os.makedirs(storage_path, exist_ok=True)
+    return storage_path

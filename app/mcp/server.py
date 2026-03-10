@@ -28,6 +28,8 @@ async def handle_list_tools() -> List[types.Tool]:
                 "type": "object",
                 "properties": {
                     "query": {"type": "string", "description": "搜索关键词（如电影或剧集名称）"},
+                    "season": {"type": "integer", "description": "季数（可选，用于剧集精确匹配）"},
+                    "episode": {"type": "integer", "description": "集数（可选，用于剧集精确匹配）"},
                 },
                 "required": ["query"],
             },
@@ -54,12 +56,14 @@ async def handle_call_tool(
     """处理工具调用"""
     if name == "search_subtitles":
         query = arguments.get("query")
+        season = arguments.get("season")
+        episode = arguments.get("episode")
         if not query:
             return [types.TextContent(type="text", text="Error: Missing query")]
 
         agent = ZimukuAgent()
         try:
-            results = await agent.search(query)
+            results = await agent.search(query, season=season, episode=episode)
             if not results:
                 return [types.TextContent(type="text", text=f"未找到关于 '{query}' 的字幕")]
 

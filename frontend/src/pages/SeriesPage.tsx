@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
-import { Play, Settings, Search, Image as ImageIcon, FolderOpen } from 'lucide-react';
-import { listMediaPaths, addMediaPath, deleteMediaPath, updateMediaPath, triggerMediaMatch, listScannedFiles } from '../api';
+import { useNavigate } from 'react-router-dom';
+import { Play, Settings, Search, Image as ImageIcon } from 'lucide-react';
+import { listMediaPaths, addMediaPath, deleteMediaPath, updateMediaPath, triggerMediaMatch, listScannedFiles, autoMatchFile, matchTVSeason } from '../api';
 
 interface MediaPath {
   id: number;
@@ -23,9 +24,9 @@ interface ScannedFile {
 }
 
 export default function SeriesPage() {
+  const navigate = useNavigate();
   const [paths, setPaths] = useState<MediaPath[]>([]);
   const [files, setFiles] = useState<ScannedFile[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showConfig, setShowConfig] = useState(false);
   const [newPath, setNewPath] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -42,8 +43,6 @@ export default function SeriesPage() {
       setFiles(filesData);
     } catch (err) {
       console.error(err);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -77,10 +76,32 @@ export default function SeriesPage() {
 
   const handleMatch = async () => {
     try {
-      await triggerMediaMatch();
+      await triggerMediaMatch('tv');
       alert('已在后台触发智能关联任务！');
     } catch (err: any) {
       alert('触发失败: ' + err.message);
+    }
+  };
+
+  const handleAutoSearch = async (fileId: number) => {
+    try {
+      await autoMatchFile(fileId);
+      alert('已触发后台自动搜索与匹配！');
+    } catch (err: any) {
+      alert('自动搜索触发失败: ' + err.message);
+    }
+  };
+
+  const handleManualSearch = (query: string) => {
+    navigate(`/search?q=${encodeURIComponent(query)}`);
+  };
+
+  const handleMatchSeason = async (title: string, season: number) => {
+    try {
+      await matchTVSeason(title, season);
+      alert(`已启动对剧集《${title}》第 ${season} 季全速补全任务！系统将逐集进行自动化匹配。`);
+    } catch (err: any) {
+      alert('补全任务触发失败: ' + err.message);
     }
   };
 
@@ -274,24 +295,36 @@ export default function SeriesPage() {
               </div>
             </div>
 
-            {/* Seasons Tabs */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-2">
-              {availableSeasons.map(s => (
+            {/* Seasons Tabs & Actions */}
+            <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2">
+              <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
+                {availableSeasons.map(s => (
+                  <button
+                    key={s}
+                    onClick={() => setSelectedSeason(s)}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${selectedSeason === s ? 'bg-blue-500 text-white shadow-sm shadow-blue-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                  >
+                    第 {s} 季
+                  </button>
+                ))}
+              </div>
+
+              {selectedSeries && (
                 <button
-                  key={s}
-                  onClick={() => setSelectedSeason(s)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${selectedSeason === s ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                  onClick={() => handleMatchSeason(selectedSeries.title, selectedSeason)}
+                  className="bg-emerald-50 text-emerald-600 text-xs px-4 py-2 rounded-lg font-bold hover:bg-emerald-100 transition-all flex items-center gap-2 shrink-0 border border-emerald-100 hover:shadow-sm"
                 >
-                  第 {s} 季
+                  <Search className="w-3.5 h-3.5" />
+                  智能补全本季字幕
                 </button>
-              ))}
+              )}
             </div>
 
             {/* File List Table */}
             <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm flex flex-col">
               <div className="bg-slate-50 px-5 py-3 border-b border-slate-100 text-xs font-medium text-slate-500 uppercase tracking-wider flex items-center">
                 <div className="flex-1">集数与文件名称</div>
-                <div className="w-24 text-center">状态</div>
+                <div className="w-48 text-center">状态与操作</div>
               </div>
               <div className="flex flex-col">
                 {currentSeasonFiles.map((file, i) => (
@@ -304,12 +337,29 @@ export default function SeriesPage() {
                         {file.filename}
                       </div>
                     </div>
-                    <div className="w-24 flex items-center justify-center shrink-0">
+                    <div className="flex items-center gap-3 shrink-0 ml-4">
                       {file.has_subtitle ? (
                         <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded font-medium">已匹配</span>
                       ) : (
                         <span className="bg-red-50 text-red-600 text-xs px-2 py-1 rounded font-medium">缺字幕</span>
                       )}
+                      
+                      <div className="flex items-center gap-2">
+                        {!file.has_subtitle && (
+                          <button 
+                            onClick={() => handleAutoSearch(file.id)}
+                            className="bg-emerald-50 text-emerald-600 text-[10px] px-2 py-1 rounded-md font-medium hover:bg-emerald-100 transition-colors"
+                          >
+                            自动搜索
+                          </button>
+                        )}
+                        <button 
+                          onClick={() => handleManualSearch(file.extracted_title || file.filename)}
+                          className="bg-blue-50 text-blue-600 text-[10px] px-2 py-1 rounded-md font-medium hover:bg-blue-100 transition-colors"
+                        >
+                          手动搜索
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
