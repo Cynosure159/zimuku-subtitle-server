@@ -1,4 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, NavLink, Navigate } from 'react-router-dom';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from './lib/queryClient';
 import SearchPage from './pages/SearchPage';
 import MoviesPage from './pages/MoviesPage';
 import SeriesPage from './pages/SeriesPage';
@@ -55,8 +57,9 @@ function Layout({ children }: { children: React.ReactNode }) {
 
 function App() {
   return (
-    <Router>
-      <Layout>
+    <QueryClientProvider client={queryClient}>
+      <Router>
+        <Layout>
         <Routes>
           <Route path="/" element={<Navigate to="/search" replace />} />
           <Route path="/search" element={<SearchPage />} />
@@ -67,6 +70,7 @@ function App() {
         </Routes>
       </Layout>
     </Router>
+    </QueryClientProvider>
   );
 }
 
