@@ -7,7 +7,7 @@ import { MediaList } from '../components/MediaList';
 import { useMediaPolling, type ScannedFile } from '../hooks/useMediaPolling';
 
 export default function MoviesPage() {
-  const { paths, files, status, fetchData } = useMediaPolling('movie');
+  const { paths, files, status, fetchData, setIsScanningOptimistic, setMatchingFileOptimistic } = useMediaPolling('movie');
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMovieTitle, setSelectedMovieTitle] = useState<string | null>(null);
@@ -53,12 +53,13 @@ export default function MoviesPage() {
 
   return (
     <div className="flex flex-col gap-6 w-full h-full">
-      <MediaConfigPanel 
-        type="movie" 
+      <MediaConfigPanel
+        type="movie"
         title="电影管理"
-        paths={paths} 
-        isScanning={status.is_scanning} 
-        onRefreshData={fetchData} 
+        paths={paths}
+        isScanning={status.is_scanning}
+        onRefreshData={fetchData}
+        setIsScanningOptimistic={setIsScanningOptimistic}
       />
 
       <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-160px)] min-h-[600px]">
@@ -83,7 +84,7 @@ export default function MoviesPage() {
 
             <div className="flex flex-col gap-4">
               <h3 className="text-lg font-semibold text-slate-900">本地视频文件 ({selectedMovie.files.length})</h3>
-              <MediaList files={selectedMovie.files} status={status} />
+              <MediaList files={selectedMovie.files} status={status} setMatchingFileOptimistic={setMatchingFileOptimistic} />
             </div>
           </div>
         ) : (

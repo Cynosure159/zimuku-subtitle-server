@@ -7,21 +7,32 @@ interface MediaListProps {
   files: ScannedFile[];
   status: TaskStatus;
   onAutoSearch?: (fileId: number) => Promise<void>;
+  setMatchingFileOptimistic?: (fileId: number, isMatching: boolean) => void;
 }
 
-export function MediaList({ files, status, onAutoSearch }: MediaListProps) {
+export function MediaList({ files, status, onAutoSearch, setMatchingFileOptimistic }: MediaListProps) {
   const navigate = useNavigate();
 
   const handleAutoSearch = async (fileId: number) => {
-    if (onAutoSearch) {
-      await onAutoSearch(fileId);
-      return;
+    // Optimistic update for immediate UI feedback
+    if (setMatchingFileOptimistic) {
+      setMatchingFileOptimistic(fileId, true);
+      // Fallback to clear state after 3 seconds
+      setTimeout(() => setMatchingFileOptimistic(fileId, false), 3000);
     }
     try {
+      if (onAutoSearch) {
+        await onAutoSearch(fileId);
+        return;
+      }
       await autoMatchFile(fileId);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       alert('自动搜索触发失败: ' + message);
+      // Revert optimistic state on error
+      if (setMatchingFileOptimistic) {
+        setMatchingFileOptimistic(fileId, false);
+      }
     }
   };
 

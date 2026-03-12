@@ -81,5 +81,19 @@ export function useMediaPolling(type: 'movie' | 'tv') {
     return () => clearTimeout(timer);
   }, [type]);
 
-  return { paths, files, status, fetchData };
+  // Optimistic update methods for immediate UI feedback
+  const setIsScanningOptimistic = (value: boolean) => {
+    setStatus(prev => ({ ...prev, is_scanning: value }));
+  };
+
+  const setMatchingFileOptimistic = (fileId: number, isMatching: boolean) => {
+    setStatus(prev => ({
+      ...prev,
+      matching_files: isMatching
+        ? [...prev.matching_files, fileId]
+        : prev.matching_files.filter(id => id !== fileId)
+    }));
+  };
+
+  return { paths, files, status, fetchData, setIsScanningOptimistic, setMatchingFileOptimistic };
 }

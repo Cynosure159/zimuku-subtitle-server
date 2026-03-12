@@ -9,9 +9,10 @@ interface MediaConfigPanelProps {
   isScanning: boolean;
   onRefreshData: () => void;
   title: string;
+  setIsScanningOptimistic?: (value: boolean) => void;
 }
 
-export function MediaConfigPanel({ type, paths, isScanning, onRefreshData, title }: MediaConfigPanelProps) {
+export function MediaConfigPanel({ type, paths, isScanning, onRefreshData, title, setIsScanningOptimistic }: MediaConfigPanelProps) {
   const [showConfig, setShowConfig] = useState(false);
   const [newPath, setNewPath] = useState('');
 
@@ -40,10 +41,20 @@ export function MediaConfigPanel({ type, paths, isScanning, onRefreshData, title
 
   const handleMatch = async () => {
     try {
+      // Optimistic update for immediate UI feedback
+      if (setIsScanningOptimistic) {
+        setIsScanningOptimistic(true);
+        // Fallback to clear state after 3 seconds
+        setTimeout(() => setIsScanningOptimistic(false), 3000);
+      }
       await triggerMediaMatch(type);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       alert('触发失败: ' + message);
+      // Revert optimistic state on error
+      if (setIsScanningOptimistic) {
+        setIsScanningOptimistic(false);
+      }
     }
   };
 

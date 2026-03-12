@@ -10,18 +10,28 @@ import { Search, Loader2 } from 'lucide-react';
 
 export default function SeriesPage() {
   const navigate = useNavigate();
-  const { paths, files, status, fetchData } = useMediaPolling('tv');
+  const { paths, files, status, fetchData, setIsScanningOptimistic, setMatchingFileOptimistic } = useMediaPolling('tv');
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSeriesTitle, setSelectedSeriesTitle] = useState<string | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<number>(1);
 
   const handleAutoSearch = async (fileId: number) => {
+    // Optimistic update for immediate UI feedback
+    if (setMatchingFileOptimistic) {
+      setMatchingFileOptimistic(fileId, true);
+      // Fallback to clear state after 3 seconds
+      setTimeout(() => setMatchingFileOptimistic(fileId, false), 3000);
+    }
     try {
       await autoMatchFile(fileId);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       alert('自动搜索触发失败: ' + message);
+      // Revert optimistic state on error
+      if (setMatchingFileOptimistic) {
+        setMatchingFileOptimistic(fileId, false);
+      }
     }
   };
 
@@ -129,12 +139,13 @@ export default function SeriesPage() {
 
   return (
     <div className="flex flex-col gap-6 w-full h-full">
-      <MediaConfigPanel 
-        type="tv" 
+      <MediaConfigPanel
+        type="tv"
         title="剧集管理"
-        paths={paths} 
-        isScanning={status.is_scanning} 
-        onRefreshData={fetchData} 
+        paths={paths}
+        isScanning={status.is_scanning}
+        onRefreshData={fetchData}
+        setIsScanningOptimistic={setIsScanningOptimistic}
       />
 
       <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-160px)] min-h-[600px]">
