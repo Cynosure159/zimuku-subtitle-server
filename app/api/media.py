@@ -1,9 +1,13 @@
 import logging
+from pathlib import Path
 from typing import List, Optional
+from urllib.parse import unquote
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi.responses import FileResponse
 from sqlmodel import Session
 
+from ..core import metadata as metadata_module
 from ..db.models import MediaPath, ScannedFile
 from ..db.session import get_session
 from ..services.media_service import MediaService, global_task_status
@@ -98,3 +102,110 @@ async def trigger_match(
     """手动触发媒体库与字幕的自动化匹配"""
     background_tasks.add_task(MediaService.run_media_scan_and_match, session, path_type)
     return {"status": "ok", "message": f"Media scan and match task ({path_type or 'all'}) started"}
+
+
+@router.get("/metadata/{file_id}")
+async def get_file_metadata(file_id: int, session: Session = Depends(get_session)):
+    """
+    获取媒体文件的元数据（NFO、海报、TXT）。
+
+    从NFO文件提取：title, year, plot, rating, genres, director
+    从文件夹检测：poster image
+    从TXT文件回退：key:value metadata
+    """
+    # Look up file in database
+    file_record = session.get(ScannedFile, file_id)
+    if not file_record:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    # Get folder path
+    file_path = Path(file_record.file_path)
+    folder = file_path.parent
+
+    # Find and parse NFO
+    nfo_data = None
+    nfo_path = metadata_module.find_nfo_file(folder, file_record.filename)
+    if nfo_path:
+        nfo_data = metadata_module.parse_nfo(nfo_path)
+
+    # Find poster
+    poster_path = metadata_module.find_poster(folder, file_record.filename)
+
+    # Find and parse TXT fallback
+    txt_info = None
+    txt_path = metadata_module.find_txt_file(folder, file_record.filename)
+    if txt_path:
+        txt_info = metadata_module.parse_txt_info(txt_path)
+
+    # Return relative poster path for frontend to construct URL
+    poster_relative = None
+    if poster_path:
+        try:
+            # Get relative path from media root
+            media_path = session.get(MediaPath, file_record.path_id)
+            if media_path:
+                media_root = Path(media_path.path)
+                poster_relative = str(poster_path.relative_to(media_root))
+        except ValueError:
+            # If not relative, just use the folder name
+            poster_relative = str(poster_path.name)
+
+    return {
+        "file_id": file_id,
+        "filename": file_record.filename,
+        "nfo_data": nfo_data,
+        "poster_path": poster_relative,
+        "txt_info": txt_info,
+    }
+
+
+@router.get("/poster")
+async def get_poster(path: str = Query(..., description="URL-encoded relative poster path")):
+    """
+    服务海报图片。
+
+    Args:
+        path: URL-encoded relative path from media root (e.g., "Movies/Avatar/folder.jpg")
+    """
+    # Decode the path
+    decoded_path = unquote(path)
+
+    # Get media roots from database
+    media_roots = []
+
+    # Get all media paths from database
+    with get_session() as session:
+        media_paths = MediaService.list_paths(session)
+        for mp in media_paths:
+            media_roots.append(Path(mp.path))
+
+    # Try each media root
+    for root in media_roots:
+        full_poster_path = root / decoded_path
+        if full_poster_path.exists():
+            # Determine content type
+            ext = full_poster_path.suffix.lower()
+            media_type = "image/jpeg"
+            if ext == ".png":
+                media_type = "image/png"
+            elif ext == ".gif":
+                media_type = "image/gif"
+            elif ext == ".webp":
+                media_type = "image/webp"
+
+            return FileResponse(full_poster_path, media_type=media_type)
+
+    # Also try as absolute path
+    absolute_path = Path(decoded_path)
+    if absolute_path.exists():
+        ext = absolute_path.suffix.lower()
+        media_type = "image/jpeg"
+        if ext == ".png":
+            media_type = "image/png"
+        elif ext == ".gif":
+            media_type = "image/gif"
+        elif ext == ".webp":
+            media_type = "image/webp"
+        return FileResponse(absolute_path, media_type=media_type)
+
+    raise HTTPException(status_code=404, detail="Poster not found")
