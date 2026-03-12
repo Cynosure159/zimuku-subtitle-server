@@ -61,8 +61,8 @@ export default function MoviesPage() {
         onRefreshData={fetchData} 
       />
 
-      <div className="flex gap-6 h-[calc(100vh-160px)] min-h-[600px]">
-        <MediaSidebar 
+      <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-160px)] min-h-[600px]">
+        <MediaSidebar
           items={sidebarItems}
           searchTerm={searchTerm}
           onSearchTermChange={setSearchTerm}
@@ -73,8 +73,9 @@ export default function MoviesPage() {
         />
 
         {selectedMovie ? (
-          <div className="flex-1 flex flex-col gap-6 overflow-y-auto pb-6 custom-scrollbar pr-2">
-            <MediaInfoCard 
+          <div className="flex-1 flex flex-col gap-6 overflow-y-auto pb-6 custom-scrollbar pr-2 lg:ml-0 ml-2">
+            <MediaInfoCard
+              fileId={selectedMovie.files[0]?.id}
               title={selectedMovie.title}
               year={selectedMovie.year}
               path={selectedMovie.files[0]?.file_path}

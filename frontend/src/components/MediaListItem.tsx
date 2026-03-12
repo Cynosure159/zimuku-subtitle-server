@@ -32,7 +32,7 @@ export function MediaListItem({ file, status, showEpisode = false, onAutoSearch 
   };
 
   return (
-    <div className="flex items-center px-5 py-4 border-b border-slate-50 last:border-b-0">
+    <div className="flex items-center px-5 py-4 border-b border-slate-50 last:border-b-0 transition-all duration-200 hover:bg-slate-50/50">
       <div className="flex-1 flex items-center gap-3 overflow-hidden">
         {showEpisode && (
           <div className="w-10 text-sm font-bold text-slate-400 shrink-0">
@@ -59,14 +59,14 @@ export function MediaListItem({ file, status, showEpisode = false, onAutoSearch 
           {!file.has_subtitle && !isMatching && (
             <button
               onClick={handleAutoSearch}
-              className="bg-emerald-50 text-emerald-600 text-[10px] px-2 py-1 rounded-md font-medium hover:bg-emerald-100 transition-colors"
+              className="bg-emerald-50 text-emerald-600 text-[10px] px-2 py-1 rounded-md font-medium hover:bg-emerald-100 transition-colors duration-150 hover:shadow-sm"
             >
               自动搜索
             </button>
           )}
           <button
             onClick={handleManualSearch}
-            className="bg-blue-50 text-blue-600 text-[10px] px-2 py-1 rounded-md font-medium hover:bg-blue-100 transition-colors"
+            className="bg-blue-50 text-blue-600 text-[10px] px-2 py-1 rounded-md font-medium hover:bg-blue-100 transition-colors duration-150 hover:shadow-sm"
           >
             手动搜索
           </button>

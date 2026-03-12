@@ -13,6 +13,24 @@ interface Task {
   updated_at: string;
 }
 
+function TaskSkeleton() {
+  return (
+    <div className="bg-white rounded-2xl p-5 flex items-center justify-between shadow-sm animate-pulse">
+      <div className="flex items-center gap-4 flex-1">
+        <div className="w-5 h-5 bg-slate-200 rounded-full" />
+        <div className="flex flex-col gap-2 flex-1">
+          <div className="h-4 bg-slate-200 rounded w-3/4" />
+          <div className="h-3 bg-slate-200 rounded w-1/4" />
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="w-8 h-8 bg-slate-200 rounded-lg" />
+        <div className="w-8 h-8 bg-slate-200 rounded-lg" />
+      </div>
+    </div>
+  );
+}
+
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,9 +91,9 @@ export default function TasksPage() {
     <div className="flex flex-col gap-6 w-full max-w-4xl">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-slate-900">下载任务</h1>
-        <button 
+        <button
           onClick={handleClear}
-          className="text-sm px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors"
+          className="text-sm px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors duration-150 hover:shadow-sm"
         >
           清理已完成
         </button>
@@ -83,12 +101,19 @@ export default function TasksPage() {
 
       <div className="flex flex-col gap-4">
         {loading && tasks.length === 0 ? (
-          <div className="text-slate-500">加载中...</div>
+          <div className="flex flex-col gap-4">
+            <TaskSkeleton />
+            <TaskSkeleton />
+            <TaskSkeleton />
+          </div>
         ) : tasks.length === 0 ? (
           <div className="text-slate-500 py-8 text-center bg-white rounded-2xl shadow-sm">暂无任务</div>
         ) : (
           tasks.map(task => (
-            <div key={task.id} className="bg-white rounded-2xl p-5 flex items-center justify-between shadow-sm">
+            <div
+              key={task.id}
+              className="bg-white rounded-2xl p-5 flex items-center justify-between shadow-sm hover:shadow-md transition-all duration-200 border border-slate-100"
+            >
               <div className="flex items-center gap-4 flex-1 overflow-hidden">
                 <StatusIcon status={task.status} />
                 <div className="flex flex-col gap-1 flex-1 min-w-0">
@@ -113,17 +138,17 @@ export default function TasksPage() {
               </div>
               <div className="flex items-center gap-2 ml-4">
                 {task.status === 'failed' && (
-                  <button 
+                  <button
                     onClick={() => handleRetry(task.id)}
-                    className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                    className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors duration-150 hover:shadow-sm"
                     title="重试"
                   >
                     <RefreshCw className="w-5 h-5" />
                   </button>
                 )}
-                <button 
+                <button
                   onClick={() => handleDelete(task.id)}
-                  className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors duration-150 hover:shadow-sm"
                   title="删除"
                 >
                   <Trash2 className="w-5 h-5" />

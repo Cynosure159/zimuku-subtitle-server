@@ -40,25 +40,27 @@ export default function SeriesPage() {
 
   // Group files by extracted_title and season
   const groupedSeries = useMemo(() => {
-    const groups: Record<string, { 
-      title: string; 
-      year?: string; 
+    const groups: Record<string, {
+      title: string;
+      year?: string;
       totalCount: number;
       hasSubCount: number;
       firstPath: string;
-      seasons: Record<number, ScannedFile[]> 
+      firstFileId: number;
+      seasons: Record<number, ScannedFile[]>
     }> = {};
-    
+
     files.forEach(file => {
       const title = file.extracted_title || '未知剧集';
       if (!groups[title]) {
-        groups[title] = { 
-          title, 
-          year: file.year, 
-          totalCount: 0, 
-          hasSubCount: 0, 
+        groups[title] = {
+          title,
+          year: file.year,
+          totalCount: 0,
+          hasSubCount: 0,
           firstPath: file.file_path,
-          seasons: {} 
+          firstFileId: file.id,
+          seasons: {}
         };
       }
       const s = file.season || 1;
@@ -135,8 +137,8 @@ export default function SeriesPage() {
         onRefreshData={fetchData} 
       />
 
-      <div className="flex gap-6 h-[calc(100vh-160px)] min-h-[600px]">
-        <MediaSidebar 
+      <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-160px)] min-h-[600px]">
+        <MediaSidebar
           items={sidebarItems}
           searchTerm={searchTerm}
           onSearchTermChange={setSearchTerm}
@@ -147,8 +149,9 @@ export default function SeriesPage() {
         />
 
         {selectedSeries ? (
-          <div className="flex-1 flex flex-col gap-6 overflow-y-auto pb-6 custom-scrollbar pr-2">
-            <MediaInfoCard 
+          <div className="flex-1 flex flex-col gap-6 overflow-y-auto pb-6 custom-scrollbar pr-2 lg:ml-0 ml-2">
+            <MediaInfoCard
+              fileId={selectedSeries.firstFileId}
               title={selectedSeries.title}
               year={selectedSeries.year}
               path={selectedSeries.firstPath}
