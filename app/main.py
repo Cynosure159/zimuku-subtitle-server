@@ -1,6 +1,4 @@
 import logging
-
-# 配置日志
 import os
 from contextlib import asynccontextmanager
 
@@ -10,7 +8,8 @@ from fastapi.responses import JSONResponse
 
 from .db.session import create_db_and_tables
 
-log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
+# 使用环境变量控制日志级别（支持 LOG_LEVEL 或 UVICORN_LOG_LEVEL）
+log_level = os.environ.get("LOG_LEVEL", os.environ.get("UVICORN_LOG_LEVEL", "INFO")).upper()
 logging.basicConfig(
     level=getattr(logging, log_level, logging.INFO),
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",

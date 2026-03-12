@@ -14,3 +14,9 @@ config/settings.yaml
 dist/
 build/
 *.egg-info/
+
+# 本地工具配置
+.python-version
+.claudecignore
+.clauderules
+.claude/settings.local.json
