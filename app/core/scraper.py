@@ -36,11 +36,21 @@ FILE_MIN_SIZE = 1024
 
 
 class SubtitleResult:
-    def __init__(self, title: str, link: str, lang: List[str], rating: str):
+    def __init__(
+        self,
+        title: str,
+        link: str,
+        lang: List[str],
+        rating: str,
+        format: Optional[str] = None,
+        fps: Optional[str] = None,
+    ):
         self.title = title
         self.link = link
         self.lang = lang
         self.rating = rating
+        self.format = format
+        self.fps = fps
 
     def to_dict(self):
         return {
@@ -48,6 +58,8 @@ class SubtitleResult:
             "link": self.link,
             "lang": self.lang,
             "rating": self.rating,
+            "format": self.format,
+            "fps": self.fps,
         }
 
     @classmethod
@@ -57,6 +69,8 @@ class SubtitleResult:
             link=data.get("link", ""),
             lang=data.get("lang", []),
             rating=data.get("rating", "0"),
+            format=data.get("format"),
+            fps=data.get("fps"),
         )
 
     def __repr__(self):
@@ -168,7 +182,10 @@ class ZimukuAgent:
 
             # 提取评分
             rating = self._extract_rating(item)
-            return SubtitleResult(title, link, langs, rating)
+            # 提取格式和帧率
+            fmt = self._extract_format(item)
+            fps = self._extract_fps(item)
+            return SubtitleResult(title, link, langs, rating, format=fmt, fps=fps)
         except Exception as e:
             logger.warning(f"从搜索页提取字幕信息出错: {e}")
             return None
@@ -203,7 +220,10 @@ class ZimukuAgent:
 
             # 提取评分
             rating = self._extract_rating(item)
-            return SubtitleResult(title, link, langs, rating)
+            # 提取格式和帧率
+            fmt = self._extract_format(item)
+            fps = self._extract_fps(item)
+            return SubtitleResult(title, link, langs, rating, format=fmt, fps=fps)
         except Exception as e:
             logger.warning(f"从详情页提取字幕信息出错: {e}")
             return None
@@ -220,6 +240,43 @@ class ZimukuAgent:
         except Exception:
             pass
         return "0"
+
+    def _extract_format(self, item: Tag) -> Optional[str]:
+        """提取字幕格式信息，查找常见的字幕格式标识（SRT, ASS, SSA, SUB）"""
+        try:
+            # 查找包含格式信息的元素，可能在 td class="first" 或其他地方
+            first_td = item.find("td", class_="first")
+            if first_td:
+                text = first_td.get_text()
+                # 匹配常见字幕格式
+                format_patterns = [r"SRT", r"ASS", r"SSA", r"SUB", r"蓝光原盘", r"WEB"]
+                for pattern in format_patterns:
+                    if re.search(pattern, text, re.IGNORECASE):
+                        # 清理格式字符串
+                        match = re.search(r"([A-Za-z0-9\u4e00-\u9fa5]+)", text)
+                        if match:
+                            return match.group(1)
+            # 也尝试从整个 item 文本中查找
+            text = item.get_text()
+            for fmt in ["SRT", "ASS", "SSA", "SUB"]:
+                if fmt in text.upper():
+                    return fmt
+        except Exception:
+            pass
+        return None
+
+    def _extract_fps(self, item: Tag) -> Optional[str]:
+        """提取帧率信息，查找常见的 FPS 标识"""
+        try:
+            # 查找包含 FPS 信息的元素
+            text = item.get_text()
+            # 匹配 FPS 模式: 24fps, 23.976fps, 25fps 等
+            fps_match = re.search(r"(\d+\.?\d*)\s*fps", text, re.IGNORECASE)
+            if fps_match:
+                return f"{fps_match.group(1)}fps"
+        except Exception:
+            pass
+        return None
 
     # ==================== 核心搜索逻辑（三层递进） ====================
 
