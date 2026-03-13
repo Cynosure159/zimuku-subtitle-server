@@ -56,7 +56,7 @@
 **Plans:** 3/3
 
 **Plan List:**
-- [ ] 02-01-PLAN.md — Backend Enhancement (extend SubtitleResult with format/fps)
+- [x] 02-01-PLAN.md — Backend Enhancement (extend SubtitleResult with format/fps)
 - [ ] 02-02-PLAN.md — Frontend Expandable Results (expandable rows with accordion)
 - [ ] 02-03-PLAN.md — Modal & Path Selection (download modal with language/format/path)
 
@@ -67,7 +67,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & UI Enhancement | 3/3 | Complete   | 2026-03-12 |
-| 2. Manual Download Flow | 0/3 | Not started | - |
+| 2. Manual Download Flow | 1/3 | In progress | - |
 
 ---
 
@@ -84,7 +84,7 @@
 | META-04 | Phase 1 | Complete |
 | DATA-01 | Phase 1 | Complete |
 | DATA-02 | Phase 1 | Complete |
-| DOWN-01 | Phase 2 | Pending |
+| DOWN-01 | Phase 2 | In Progress |
 | DOWN-02 | Phase 2 | Pending |
 | DOWN-03 | Phase 2 | Pending |
 | DOWN-04 | Phase 2 | Pending |
