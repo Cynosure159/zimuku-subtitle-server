@@ -31,6 +31,17 @@ export const retryTask = async (taskId: number) => {
   return response.data;
 };
 
+export interface SearchResult {
+  title: string;
+  detail_url: string;
+  download_count?: string;
+  author?: string;
+  langs?: string[];
+  format?: string;
+  fps?: string;
+  rating?: string;
+}
+
 export const clearCompletedTasks = async () => {
   const response = await api.post('/tasks/clear-completed');
   return response.data;
