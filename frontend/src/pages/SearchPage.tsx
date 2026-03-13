@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Search, Loader2 } from 'lucide-react';
-import { searchSubtitles, createDownloadTask, type SearchResult as SearchResultType } from '../api';
+import { searchSubtitles, type SearchResult as SearchResultType } from '../api';
 import SearchResultRow from '../components/SearchResultRow';
+import DownloadModal from '../components/DownloadModal';
 
 export default function SearchPage() {
   const [activeFilter, setActiveFilter] = useState('全部');
@@ -12,6 +13,8 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  const [selectedSubtitle, setSelectedSubtitle] = useState<SearchResultType | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const handleSearch = async () => {
     if (!query.trim()) return;
@@ -28,14 +31,19 @@ export default function SearchPage() {
     }
   };
 
-  const handleDownload = async (item: SearchResultType) => {
-    try {
-      await createDownloadTask(item.title, item.detail_url);
-      alert('已添加到下载任务');
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      alert('添加下载任务失败: ' + message);
-    }
+  const handleDownload = (item: SearchResultType) => {
+    setSelectedSubtitle(item);
+    setModalOpen(true);
+  };
+
+  const handleDownloadConfirm = async () => {
+    // The actual download is handled in DownloadModal
+    // This callback is for showing success feedback
+  };
+
+  const handleModalClose = () => {
+    setModalOpen(false);
+    setSelectedSubtitle(null);
   };
 
   const handleToggle = (index: number) => {
@@ -104,6 +112,13 @@ export default function SearchPage() {
           <div className="text-slate-500 text-sm py-4 text-center">当前筛选条件下没有结果</div>
         )}
       </div>
+
+      <DownloadModal
+        isOpen={modalOpen}
+        onClose={handleModalClose}
+        subtitle={selectedSubtitle}
+        onDownload={handleDownloadConfirm}
+      />
     </div>
   );
 }
