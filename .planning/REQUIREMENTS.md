@@ -7,23 +7,23 @@
 
 ### Frontend UI 优化
 
-- [ ] **UI-01**: 前端界面视觉美化 - 改进配色、间距、字体
-- [ ] **UI-02**: 交互改进 - 添加过渡动画、hover 效果
-- [ ] **UI-03**: 响应式设计 - 适配不同屏幕尺寸
+- [x] **UI-01**: 前端界面视觉美化 - 改进配色、间距、字体
+- [x] **UI-02**: 交互改进 - 添加过渡动画、hover 效果
+- [x] **UI-03**: 响应式设计 - 适配不同屏幕尺寸
 
 ### 视频信息展示
 
 - [x] **META-01**: 从 NFO 文件解析视频元数据（标题、年份、剧情、评分）
 - [x] **META-02**: 从本地图片获取海报（folder.jpg, poster.jpg, 同名 poster）
 - [x] **META-03**: 从 TXT 文件解析视频信息作为回退方案
-- [ ] **META-04**: 在前端显示视频海报和信息卡片
+- [x] **META-04**: 在前端显示视频海报和信息卡片
 
 ### 手动下载功能
 
 - [ ] **DOWN-01**: 搜索结果展示改进 - 显示格式、fps、语言等详细信息
 - [ ] **DOWN-02**: 搜索结果可展开 - 点击查看字幕详情
-- [ ] **DOWN-03**: 字幕详情弹窗 - 选择语言、格式
-- [ ] **DOWN-04**: 下载目标路径选择 - 用户指定保存位置
+- [x] **DOWN-03**: 字幕详情弹窗 - 选择语言、格式
+- [x] **DOWN-04**: 下载目标路径选择 - 用户指定保存位置
 
 ### 数据层优化
 
@@ -48,19 +48,19 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| UI-01 | Phase 1 | Pending |
-| UI-02 | Phase 1 | Pending |
-| UI-03 | Phase 1 | Pending |
+| UI-01 | Phase 1 | Complete |
+| UI-02 | Phase 1 | Complete |
+| UI-03 | Phase 1 | Complete |
 | META-01 | Phase 1 | Complete |
 | META-02 | Phase 1 | Complete |
 | META-03 | Phase 1 | Complete |
-| META-04 | Phase 1 | Pending |
+| META-04 | Phase 1 | Complete |
 | DATA-01 | Phase 1 | Complete |
 | DATA-02 | Phase 1 | Complete |
 | DOWN-01 | Phase 2 | Pending |
 | DOWN-02 | Phase 2 | Pending |
-| DOWN-03 | Phase 2 | Pending |
-| DOWN-04 | Phase 2 | Pending |
+| DOWN-03 | Phase 2 | Complete |
+| DOWN-04 | Phase 2 | Complete |
 
 **Coverage:**
 - v1 requirements: 13 total

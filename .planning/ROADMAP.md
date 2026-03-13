@@ -7,7 +7,7 @@
 ## Phases
 
 - [x] **Phase 1: Foundation & UI Enhancement** - Metadata extraction, data layer, UI polish (completed 2026-03-12)
-- [ ] **Phase 2: Manual Download Flow** - Search results, details modal, path selection
+- [x] **Phase 2: Manual Download Flow** - Search results, details modal, path selection (completed 2026-03-13)
 
 ---
 
@@ -53,7 +53,7 @@
 3. User can open modal to select preferred language and format before download
 4. User can specify custom download target path for each subtitle
 
-**Plans:** 3/3
+**Plans:** 3/3 plans complete
 
 **Plan List:**
 - [x] 02-01-PLAN.md — Backend Enhancement (extend SubtitleResult with format/fps)
@@ -67,7 +67,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & UI Enhancement | 3/3 | Complete   | 2026-03-12 |
-| 2. Manual Download Flow | 2/3 | In progress | - |
+| 2. Manual Download Flow | 3/3 | Complete   | 2026-03-13 |
 
 ---
 
