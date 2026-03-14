@@ -160,11 +160,9 @@ class TaskService:
                                         video_filename = os.path.splitext(f)[0]
                                         break
                         elif task.target_type == "movie":
-                            # For movies, use the first video file
-                            for f in os.listdir(task.target_path):
-                                if f.lower().endswith((".mp4", ".mkv", ".avi", ".wmv", ".mov")):
-                                    video_filename = os.path.splitext(f)[0]
-                                    break
+                            # target_path is the full video file path, extract directory and filename
+                            target_dir = os.path.dirname(task.target_path)
+                            video_filename = os.path.splitext(os.path.basename(task.target_path))[0]
 
                         if video_filename:
                             # Get extension from downloaded file
@@ -185,14 +183,14 @@ class TaskService:
                             # Format new filename with language tag
                             lang_tag = task.language or "未知"
                             new_filename = f"{video_filename}.{lang_tag}{ext}"
-                            target_full_path = os.path.join(task.target_path, new_filename)
+                            target_full_path = os.path.join(target_dir, new_filename)
 
                             # Move file
                             shutil.move(src_file, target_full_path)
                             task.save_path = target_full_path
                             logger.info(f"文件已移动到: {target_full_path}")
                         else:
-                            logger.warning(f"未在目标目录找到匹配的视频文件: {task.target_path}")
+                            logger.warning(f"无法从 target_path 提取视频文件名: {task.target_path}")
                     except Exception as e:
                         logger.error(f"移动文件失败: {e}")
                         # Keep file in original download directory as backup

@@ -244,20 +244,13 @@ class ZimukuAgent:
     def _extract_format(self, item: Tag) -> Optional[str]:
         """提取字幕格式信息，查找常见的字幕格式标识（SRT, ASS, SSA, SUB）"""
         try:
-            # 查找包含格式信息的元素，可能在 td class="first" 或其他地方
-            first_td = item.find("td", class_="first")
-            if first_td:
-                text = first_td.get_text().strip()
-                # 匹配常见字幕格式，直接返回匹配到的格式关键字
-                format_patterns = [r"ASS", r"SRT", r"SSA", r"SUB", r"蓝光原盘", r"WEB-?DL"]
-                for pattern in format_patterns:
-                    if re.search(pattern, text, re.IGNORECASE):
-                        return pattern.upper()
-            # 也尝试从整个 item 文本中查找
-            text = item.get_text()
+            # 从整个 item 文本中查找字幕格式
+            text = item.get_text().upper()
+            # 只匹配真正的字幕格式关键字（单词边界，避免匹配到中文）
             for fmt in ["ASS", "SRT", "SSA", "SUB"]:
-                if fmt in text.upper():
-                    return fmt
+                # 使用单词边界或前后为非字母数字字符
+                if re.search(r'(?<![A-Z0-9])' + fmt + r'(?![A-Z0-9])', text, re.IGNORECASE):
+                    return fmt.upper()
         except Exception:
             pass
         return None

@@ -28,7 +28,7 @@ export default function SearchResultCard({ item, onDownload }: SearchResultCardP
 
         {/* Language tags */}
         <div className="flex flex-wrap gap-2">
-          {item.langs && item.langs.length > 0 && item.langs.map((lang, idx) => (
+          {item.lang && item.lang.length > 0 && item.lang.map((lang, idx) => (
             <span
               key={idx}
               className={`px-2 py-0.5 rounded text-xs font-medium ${getLanguageClass(lang)}`}

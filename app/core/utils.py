@@ -30,8 +30,14 @@ def parse_media_filename(filename: str) -> Dict[str, Any]:
 
 
 def check_has_subtitle(file_path: Path) -> bool:
-    """检查是否存在同名字幕文件"""
-    base_name = file_path.stem
+    """检查是否存在同名字幕文件（支持语言后缀）"""
+    # 使用解析后的标题进行匹配，更准确
+    extracted = parse_media_filename(file_path.name)
+    video_title = extracted.get("extracted_title", "").lower()
+
+    if not video_title:
+        video_title = file_path.stem.lower()
+
     dir_path = file_path.parent
     subtitle_exts = {".srt", ".ass", ".ssa", ".vtt", ".sub"}
 
@@ -40,7 +46,13 @@ def check_has_subtitle(file_path: Path) -> bool:
             return False
         for f in dir_path.iterdir():
             if f.is_file() and f.suffix.lower() in subtitle_exts:
-                if f.stem.startswith(base_name):
+                sub_stem = f.stem.lower()
+                # 检查字幕文件名是否以视频标题开头（支持语言后缀如 .简体）
+                # 例如: "Movie.简体" 匹配 "Movie"
+                if sub_stem.startswith(video_title):
+                    return True
+                # 也支持直接以视频文件名（未解析）开头的情况
+                if sub_stem.startswith(file_path.stem.lower()):
                     return True
     except Exception:
         pass

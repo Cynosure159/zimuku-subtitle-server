@@ -48,7 +48,6 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
       <dialog
         ref={dialogRef}
         className="bg-white border border-slate-200 rounded-xl shadow-xl max-w-lg w-[90vw] max-h-[80vh] overflow-hidden p-0 m-auto"
-        open
       >
         <div className="flex flex-col max-h-[80vh]">
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">

@@ -21,11 +21,12 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [customPath, setCustomPath] = useState('');
   const [loading, setLoading] = useState(false);
+  const [mediaSelectorType, setMediaSelectorType] = useState<'movie' | 'tv'>('movie');
 
   // Reset selections when modal opens with new subtitle
   useEffect(() => {
     if (subtitle) {
-      setSelectedLangs(subtitle.langs || []);
+      setSelectedLangs(subtitle.lang || []);
       setSelectedFormat(subtitle.format || '');
     }
   }, [subtitle]);
@@ -43,9 +44,18 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
 
   const handleMediaSelect = (media: MediaSelection) => {
     setTargetMedia(media);
+    setMediaSelectorType(media.type);
     if (media.type === 'movie') {
       setSelectedSeason(undefined);
       setSelectedEpisode(undefined);
+    } else {
+      // TV series - always reset episode, keep season if selected
+      setSelectedEpisode(undefined);
+      if (media.season) {
+        setSelectedSeason(media.season);
+      } else {
+        setSelectedSeason(undefined);
+      }
     }
   };
 
@@ -63,7 +73,23 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
 
     setLoading(true);
     try {
-      await createDownloadTask(subtitle.title, subtitle.detail_url);
+      if (hasMediaTarget) {
+        await createDownloadTask(
+          subtitle.title,
+          subtitle.link,
+          targetMedia!.path,
+          targetMedia!.type as 'movie' | 'tv',
+          selectedSeason,
+          selectedEpisode,
+          selectedLangs[0]
+        );
+      } else if (hasCustomPath) {
+        await createDownloadTask(
+          subtitle.title,
+          subtitle.link,
+          customPath.trim()
+        );
+      }
       onDownload?.();
       onClose();
       alert('已添加到下载任务');
@@ -97,7 +123,7 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
 
   if (!subtitle) return null;
 
-  const availableLangs = subtitle.langs || ['简体', '繁体', '英文', '双语'];
+  const availableLangs = subtitle.lang || ['简体', '繁体', '英文', '双语'];
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="下载字幕">
@@ -158,11 +184,17 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
             <EpisodeSelector
               seriesTitle={targetMedia.title}
               season={selectedSeason || 1}
+              episodes={targetMedia.episodes || []}
               onSelect={handleEpisodeSelect}
-              onBack={() => setTargetMedia(null)}
+              onBack={() => {
+                setTargetMedia(null);
+                setSelectedSeason(undefined);
+                setSelectedEpisode(undefined);
+                setMediaSelectorType('tv');
+              }}
             />
           ) : (
-            <MediaSelector onSelect={handleMediaSelect} />
+            <MediaSelector onSelect={handleMediaSelect} defaultType={mediaSelectorType} />
           )}
         </div>
 

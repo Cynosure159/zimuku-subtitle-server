@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Search, Loader2 } from 'lucide-react';
 import { searchSubtitles, type SearchResult as SearchResultType } from '../api';
-import SearchResultCard from '../components/SearchResultCard';
+import SearchResultRow from '../components/SearchResultRow';
 import DownloadModal from '../components/DownloadModal';
 
 export default function SearchPage() {
@@ -47,8 +47,8 @@ export default function SearchPage() {
 
   const filteredResults = results.filter(item => {
     if (activeFilter === '全部') return true;
-    if (!item.langs) return true; // If no langs parsed, show it anyway
-    return item.langs.some(lang => lang.includes(activeFilter));
+    if (!item.lang) return true; // If no lang parsed, show it anyway
+    return item.lang.some(lang => lang.includes(activeFilter));
   });
 
   return (
@@ -93,9 +93,9 @@ export default function SearchPage() {
 
       {error && <div className="text-red-500 text-sm">{error}</div>}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="flex flex-col gap-2">
         {filteredResults.map((item, index) => (
-          <SearchResultCard
+          <SearchResultRow
             key={index}
             item={item}
             onDownload={handleDownload}

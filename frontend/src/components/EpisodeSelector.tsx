@@ -1,43 +1,16 @@
-import { useState, useEffect } from 'react';
 import { ChevronLeft } from 'lucide-react';
-import { matchTVSeason } from '../api';
 
 interface EpisodeSelectorProps {
   seriesTitle: string;
   season: number;
+  episodes: number[];
   onSelect: (episode: number) => void;
   onBack: () => void;
 }
 
-export default function EpisodeSelector({ seriesTitle, season, onSelect, onBack }: EpisodeSelectorProps) {
-  const [loading, setLoading] = useState(true);
-  const [episodes, setEpisodes] = useState<number[]>([]);
-
-  useEffect(() => {
-    const fetchEpisodes = async () => {
-      setLoading(true);
-      try {
-        const data = await matchTVSeason(seriesTitle, season);
-        if (data && data.episodes) {
-          setEpisodes(data.episodes);
-        } else {
-          // Default to 24 episodes if no data
-          setEpisodes(Array.from({ length: 24 }, (_, i) => i + 1));
-        }
-      } catch (err) {
-        console.error('Failed to fetch episodes:', err);
-        // Default to 24 episodes on error
-        setEpisodes(Array.from({ length: 24 }, (_, i) => i + 1));
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchEpisodes();
-  }, [seriesTitle, season]);
-
-  if (loading) {
-    return <div className="text-sm text-slate-500 py-4">加载剧集...</div>;
-  }
+export default function EpisodeSelector({ seriesTitle, season, episodes, onSelect, onBack }: EpisodeSelectorProps) {
+  // Use provided episodes or default to 1-24 if empty
+  const displayEpisodes = episodes.length > 0 ? episodes : Array.from({ length: 24 }, (_, i) => i + 1);
 
   return (
     <div className="flex flex-col gap-4">
@@ -55,7 +28,7 @@ export default function EpisodeSelector({ seriesTitle, season, onSelect, onBack 
       </div>
 
       <div className="grid grid-cols-6 gap-2 max-h-48 overflow-y-auto">
-        {episodes.map((ep) => (
+        {displayEpisodes.map((ep) => (
           <button
             key={ep}
             onClick={() => onSelect(ep)}

@@ -41,10 +41,10 @@ export const retryTask = async (taskId: number) => {
 
 export interface SearchResult {
   title: string;
-  detail_url: string;
+  link: string;
+  lang?: string[];
   download_count?: string;
   author?: string;
-  langs?: string[];
   format?: string;
   fps?: string;
   rating?: string;
