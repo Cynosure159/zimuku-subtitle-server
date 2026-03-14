@@ -100,12 +100,12 @@
 5. After download completes, file moves to target directory with language-tagged filename
 6. On move failure, file stays in download directory with error message
 
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 **Plan List:**
 - [x] 04-01-PLAN.md — Search Result Card Layout (card-based with hover-to-show)
 - [x] 04-02-PLAN.md — Modal Styling & Media Selector (white border, two-level selection)
-- [x] 04-03-PLAN.md — Backend Task API & File Move (target params, move logic)
+- [ ] 04-03-PLAN.md — Backend Task API & File Move (target params, move logic)
 
 ---
 
@@ -116,7 +116,7 @@
 | 1. Foundation & UI Enhancement | 3/3 | Complete   | 2026-03-12 |
 | 2. Manual Download Flow | 3/3 | Complete   | 2026-03-13 |
 | 3. Filter & Sort | 1/1 | Complete   | 2026-03-15 |
-| 4. 字幕下载定位和移动逻辑 | 1/3 | In Progress|  |
+| 4. 字幕下载定位和移动逻辑 | 2/3 | In Progress|  |
 
 ---
 

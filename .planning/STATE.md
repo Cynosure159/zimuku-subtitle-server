@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-03-14T16:26:47.686Z"
-last_activity: "2026-03-13 - Completed Plan 02-02: Frontend Expandable Results"
+last_updated: "2026-03-15T12:15:00.000Z"
+last_activity: "2026-03-15 - Completed Plan 04-02: Modal Restyle and Media Selector"
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 9
-  completed_plans: 7
+  completed_plans: 8
 ---
 
 # Project State
@@ -21,11 +21,11 @@ progress:
 
 ## Current Position
 
-**Phase:** Executing Phase 2
-**Focus:** Phase 2 Manual Download Flow - Plan 02-01 complete
+**Phase:** Executing Phase 4
+**Focus:** Phase 4 Subtitle Download Positioning and Movement
 **Status:** Executing
 
-**Progress Bar:** Phase 2 in progress (2/3 plans)
+**Progress Bar:** Phase 4 in progress (2/3 plans)
 
 ---
 
@@ -37,12 +37,21 @@ progress:
 - **Requirements:** UI-01, UI-02, UI-03, META-01, META-02, META-03, META-04, DATA-01, DATA-02
 
 ### Phase 2: Manual Download Flow
+- **Status:** Complete
+- **Plans:** 3/3
+- **Requirements:** DOWN-01, DOWN-02, DOWN-03, DOWN-04
+
+### Phase 3: Media Library Filtering & Sorting
+- **Status:** Complete
+- **Plans:** 1/1
+- **Requirements:** MEDIA-01, MEDIA-02
+
+### Phase 4: Subtitle Download Positioning & Movement
 - **Status:** In Progress
 - **Plans:** 2/3 complete
-- **Requirements:** DOWN-01, DOWN-02, DOWN-03, DOWN-04
-- **Wave 1:** 02-01 (Backend Enhancement) - COMPLETE
-- **Wave 2:** 02-02 (Frontend Expandable Results) - COMPLETE
-- **Wave 3:** 02-03 (Modal & Path Selection)
+- **Requirements:** DOWN-05, DOWN-06
+- **Plan 04-01:** Card-based Search Results - COMPLETE
+- **Plan 04-02:** Modal Restyle and Media Selector - COMPLETE
 
 ---
 
@@ -53,7 +62,7 @@ progress:
 | Total v1 Requirements | 13 |
 | Requirements Mapped | 13 |
 | Coverage | 100% |
-| Phases | 2 |
+| Phases | 4 |
 | Granularity | Coarse |
 
 ---
@@ -64,9 +73,9 @@ progress:
 - 2-phase structure derived from coarse granularity setting
 - Phase 1 combines UI, metadata, and data layer requirements (foundation)
 - Phase 2 contains manual download requirements (user-facing feature)
-- Phase 1 split into 3 plans: Data Layer, Backend Metadata, Frontend UI
-- Phase 2 split into 3 plans: Backend Enhancement, Frontend Expandable Results, Modal & Path Selection
-- [Phase 02-manual-download]: Plan 02-03: Download modal with language/format selection and custom download path with memory
+- Phase 3 added: 电影和剧集列表添加筛选和排序功能
+- Phase 4 added: 修复字幕下载定位和移动逻辑
+- Phase 4 split into 3 plans: Card-based results, Modal restyle & media selector, Download positioning logic
 
 ### Roadmap Evolution
 - Phase 3 added: 电影和剧集列表添加筛选和排序功能，筛选主要是：有字幕和缺少字幕
@@ -77,7 +86,9 @@ progress:
 - [x] Plan Phase 1
 - [x] Plan Phase 2
 - [x] Execute Phase 1
-- [ ] Execute Phase 2 (in progress)
+- [x] Execute Phase 2
+- [x] Execute Phase 3
+- [ ] Execute Phase 4 (in progress)
 
 ### Blockers
 None
@@ -92,10 +103,10 @@ None
 
 ---
 
-Last activity: 2026-03-13 - Completed Plan 02-02: Frontend Expandable Results
+Last activity: 2026-03-15 - Completed Plan 04-02: Modal Restyle and Media Selector
 
 ## Session Continuity
 
-**Last Updated:** 2026-03-13
+**Last Updated:** 2026-03-15
 
-Roadmap created with 2 phases covering all 13 v1 requirements. Phase 1 and Phase 2 planned with 3 plans each.
+Roadmap created with 4 phases covering all 13 v1 requirements. Phases 1-3 complete, Phase 4 in progress.
