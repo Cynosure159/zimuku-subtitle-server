@@ -62,8 +62,10 @@ export default function MoviesPage() {
       }
       const totalCount = movie.files.length;
       const hasSubCount = movie.files.filter(f => f.has_subtitle).length;
+      // 使用原始标题作为 key 和选择标识，NFO 标题仅用于显示
       return {
-        title: nfoTitle || movie.title,
+        id: movie.title,
+        displayTitle: nfoTitle || movie.title,
         year: nfoYear || movie.year,
         totalCount,
         hasSubCount,

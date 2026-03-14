@@ -8,6 +8,7 @@
 
 - [x] **Phase 1: Foundation & UI Enhancement** - Metadata extraction, data layer, UI polish (completed 2026-03-12)
 - [x] **Phase 2: Manual Download Flow** - Search results, details modal, path selection (completed 2026-03-13)
+- [ ] **Phase 3: Filter & Sort** - List filtering (has/missing subtitles) and sorting
 
 ---
 
@@ -88,6 +89,26 @@
 | DOWN-02 | Phase 2 | Complete |
 | DOWN-03 | Phase 2 | Pending |
 | DOWN-04 | Phase 2 | Pending |
+
+### Phase 3: Filter & Sort
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 2
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 3 to break down)
+
+### Phase 4: 修复字幕下载定位和移动逻辑
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 3
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 4 to break down)
 
 ---
 

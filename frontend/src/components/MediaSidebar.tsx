@@ -2,7 +2,8 @@ import { Search, Image as ImageIcon, Menu, X } from 'lucide-react';
 import { useUIStore } from '../stores/useUIStore';
 
 export interface SidebarItem {
-  title: string;
+  id: string;
+  displayTitle: string;
   year?: string;
   totalCount: number;
   hasSubCount: number;
@@ -71,12 +72,12 @@ export function MediaSidebar({
         <div className="flex-1 overflow-y-auto flex flex-col gap-2 pr-1 custom-scrollbar">
           {items.map(item => (
             <div
-              key={item.title}
-              onClick={() => onSelectTitle(item.title)}
+              key={item.id}
+              onClick={() => onSelectTitle(item.id)}
               className={`
                 flex items-center gap-3 p-3 rounded-xl cursor-pointer
                 transition-all duration-200
-                ${selectedTitle === item.title
+                ${selectedTitle === item.id
                   ? 'bg-blue-50 border border-blue-100 shadow-sm'
                   : 'hover:bg-slate-50 hover:shadow-sm border border-transparent'
                 }
@@ -84,13 +85,13 @@ export function MediaSidebar({
             >
               <div className="w-12 h-16 bg-slate-300 rounded flex items-center justify-center shrink-0 overflow-hidden">
                 {item.poster ? (
-                  <img src={item.poster} alt={item.title} className="w-full h-full object-cover" />
+                  <img src={item.poster} alt={item.displayTitle} className="w-full h-full object-cover" />
                 ) : (
                   <ImageIcon className="w-6 h-6 text-slate-400" />
                 )}
               </div>
               <div className="flex flex-col gap-1 overflow-hidden w-full">
-                <div className="text-sm font-semibold text-slate-900 truncate" title={item.title}>{item.title}</div>
+                <div className="text-sm font-semibold text-slate-900 truncate" title={item.displayTitle}>{item.displayTitle}</div>
                 <div className="text-xs text-slate-500">{item.year || '未知年份'}</div>
                 {item.totalCount > 0 && (
                   <div className={`text-[10px] font-medium px-1.5 py-0.5 rounded w-fit ${item.totalCount === item.hasSubCount ? 'bg-green-100 text-green-700' : 'bg-red-50 text-red-600'}`}>

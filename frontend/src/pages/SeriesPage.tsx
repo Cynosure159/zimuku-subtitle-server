@@ -122,8 +122,10 @@ export default function SeriesPage() {
       if (metadata?.poster_path) {
         posterUrl = `${API_BASE}/media/poster?path=${encodeURIComponent(metadata.poster_path)}`;
       }
+      // 使用原始标题作为 key 和选择标识，NFO 标题仅用于显示
       return {
-        title: nfoTitle || series.title,
+        id: series.title,
+        displayTitle: nfoTitle || series.title,
         year: nfoYear || series.year,
         totalCount: series.totalCount,
         hasSubCount: series.hasSubCount,

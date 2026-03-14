@@ -247,18 +247,15 @@ class ZimukuAgent:
             # 查找包含格式信息的元素，可能在 td class="first" 或其他地方
             first_td = item.find("td", class_="first")
             if first_td:
-                text = first_td.get_text()
-                # 匹配常见字幕格式
-                format_patterns = [r"SRT", r"ASS", r"SSA", r"SUB", r"蓝光原盘", r"WEB"]
+                text = first_td.get_text().strip()
+                # 匹配常见字幕格式，直接返回匹配到的格式关键字
+                format_patterns = [r"ASS", r"SRT", r"SSA", r"SUB", r"蓝光原盘", r"WEB-?DL"]
                 for pattern in format_patterns:
                     if re.search(pattern, text, re.IGNORECASE):
-                        # 清理格式字符串
-                        match = re.search(r"([A-Za-z0-9\u4e00-\u9fa5]+)", text)
-                        if match:
-                            return match.group(1)
+                        return pattern.upper()
             # 也尝试从整个 item 文本中查找
             text = item.get_text()
-            for fmt in ["SRT", "ASS", "SSA", "SUB"]:
+            for fmt in ["ASS", "SRT", "SSA", "SUB"]:
                 if fmt in text.upper():
                     return fmt
         except Exception:

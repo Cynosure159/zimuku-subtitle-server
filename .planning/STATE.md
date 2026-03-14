@@ -68,6 +68,10 @@ progress:
 - Phase 2 split into 3 plans: Backend Enhancement, Frontend Expandable Results, Modal & Path Selection
 - [Phase 02-manual-download]: Plan 02-03: Download modal with language/format selection and custom download path with memory
 
+### Roadmap Evolution
+- Phase 3 added: 电影和剧集列表添加筛选和排序功能，筛选主要是：有字幕和缺少字幕
+- Phase 4 added: 修复字幕下载定位和移动逻辑
+
 ### Todos
 - [x] User approves roadmap
 - [x] Plan Phase 1
