@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { Download, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Download, Loader2, ChevronDown, ChevronUp, Film, Tv } from 'lucide-react';
 import Modal from './Modal';
-import PathSelector from './PathSelector';
+import MediaSelector, { type MediaSelection } from './MediaSelector';
+import EpisodeSelector from './EpisodeSelector';
 import { createDownloadTask, type SearchResult } from '../api';
 
 interface DownloadModalProps {
@@ -14,19 +15,51 @@ interface DownloadModalProps {
 export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }: DownloadModalProps) {
   const [selectedLangs, setSelectedLangs] = useState<string[]>([]);
   const [selectedFormat, setSelectedFormat] = useState<string>('');
-  const [targetPath, setTargetPath] = useState<string>('');
+  const [targetMedia, setTargetMedia] = useState<MediaSelection | null>(null);
+  const [selectedSeason, setSelectedSeason] = useState<number | undefined>(undefined);
+  const [selectedEpisode, setSelectedEpisode] = useState<number | undefined>(undefined);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [customPath, setCustomPath] = useState('');
   const [loading, setLoading] = useState(false);
 
   // Reset selections when modal opens with new subtitle
-  useState(() => {
+  useEffect(() => {
     if (subtitle) {
       setSelectedLangs(subtitle.langs || []);
       setSelectedFormat(subtitle.format || '');
     }
-  });
+  }, [subtitle]);
+
+  // Reset state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setTargetMedia(null);
+      setSelectedSeason(undefined);
+      setSelectedEpisode(undefined);
+      setShowAdvanced(false);
+      setCustomPath('');
+    }
+  }, [isOpen]);
+
+  const handleMediaSelect = (media: MediaSelection) => {
+    setTargetMedia(media);
+    if (media.type === 'movie') {
+      setSelectedSeason(undefined);
+      setSelectedEpisode(undefined);
+    }
+  };
+
+  const handleEpisodeSelect = (episode: number) => {
+    setSelectedEpisode(episode);
+  };
 
   const handleDownload = async () => {
-    if (!subtitle || !targetPath) return;
+    if (!subtitle) return;
+
+    const hasMediaTarget = targetMedia && (targetMedia.type === 'movie' || (selectedSeason && selectedEpisode));
+    const hasCustomPath = customPath.trim();
+
+    if (!hasMediaTarget && !hasCustomPath) return;
 
     setLoading(true);
     try {
@@ -40,6 +73,26 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
     } finally {
       setLoading(false);
     }
+  };
+
+  const getTargetDisplay = () => {
+    if (!targetMedia) return null;
+    if (targetMedia.type === 'movie') {
+      return `电影: ${targetMedia.title}${targetMedia.year ? ` (${targetMedia.year})` : ''}`;
+    } else if (selectedSeason && selectedEpisode) {
+      return `剧集: ${targetMedia.title} S${selectedSeason.toString().padStart(2, '0')}E${selectedEpisode.toString().padStart(2, '0')}`;
+    } else if (selectedSeason) {
+      return `剧集: ${targetMedia.title} 第 ${selectedSeason} 季`;
+    }
+    return null;
+  };
+
+  const canDownload = () => {
+    if (!subtitle || selectedLangs.length === 0) return false;
+    if (customPath.trim()) return true;
+    if (!targetMedia) return false;
+    if (targetMedia.type === 'movie') return true;
+    return selectedSeason !== undefined && selectedEpisode !== undefined;
   };
 
   if (!subtitle) return null;
@@ -99,11 +152,63 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
           </div>
         )}
 
-        <PathSelector onSelect={setTargetPath} />
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-slate-700">选择目标媒体</label>
+          {targetMedia && targetMedia.type === 'tv' && !selectedEpisode ? (
+            <EpisodeSelector
+              seriesTitle={targetMedia.title}
+              season={selectedSeason || 1}
+              onSelect={handleEpisodeSelect}
+              onBack={() => setTargetMedia(null)}
+            />
+          ) : (
+            <MediaSelector onSelect={handleMediaSelect} />
+          )}
+        </div>
+
+        {getTargetDisplay() && (
+          <div className="flex items-center gap-2 text-sm text-slate-600 bg-blue-50 px-3 py-2 rounded-lg">
+            {targetMedia?.type === 'movie' ? (
+              <Film className="w-4 h-4" />
+            ) : (
+              <Tv className="w-4 h-4" />
+            )}
+            <span>{getTargetDisplay()}</span>
+          </div>
+        )}
+
+        <div>
+          <button
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 transition-colors"
+          >
+            {showAdvanced ? (
+              <ChevronUp className="w-4 h-4" />
+            ) : (
+              <ChevronDown className="w-4 h-4" />
+            )}
+            高级选项
+          </button>
+
+          {showAdvanced && (
+            <div className="mt-3">
+              <input
+                type="text"
+                value={customPath}
+                onChange={(e) => setCustomPath(e.target.value)}
+                placeholder="或输入自定义路径..."
+                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg outline-none focus:border-blue-500"
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                留空将使用上方选择的媒体路径
+              </p>
+            </div>
+          )}
+        </div>
 
         <button
           onClick={handleDownload}
-          disabled={!targetPath || loading || selectedLangs.length === 0}
+          disabled={!canDownload() || loading}
           className="w-full py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
         >
           {loading ? (
