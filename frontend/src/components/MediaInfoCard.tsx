@@ -56,9 +56,18 @@ export function MediaInfoCard({ fileId, title, year, path }: MediaInfoCardProps)
   const { data: metadata, isLoading, error, refetch } = useMediaMetadata(fileId);
   const posterUrl = useMediaPosterUrl(metadata?.poster_path ?? null);
 
-  // Clean path format for display
-  const displayPath = path.split('\\').slice(0, -1).join('\\') ||
-    path.split('/').slice(0, -1).join('/');
+  // Determine the show/movie root directory
+  // For TV shows: /scan_root/show_title/Season_X/file.mp4 -> show /scan_root/show_title
+  // For movies: /scan_root/movie_title/file.mp4 -> show /scan_root/movie_title
+  const isWindows = path.includes('\\');
+  const separator = isWindows ? '\\' : '/';
+  const parts = path.split(separator).filter(Boolean);
+  const parentFolder = parts[parts.length - 2] || '';
+  // Check if parent looks like a season folder (TV show)
+  const isTvShow = /Season|S\d{2}/i.test(parentFolder);
+  // For TV shows use grandparent, for movies use parent
+  const rootParts = isTvShow ? parts.slice(0, -2) : parts.slice(0, -1);
+  const displayPath = rootParts.join(separator);
 
   // Use metadata from API if available, otherwise fall back to props
   const displayTitle = metadata?.nfo_data?.title || title;

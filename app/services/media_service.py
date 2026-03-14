@@ -141,41 +141,57 @@ class MediaService:
                     continue
 
                 try:
+                    # 扫描逻辑：对于 TV 类型，一级文件夹就是一个剧集
+                    # 对于 Movie 类型，一级文件夹就是一个电影
+
+                    def process_single_file(file_path: Path, title: str, media_path: MediaPath):
+                        """处理单个视频文件"""
+                        str_path = str(file_path.absolute())
+                        filename = file_path.name
+                        parsed = parse_media_filename(filename)
+                        has_sub = check_has_subtitle(file_path)
+
+                        existing_file = session_data.exec(
+                            select(ScannedFile).where(ScannedFile.file_path == str_path)
+                        ).first()
+
+                        if not existing_file:
+                            new_file = ScannedFile(
+                                path_id=media_path.id,
+                                type=media_path.type,
+                                file_path=str_path,
+                                filename=filename,
+                                extracted_title=title,
+                                year=parsed["year"],
+                                season=parsed["season"],
+                                episode=parsed["episode"],
+                                has_subtitle=has_sub,
+                            )
+                            session_data.add(new_file)
+                        else:
+                            existing_file.filename = filename
+                            existing_file.extracted_title = title
+                            existing_file.year = parsed["year"]
+                            existing_file.season = parsed["season"]
+                            existing_file.episode = parsed["episode"]
+                            existing_file.has_subtitle = has_sub
+                            session_data.add(existing_file)
+
                     for sub_dir in scan_dir.iterdir():
                         if sub_dir.is_dir():
                             extracted_title = sub_dir.name
-                            for file_path in sub_dir.rglob("*"):
-                                if file_path.is_file() and file_path.suffix.lower() in video_extensions:
-                                    str_path = str(file_path.absolute())
-                                    filename = file_path.name
-                                    parsed = parse_media_filename(filename)
-                                    has_sub = check_has_subtitle(file_path)
-
-                                    existing_file = session_data.exec(
-                                        select(ScannedFile).where(ScannedFile.file_path == str_path)
-                                    ).first()
-
-                                    if not existing_file:
-                                        new_file = ScannedFile(
-                                            path_id=mp.id,
-                                            type=mp.type,
-                                            file_path=str_path,
-                                            filename=filename,
-                                            extracted_title=extracted_title,
-                                            year=parsed["year"],
-                                            season=parsed["season"],
-                                            episode=parsed["episode"],
-                                            has_subtitle=has_sub,
-                                        )
-                                        session_data.add(new_file)
-                                    else:
-                                        existing_file.filename = filename
-                                        existing_file.extracted_title = extracted_title
-                                        existing_file.year = parsed["year"]
-                                        existing_file.season = parsed["season"]
-                                        existing_file.episode = parsed["episode"]
-                                        existing_file.has_subtitle = has_sub
-                                        session_data.add(existing_file)
+                            # TV 类型：一级文件夹 = 剧集名称，扫描该文件夹下所有层级的视频
+                            # Movie 类型：保持原有逻辑
+                            if mp.type == "tv":
+                                # 扫描一级文件夹下的所有视频文件（可能直接存放，也可能放在 S01/ 等子目录中）
+                                for file_path in sub_dir.rglob("*"):
+                                    if file_path.is_file() and file_path.suffix.lower() in video_extensions:
+                                        process_single_file(file_path, extracted_title, mp)
+                            else:
+                                # Movie: 直接在一级文件夹中查找视频
+                                for file_path in sub_dir.iterdir():
+                                    if file_path.is_file() and file_path.suffix.lower() in video_extensions:
+                                        process_single_file(file_path, extracted_title, mp)
                 except Exception as e:
                     logger.error(f"扫描 {mp.path} 出错: {e}")
 

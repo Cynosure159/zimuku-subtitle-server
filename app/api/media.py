@@ -112,6 +112,8 @@ async def get_file_metadata(file_id: int, session: Session = Depends(get_session
     从NFO文件提取：title, year, plot, rating, genres, director
     从文件夹检测：poster image
     从TXT文件回退：key:value metadata
+
+    对于 TV 剧集，优先使用剧集根目录下的 tvshow.nfo 和海报。
     """
     # Look up file in database
     file_record = session.get(ScannedFile, file_id)
@@ -122,14 +124,45 @@ async def get_file_metadata(file_id: int, session: Session = Depends(get_session
     file_path = Path(file_record.file_path)
     folder = file_path.parent
 
-    # Find and parse NFO
-    nfo_data = None
-    nfo_path = metadata_module.find_nfo_file(folder, file_record.filename)
-    if nfo_path:
-        nfo_data = metadata_module.parse_nfo(nfo_path)
+    # Get media root path
+    media_path = session.get(MediaPath, file_record.path_id)
+    media_root = Path(media_path.path) if media_path else None
 
-    # Find poster
-    poster_path = metadata_module.find_poster(folder, file_record.filename)
+    # Determine show/movie root folder
+    # For TV: /media_root/Show Title/Season X/file.mp4 -> use /media_root/Show Title
+    # For Movie: /media_root/Movie Title/file.mp4 -> use /media_root/Movie Title
+    is_tv = file_record.type == "tv"
+    if is_tv and media_root and file_record.extracted_title:
+        # TV show: find the show root folder
+        show_root = media_root / file_record.extracted_title
+    else:
+        # Movie: use parent folder
+        show_root = folder
+
+    # Find and parse NFO (prioritize show root for TV)
+    nfo_data = None
+    nfo_path = None
+
+    if is_tv:
+        # For TV shows, first try show root (tvshow.nfo)
+        tvshow_nfo = show_root / "tvshow.nfo"
+        if tvshow_nfo.exists():
+            nfo_path = tvshow_nfo
+            nfo_data = metadata_module.parse_nfo(nfo_path)
+
+    # Fallback to file's parent folder if not found
+    if not nfo_path:
+        nfo_path = metadata_module.find_nfo_file(folder, file_record.filename)
+        if nfo_path:
+            nfo_data = metadata_module.parse_nfo(nfo_path)
+
+    # Find poster (prioritize show root for TV)
+    poster_path = None
+    if is_tv and show_root.exists():
+        poster_path = metadata_module.find_poster(show_root, file_record.filename)
+
+    if not poster_path:
+        poster_path = metadata_module.find_poster(folder, file_record.filename)
 
     # Find and parse TXT fallback
     txt_info = None
@@ -142,9 +175,7 @@ async def get_file_metadata(file_id: int, session: Session = Depends(get_session
     if poster_path:
         try:
             # Get relative path from media root
-            media_path = session.get(MediaPath, file_record.path_id)
-            if media_path:
-                media_root = Path(media_path.path)
+            if media_root:
                 poster_relative = str(poster_path.relative_to(media_root))
         except ValueError:
             # If not relative, just use the folder name
@@ -160,7 +191,9 @@ async def get_file_metadata(file_id: int, session: Session = Depends(get_session
 
 
 @router.get("/poster")
-async def get_poster(path: str = Query(..., description="URL-encoded relative poster path")):
+async def get_poster(
+    path: str = Query(..., description="URL-encoded relative poster path"), session: Session = Depends(get_session)
+):
     """
     服务海报图片。
 
@@ -174,10 +207,9 @@ async def get_poster(path: str = Query(..., description="URL-encoded relative po
     media_roots = []
 
     # Get all media paths from database
-    with get_session() as session:
-        media_paths = MediaService.list_paths(session)
-        for mp in media_paths:
-            media_roots.append(Path(mp.path))
+    media_paths = MediaService.list_paths(session)
+    for mp in media_paths:
+        media_roots.append(Path(mp.path))
 
     # Try each media root
     for root in media_roots:
