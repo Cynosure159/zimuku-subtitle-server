@@ -20,8 +20,8 @@
 
 ### 手动下载功能
 
-- [ ] **DOWN-01**: 搜索结果展示改进 - 显示格式、fps、语言等详细信息
-- [ ] **DOWN-02**: 搜索结果可展开 - 点击查看字幕详情
+- [x] **DOWN-01**: 搜索结果展示改进 - 显示格式、fps、语言等详细信息
+- [x] **DOWN-02**: 搜索结果可展开 - 点击查看字幕详情
 - [x] **DOWN-03**: 字幕详情弹窗 - 选择语言、格式
 - [x] **DOWN-04**: 下载目标路径选择 - 用户指定保存位置
 
@@ -57,8 +57,8 @@
 | META-04 | Phase 1 | Complete |
 | DATA-01 | Phase 1 | Complete |
 | DATA-02 | Phase 1 | Complete |
-| DOWN-01 | Phase 2 | Pending |
-| DOWN-02 | Phase 2 | Pending |
+| DOWN-01 | Phase 2 | Complete |
+| DOWN-02 | Phase 2 | Complete |
 | DOWN-03 | Phase 2 | Complete |
 | DOWN-04 | Phase 2 | Complete |
 

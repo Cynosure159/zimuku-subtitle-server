@@ -8,7 +8,8 @@
 
 - [x] **Phase 1: Foundation & UI Enhancement** - Metadata extraction, data layer, UI polish (completed 2026-03-12)
 - [x] **Phase 2: Manual Download Flow** - Search results, details modal, path selection (completed 2026-03-13)
-- [ ] **Phase 3: Filter & Sort** - List filtering (has/missing subtitles) and sorting
+- [x] **Phase 3: Filter & Sort** - List filtering (has/missing subtitles) and sorting (completed 2026-03-15)
+- [x] **Phase 4: 字幕下载定位和移动逻辑** - Search results cards, modal styling, media selector, file move (planned 2026-03-15)
 
 ---
 
@@ -59,7 +60,52 @@
 **Plan List:**
 - [x] 02-01-PLAN.md — Backend Enhancement (extend SubtitleResult with format/fps)
 - [x] 02-02-PLAN.md — Frontend Expandable Results (expandable rows with accordion)
-- [ ] 02-03-PLAN.md — Modal & Path Selection (download modal with language/format/path)
+- [x] 02-03-PLAN.md — Modal & Path Selection (download modal with language/format/path)
+
+---
+
+### Phase 3: Filter & Sort
+
+**Goal:** Users can filter media lists by subtitle status and sort by various criteria
+
+**Depends on:** Phase 2
+
+**Requirements:** FS-01, FS-02, FS-03
+
+**Success Criteria** (what must be TRUE):
+1. User can filter movies/series by "has subtitles" or "missing subtitles"
+2. User can sort lists by name, date, or other criteria
+3. UI shows filter controls and sorted results
+
+**Plans:** 1/1 plan complete
+
+**Plan List:**
+- [x] 03-01-PLAN.md — Filter & Sort Implementation
+
+---
+
+### Phase 4: 字幕下载定位和移动逻辑
+
+**Goal:** Users see search results as cards with hover-to-show download, can select target media via two-level selector, and files are automatically moved after download
+
+**Depends on:** Phase 3
+
+**Requirements:** DOWN-01, DOWN-02, DOWN-03, DOWN-04
+
+**Success Criteria** (what must be TRUE):
+1. User can see search results as cards with medium information density
+2. Download button appears on hover over card
+3. Modal uses white background with gray border (no glassmorphism)
+4. User can select target via two-level selector (movie/series then season/episode)
+5. After download completes, file moves to target directory with language-tagged filename
+6. On move failure, file stays in download directory with error message
+
+**Plans:** 1/3 plans executed
+
+**Plan List:**
+- [x] 04-01-PLAN.md — Search Result Card Layout (card-based with hover-to-show)
+- [x] 04-02-PLAN.md — Modal Styling & Media Selector (white border, two-level selection)
+- [x] 04-03-PLAN.md — Backend Task API & File Move (target params, move logic)
 
 ---
 
@@ -69,6 +115,8 @@
 |-------|----------------|--------|-----------|
 | 1. Foundation & UI Enhancement | 3/3 | Complete   | 2026-03-12 |
 | 2. Manual Download Flow | 3/3 | Complete   | 2026-03-13 |
+| 3. Filter & Sort | 1/1 | Complete   | 2026-03-15 |
+| 4. 字幕下载定位和移动逻辑 | 1/3 | In Progress|  |
 
 ---
 
@@ -85,32 +133,15 @@
 | META-04 | Phase 1 | Complete |
 | DATA-01 | Phase 1 | Complete |
 | DATA-02 | Phase 1 | Complete |
-| DOWN-01 | Phase 2 | Complete |
-| DOWN-02 | Phase 2 | Complete |
-| DOWN-03 | Phase 2 | Pending |
-| DOWN-04 | Phase 2 | Pending |
-
-### Phase 3: Filter & Sort
-
-**Goal:** [To be planned]
-**Requirements**: TBD
-**Depends on:** Phase 2
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (run /gsd:plan-phase 3 to break down)
-
-### Phase 4: 修复字幕下载定位和移动逻辑
-
-**Goal:** [To be planned]
-**Requirements**: TBD
-**Depends on:** Phase 3
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (run /gsd:plan-phase 4 to break down)
+| DOWN-01 | Phase 4 | Complete |
+| DOWN-02 | Phase 4 | Complete |
+| DOWN-03 | Phase 4 | Complete |
+| DOWN-04 | Phase 4 | Complete |
+| FS-01 | Phase 3 | Complete |
+| FS-02 | Phase 3 | Complete |
+| FS-03 | Phase 3 | Complete |
 
 ---
 
 *Generated: 2026-03-13*
-*Updated: 2026-03-13 (plans created)*
+*Updated: 2026-03-15 (phase 4 planned)*
