@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Search, Loader2 } from 'lucide-react';
 import { searchSubtitles, type SearchResult as SearchResultType } from '../api';
-import SearchResultRow from '../components/SearchResultRow';
+import SearchResultCard from '../components/SearchResultCard';
 import DownloadModal from '../components/DownloadModal';
 
 export default function SearchPage() {
@@ -12,8 +12,7 @@ export default function SearchPage() {
   const [results, setResults] = useState<SearchResultType[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
-  const [selectedSubtitle, setSelectedSubtitle] = useState<SearchResultType | null>(null);
+    const [selectedSubtitle, setSelectedSubtitle] = useState<SearchResultType | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
   const handleSearch = async () => {
@@ -44,10 +43,6 @@ export default function SearchPage() {
   const handleModalClose = () => {
     setModalOpen(false);
     setSelectedSubtitle(null);
-  };
-
-  const handleToggle = (index: number) => {
-    setExpandedIndex(expandedIndex === index ? null : index);
   };
 
   const filteredResults = results.filter(item => {
@@ -98,13 +93,11 @@ export default function SearchPage() {
 
       {error && <div className="text-red-500 text-sm">{error}</div>}
 
-      <div className="flex flex-col gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {filteredResults.map((item, index) => (
-          <SearchResultRow
+          <SearchResultCard
             key={index}
             item={item}
-            isExpanded={expandedIndex === index}
-            onToggle={() => handleToggle(index)}
             onDownload={handleDownload}
           />
         ))}
