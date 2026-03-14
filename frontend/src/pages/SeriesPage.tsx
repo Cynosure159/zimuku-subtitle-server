@@ -1,5 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueries } from '@tanstack/react-query';
+import axios from 'axios';
 import { autoMatchFile, matchTVSeason } from '../api';
 import { MediaConfigPanel } from '../components/MediaConfigPanel';
 import { MediaSidebar, type SidebarItem } from '../components/MediaSidebar';
@@ -7,6 +9,13 @@ import { MediaInfoCard } from '../components/MediaInfoCard';
 import { EmptySelectionState } from '../components/EmptySelectionState';
 import { useMediaPolling, type ScannedFile } from '../hooks/useMediaPolling';
 import { Search, Loader2 } from 'lucide-react';
+
+const API_BASE = 'http://127.0.0.1:8000';
+
+async function fetchSeriesMetadata(fileId: number) {
+  const response = await axios.get(`${API_BASE}/media/metadata/${fileId}`);
+  return response.data;
+}
 
 export default function SeriesPage() {
   const navigate = useNavigate();
@@ -90,15 +99,38 @@ export default function SeriesPage() {
     ).sort((a, b) => a.title.localeCompare(b.title));
   }, [files, searchTerm]);
 
-  // Sidebar item mapping
+  // 批量获取每个剧集的元数据（海报和 NFO 信息）
+  const metadataQueries = useQueries({
+    queries: (groupedSeries || []).map(series => ({
+      queryKey: ['media', 'metadata', series.firstFileId],
+      queryFn: () => fetchSeriesMetadata(series.firstFileId),
+      staleTime: 10 * 60 * 1000, // 10 minutes
+      retry: 1,
+    }))
+  });
+
+  // 构建侧边栏列表，包含海报和 NFO 信息
   const sidebarItems: SidebarItem[] = useMemo(() => {
-    return groupedSeries.map(series => ({
-      title: series.title,
-      year: series.year,
-      totalCount: series.totalCount,
-      hasSubCount: series.hasSubCount
-    }));
-  }, [groupedSeries]);
+    if (!groupedSeries) return [];
+    return groupedSeries.map((series, index) => {
+      const metadata = metadataQueries[index]?.data;
+      // 优先使用 NFO 中的标题和年份
+      const nfoTitle = metadata?.nfo_data?.title;
+      const nfoYear = metadata?.nfo_data?.year;
+      // 构建海报 URL
+      let posterUrl: string | null = null;
+      if (metadata?.poster_path) {
+        posterUrl = `${API_BASE}/media/poster?path=${encodeURIComponent(metadata.poster_path)}`;
+      }
+      return {
+        title: nfoTitle || series.title,
+        year: nfoYear || series.year,
+        totalCount: series.totalCount,
+        hasSubCount: series.hasSubCount,
+        poster: posterUrl
+      };
+    });
+  }, [groupedSeries, metadataQueries]);
 
   // Auto-select first series
   useEffect(() => {

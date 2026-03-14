@@ -6,6 +6,7 @@ export interface SidebarItem {
   year?: string;
   totalCount: number;
   hasSubCount: number;
+  poster?: string | null;  // URL for poster image
 }
 
 interface MediaSidebarProps {
@@ -81,8 +82,12 @@ export function MediaSidebar({
                 }
               `}
             >
-              <div className="w-12 h-16 bg-slate-300 rounded flex items-center justify-center shrink-0">
-                <ImageIcon className="w-6 h-6 text-slate-400" />
+              <div className="w-12 h-16 bg-slate-300 rounded flex items-center justify-center shrink-0 overflow-hidden">
+                {item.poster ? (
+                  <img src={item.poster} alt={item.title} className="w-full h-full object-cover" />
+                ) : (
+                  <ImageIcon className="w-6 h-6 text-slate-400" />
+                )}
               </div>
               <div className="flex flex-col gap-1 overflow-hidden w-full">
                 <div className="text-sm font-semibold text-slate-900 truncate" title={item.title}>{item.title}</div>
