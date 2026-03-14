@@ -14,10 +14,27 @@ logger = logging.getLogger(__name__)
 
 @router.post("/", response_model=SubtitleTask)
 async def create_download_task(
-    title: str, source_url: str, background_tasks: BackgroundTasks, session: Session = Depends(get_session)
+    title: str,
+    source_url: str,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+    target_path: Optional[str] = None,
+    target_type: Optional[str] = None,
+    season: Optional[int] = None,
+    episode: Optional[int] = None,
+    language: Optional[str] = None,
 ):
     """创建下载任务"""
-    task = TaskService.create_task(session, title, source_url)
+    task = TaskService.create_task(
+        session,
+        title,
+        source_url,
+        target_path=target_path,
+        target_type=target_type,
+        season=season,
+        episode=episode,
+        language=language,
+    )
     background_tasks.add_task(TaskService.run_download_task, task.id)
     return task
 

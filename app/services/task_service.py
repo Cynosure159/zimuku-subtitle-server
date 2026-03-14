@@ -16,8 +16,26 @@ logger = logging.getLogger(__name__)
 
 class TaskService:
     @staticmethod
-    def create_task(session: Session, title: str, source_url: str) -> SubtitleTask:
-        task = SubtitleTask(title=title, source_url=source_url, status="pending")
+    def create_task(
+        session: Session,
+        title: str,
+        source_url: str,
+        target_path: Optional[str] = None,
+        target_type: Optional[str] = None,
+        season: Optional[int] = None,
+        episode: Optional[int] = None,
+        language: Optional[str] = None,
+    ) -> SubtitleTask:
+        task = SubtitleTask(
+            title=title,
+            source_url=source_url,
+            status="pending",
+            target_path=target_path,
+            target_type=target_type,
+            season=season,
+            episode=episode,
+            language=language,
+        )
         session.add(task)
         session.commit()
         session.refresh(task)
@@ -126,6 +144,59 @@ class TaskService:
                         task.error_msg = f"Download OK, extraction failed: {e}"
                 else:
                     task.save_path = file_path
+
+                # Move file to target directory if target_path is specified
+                if task.target_path and task.save_path:
+                    try:
+                        # Find video file in target directory
+                        video_filename = None
+                        if task.target_type == "tv" and task.season and task.episode:
+                            # For TV series, search for SxxExx pattern
+                            season_str = f"S{task.season:02d}"
+                            episode_str = f"E{task.episode:02d}"
+                            for f in os.listdir(task.target_path):
+                                if f.lower().endswith((".mp4", ".mkv", ".avi", ".wmv", ".mov")):
+                                    if season_str in f and episode_str in f:
+                                        video_filename = os.path.splitext(f)[0]
+                                        break
+                        elif task.target_type == "movie":
+                            # For movies, use the first video file
+                            for f in os.listdir(task.target_path):
+                                if f.lower().endswith((".mp4", ".mkv", ".avi", ".wmv", ".mov")):
+                                    video_filename = os.path.splitext(f)[0]
+                                    break
+
+                        if video_filename:
+                            # Get extension from downloaded file
+                            if os.path.isdir(task.save_path):
+                                # For extracted archives, find the subtitle file
+                                subtitle_files = []
+                                for root, _, files in os.walk(task.save_path):
+                                    for f in files:
+                                        if f.lower().endswith((".srt", ".ass", ".ssa", ".sub", ".sup")):
+                                            subtitle_files.append(os.path.join(root, f))
+                                if subtitle_files:
+                                    src_file = subtitle_files[0]
+                                    ext = os.path.splitext(src_file)[1]
+                            else:
+                                src_file = task.save_path
+                                ext = os.path.splitext(task.save_path)[1]
+
+                            # Format new filename with language tag
+                            lang_tag = task.language or "未知"
+                            new_filename = f"{video_filename}.{lang_tag}{ext}"
+                            target_full_path = os.path.join(task.target_path, new_filename)
+
+                            # Move file
+                            shutil.move(src_file, target_full_path)
+                            task.save_path = target_full_path
+                            logger.info(f"文件已移动到: {target_full_path}")
+                        else:
+                            logger.warning(f"未在目标目录找到匹配的视频文件: {task.target_path}")
+                    except Exception as e:
+                        logger.error(f"移动文件失败: {e}")
+                        # Keep file in original download directory as backup
+                        task.error_msg = f"下载成功但移动失败: {e}"
 
                 task.status = "completed"
                 task.filename = filename

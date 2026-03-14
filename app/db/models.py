@@ -37,6 +37,12 @@ class SubtitleTask(SQLModel, table=True):
     error_msg: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
+    # Target path for moving file after download
+    target_path: Optional[str] = None  # Target directory for moved file
+    target_type: Optional[str] = None  # "movie" or "tv"
+    season: Optional[int] = None  # For TV series
+    episode: Optional[int] = None  # For TV series
+    language: Optional[str] = None  # For filename (简体/繁体/etc)
 
 
 class MediaPath(SQLModel, table=True):

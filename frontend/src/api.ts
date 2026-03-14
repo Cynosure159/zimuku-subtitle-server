@@ -9,9 +9,17 @@ export const searchSubtitles = async (q: string) => {
   return response.data;
 };
 
-export const createDownloadTask = async (title: string, source_url: string) => {
+export const createDownloadTask = async (
+  title: string,
+  source_url: string,
+  target_path?: string,
+  target_type?: 'movie' | 'tv',
+  season?: number,
+  episode?: number,
+  language?: string
+) => {
   const response = await api.post('/tasks/', null, {
-    params: { title, source_url }
+    params: { title, source_url, target_path, target_type, season, episode, language }
   });
   return response.data;
 };
