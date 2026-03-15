@@ -9,7 +9,8 @@
 - [x] **Phase 1: Foundation & UI Enhancement** - Metadata extraction, data layer, UI polish (completed 2026-03-12)
 - [x] **Phase 2: Manual Download Flow** - Search results, details modal, path selection (completed 2026-03-13)
 - [x] **Phase 3: Filter & Sort** - List filtering (has/missing subtitles) and sorting (completed 2026-03-15)
-- [x] **Phase 4: 字幕下载定位和移动逻辑** - Search results cards, modal styling, media selector, file move (planned 2026-03-15)
+- [x] **Phase 4: 字幕下载定位和移动逻辑** - Search results cards, modal styling, media selector, file move (completed 2026-03-15)
+- [ ] **Phase 5: 后端代码结构优化整理** - 代码结构优化 (pending)
 
 ---
 
@@ -100,12 +101,35 @@
 5. After download completes, file moves to target directory with language-tagged filename
 6. On move failure, file stays in download directory with error message
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans executed
 
 **Plan List:**
 - [x] 04-01-PLAN.md — Search Result Card Layout (card-based with hover-to-show)
 - [x] 04-02-PLAN.md — Modal Styling & Media Selector (white border, two-level selection)
-- [ ] 04-03-PLAN.md — Backend Task API & File Move (target params, move logic)
+- [x] 04-03-PLAN.md — Backend Task API & File Move (target params, move logic)
+
+---
+
+### Phase 5: 后端代码结构优化整理 (backend-refactor)
+
+**Goal:** 优化后端代码结构，使其更可读、可拓展、可复用，符合代码架构规范，目录层级明确。此重构仅优化代码结构，不改变现有功能行为。
+
+**Depends on:** Phase 4
+
+**Requirements:** REQ-01, REQ-02, REQ-03, REQ-04
+
+**Success Criteria** (what must be TRUE):
+1. Core modules organized into subdirectories (scraper/, archive/, ocr/)
+2. API layer uses Service layer instead of direct Core calls
+3. All imports updated correctly
+4. Application starts and all tests pass
+
+**Plans:** 2/3 plans executed
+
+**Plan List:**
+- [x] 05-01-PLAN.md — Core Layer Refactoring (scraper/archive/ocr subdirectories)
+- [x] 05-02-PLAN.md — Service Layer Enhancement (settings/metadata service creation)
+- [ ] 05-03-PLAN.md — Verification & Final Cleanup (import verification, tests)
 
 ---
 
@@ -116,7 +140,8 @@
 | 1. Foundation & UI Enhancement | 3/3 | Complete   | 2026-03-12 |
 | 2. Manual Download Flow | 3/3 | Complete   | 2026-03-13 |
 | 3. Filter & Sort | 1/1 | Complete   | 2026-03-15 |
-| 4. 字幕下载定位和移动逻辑 | 2/3 | In Progress|  |
+| 4. 字幕下载定位和移动逻辑 | 3/3 | Complete   | 2026-03-15 |
+| 5. 后端代码结构优化整理 | 2/3 | In Progress|  |
 
 ---
 
@@ -140,8 +165,12 @@
 | FS-01 | Phase 3 | Complete |
 | FS-02 | Phase 3 | Complete |
 | FS-03 | Phase 3 | Complete |
+| REQ-01 | Phase 5 | Planned |
+| REQ-02 | Phase 5 | Planned |
+| REQ-03 | Phase 5 | Planned |
+| REQ-04 | Phase 5 | Planned |
 
 ---
 
 *Generated: 2026-03-13*
-*Updated: 2026-03-15 (phase 4 planned)*
+*Updated: 2026-03-15 (phase 5 planned)*
