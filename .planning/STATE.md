@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-03-15T04:00:00.000Z"
+last_updated: "2026-03-15T03:51:27.674Z"
 last_activity: "2026-03-15 - Completed Plan 05-02: Service Layer Refactoring"
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 12
-  completed_plans: 11
+  completed_plans: 12
 ---
 
 # Project State
@@ -90,6 +90,7 @@ progress:
 - [Phase 04-zi-mu-xia-zai-ding-wei-yi-dong]: Target path parameters enable two-level target selection
 - [Phase 05-backend-refactor]: Core modules reorganized into subdirectories using __init__.py re-exports for backward compatibility
 - [Phase 05-02]: Created service layer to encapsulate Core module access
+- [Phase 05-backend-refactor]: Verification confirmed no direct Core imports in main.py or MCP server
 
 ### Roadmap Evolution
 - Phase 3 added: 电影和剧集列表添加筛选和排序功能，筛选主要是：有字幕和缺少字幕

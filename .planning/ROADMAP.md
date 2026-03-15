@@ -10,7 +10,7 @@
 - [x] **Phase 2: Manual Download Flow** - Search results, details modal, path selection (completed 2026-03-13)
 - [x] **Phase 3: Filter & Sort** - List filtering (has/missing subtitles) and sorting (completed 2026-03-15)
 - [x] **Phase 4: 字幕下载定位和移动逻辑** - Search results cards, modal styling, media selector, file move (completed 2026-03-15)
-- [ ] **Phase 5: 后端代码结构优化整理** - 代码结构优化 (pending)
+- [x] **Phase 5: 后端代码结构优化整理** - 代码结构优化 (pending) (completed 2026-03-15)
 
 ---
 
@@ -124,7 +124,7 @@
 3. All imports updated correctly
 4. Application starts and all tests pass
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 **Plan List:**
 - [x] 05-01-PLAN.md — Core Layer Refactoring (scraper/archive/ocr subdirectories)
@@ -141,7 +141,7 @@
 | 2. Manual Download Flow | 3/3 | Complete   | 2026-03-13 |
 | 3. Filter & Sort | 1/1 | Complete   | 2026-03-15 |
 | 4. 字幕下载定位和移动逻辑 | 3/3 | Complete   | 2026-03-15 |
-| 5. 后端代码结构优化整理 | 2/3 | In Progress|  |
+| 5. 后端代码结构优化整理 | 3/3 | Complete   | 2026-03-15 |
 
 ---
 
