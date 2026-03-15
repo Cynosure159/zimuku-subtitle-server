@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from ..core.config import ConfigManager
 from ..db.models import Setting
 from ..db.session import get_session
+from ..services.settings_service import SettingsService
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
 
@@ -27,7 +27,7 @@ async def list_settings(session: Session = Depends(get_session)):
 async def update_setting(update: SettingUpdate):
     """更新或创建配置"""
     try:
-        setting = ConfigManager.set(update.key, update.value, update.description)
+        setting = SettingsService.set_setting(update.key, update.value, update.description)
         return setting
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
