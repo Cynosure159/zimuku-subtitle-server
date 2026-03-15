@@ -7,10 +7,10 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from sqlmodel import Session
 
-from ..core import metadata as metadata_module
 from ..db.models import MediaPath, ScannedFile
 from ..db.session import get_session
 from ..services.media_service import MediaService, global_task_status
+from ..services.metadata_service import MetadataService
 
 router = APIRouter(prefix="/media", tags=["Media"])
 logger = logging.getLogger(__name__)
@@ -148,27 +148,27 @@ async def get_file_metadata(file_id: int, session: Session = Depends(get_session
         tvshow_nfo = show_root / "tvshow.nfo"
         if tvshow_nfo.exists():
             nfo_path = tvshow_nfo
-            nfo_data = metadata_module.parse_nfo(nfo_path)
+            nfo_data = MetadataService.parse_nfo(nfo_path)
 
     # Fallback to file's parent folder if not found
     if not nfo_path:
-        nfo_path = metadata_module.find_nfo_file(folder, file_record.filename)
+        nfo_path = MetadataService.find_nfo_file(folder, file_record.filename)
         if nfo_path:
-            nfo_data = metadata_module.parse_nfo(nfo_path)
+            nfo_data = MetadataService.parse_nfo(nfo_path)
 
     # Find poster (prioritize show root for TV)
     poster_path = None
     if is_tv and show_root.exists():
-        poster_path = metadata_module.find_poster(show_root, file_record.filename)
+        poster_path = MetadataService.find_poster(show_root, file_record.filename)
 
     if not poster_path:
-        poster_path = metadata_module.find_poster(folder, file_record.filename)
+        poster_path = MetadataService.find_poster(folder, file_record.filename)
 
     # Find and parse TXT fallback
     txt_info = None
-    txt_path = metadata_module.find_txt_file(folder, file_record.filename)
+    txt_path = MetadataService.find_txt_file(folder, file_record.filename)
     if txt_path:
-        txt_info = metadata_module.parse_txt_info(txt_path)
+        txt_info = MetadataService.parse_txt_info(txt_path)
 
     # Return relative poster path for frontend to construct URL
     poster_relative = None
