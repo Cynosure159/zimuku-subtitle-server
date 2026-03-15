@@ -1,4 +1,5 @@
 """Metadata extraction module for NFO, poster images, and TXT fallback."""
+
 import logging
 import xml.etree.ElementTree as ET
 from pathlib import Path
