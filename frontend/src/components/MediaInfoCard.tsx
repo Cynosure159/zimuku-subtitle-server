@@ -79,7 +79,7 @@ export function MediaInfoCard({ fileId, title, year, path }: MediaInfoCardProps)
   if (isLoading) {
     return (
       <div className="flex flex-col gap-6">
-        <div className="bg-slate-50 rounded-xl p-5 flex flex-col gap-3 border border-slate-100">
+        <div className="bg-slate-50 rounded-xl flex flex-col gap-3 border border-slate-100">
           <div className="text-sm font-semibold text-slate-600">关联扫描目录</div>
           <div className="bg-white px-4 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-800 break-all">
             {displayPath}
@@ -93,7 +93,7 @@ export function MediaInfoCard({ fileId, title, year, path }: MediaInfoCardProps)
   if (error) {
     return (
       <div className="flex flex-col gap-6">
-        <div className="bg-slate-50 rounded-xl p-5 flex flex-col gap-3 border border-slate-100">
+        <div className="bg-slate-50 rounded-xl flex flex-col gap-3 border border-slate-100">
           <div className="text-sm font-semibold text-slate-600">关联扫描目录</div>
           <div className="bg-white px-4 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-800 break-all">
             {displayPath}
@@ -106,7 +106,7 @@ export function MediaInfoCard({ fileId, title, year, path }: MediaInfoCardProps)
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="bg-slate-50 rounded-xl p-5 flex flex-col gap-3 border border-slate-100">
+      <div className="bg-slate-50 rounded-xl flex flex-col gap-3 border border-slate-100">
         <div className="text-sm font-semibold text-slate-600">关联扫描目录</div>
         <div className="bg-white px-4 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-800 break-all">
           {displayPath}

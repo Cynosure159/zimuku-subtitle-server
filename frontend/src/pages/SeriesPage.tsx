@@ -26,10 +26,24 @@ export default function SeriesPage() {
   const [selectedSeriesTitle, setSelectedSeriesTitle] = useState<string | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<number>(1);
 
-  // Filter and sort state
+  // Filter and sort state - load from localStorage
   const [filter, setFilter] = useState<FilterOption>('all');
-  const [sortBy, setSortBy] = useState<SortOption>('name');
-  const [sortDesc, setSortDesc] = useState(false);
+  const [sortBy, setSortBy] = useState<SortOption>(() => {
+    const saved = localStorage.getItem('series-sort-by');
+    return (saved as SortOption) || 'name';
+  });
+  const [sortDesc, setSortDesc] = useState<boolean>(() => {
+    const saved = localStorage.getItem('series-sort-desc');
+    return saved === 'true';
+  });
+
+  // Persist sort preferences to localStorage
+  useEffect(() => {
+    localStorage.setItem('series-sort-by', sortBy);
+  }, [sortBy]);
+  useEffect(() => {
+    localStorage.setItem('series-sort-desc', String(sortDesc));
+  }, [sortDesc]);
 
   const handleAutoSearch = async (fileId: number) => {
     // Optimistic update for immediate UI feedback
@@ -129,7 +143,7 @@ export default function SeriesPage() {
           cmp = a.title.localeCompare(b.title);
           break;
         case 'year':
-          cmp = (a.year || '').localeCompare(b.year || '');
+          cmp = (parseInt(a.year || '0') || 0) - (parseInt(b.year || '0') || 0);
           break;
         case 'created':
           cmp = (a.createdAt || '').localeCompare(b.createdAt || '');
@@ -246,7 +260,7 @@ export default function SeriesPage() {
       />
 
       <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-160px)] min-h-[600px]">
-        <div className="flex flex-col w-full lg:w-80 shrink-0">
+        <div className="flex flex-col w-full lg:w-96 shrink-0">
           <MediaFilterBar
             filter={filter}
             setFilter={setFilter}

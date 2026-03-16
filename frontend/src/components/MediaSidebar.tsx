@@ -53,7 +53,7 @@ export function MediaSidebar({
           lg:translate-x-0
           fixed lg:relative
           z-40 lg:z-auto
-          w-80 h-full lg:h-auto
+          w-full h-full lg:h-auto
           bg-white rounded-2xl p-5 flex flex-col gap-4 overflow-hidden border border-slate-100 shrink-0
           transition-transform duration-200 ease-in-out
           lg:shadow-sm
@@ -95,7 +95,7 @@ export function MediaSidebar({
                 <div className="text-xs text-slate-500">{item.year || '未知年份'}</div>
                 {item.totalCount > 0 && (
                   <div className={`text-[10px] font-medium px-1.5 py-0.5 rounded w-fit ${item.totalCount === item.hasSubCount ? 'bg-green-100 text-green-700' : 'bg-red-50 text-red-600'}`}>
-                    {item.hasSubCount}/{item.totalCount} 有字幕
+                    {item.hasSubCount === item.totalCount ? '有字幕' : item.hasSubCount === 0 ? '无字幕' : `字幕不全 ${item.hasSubCount}/${item.totalCount}`}
                   </div>
                 )}
               </div>

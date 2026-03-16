@@ -41,18 +41,8 @@ export function MediaFilterBar({
   setSortDesc,
   counts
 }: MediaFilterBarProps) {
-  const handleSortClick = (option: SortOption) => {
-    if (sortBy === option) {
-      // Toggle direction when clicking same option
-      setSortDesc(!sortDesc);
-    } else {
-      setSortBy(option);
-      setSortDesc(false); // Reset to ascending when changing sort option
-    }
-  };
-
   return (
-    <div className="flex items-center gap-4 mb-4">
+    <div className="flex items-center justify-between gap-4 mb-4">
       {/* Filter Dropdown */}
       <div className="flex items-center gap-2">
         <Filter className="w-4 h-4 text-slate-500" />
@@ -67,31 +57,26 @@ export function MediaFilterBar({
         </select>
       </div>
 
-      {/* Sort Dropdown */}
+      {/* Sort Dropdown + Direction Toggle */}
       <div className="flex items-center gap-2">
         <SortAsc className="w-4 h-4 text-slate-500" />
-        <div className="flex items-center gap-1">
-          {(Object.keys(SORT_LABELS) as SortOption[]).map((option) => (
-            <button
-              key={option}
-              onClick={() => handleSortClick(option)}
-              className={`px-3 py-2 text-sm rounded-lg border transition-colors flex items-center gap-1.5 ${
-                sortBy === option
-                  ? 'bg-blue-50 border-blue-200 text-blue-600 font-medium'
-                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              {SORT_LABELS[option]}
-              {sortBy === option && (
-                sortDesc ? (
-                  <ArrowDown className="w-3.5 h-3.5" />
-                ) : (
-                  <ArrowUp className="w-3.5 h-3.5" />
-                )
-              )}
-            </button>
-          ))}
-        </div>
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as SortOption)}
+          className="px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
+        >
+          <option value="name">{SORT_LABELS.name}</option>
+          <option value="year">{SORT_LABELS.year}</option>
+          <option value="created">{SORT_LABELS.created}</option>
+          <option value="subtitle_status">{SORT_LABELS.subtitle_status}</option>
+        </select>
+        <button
+          onClick={() => setSortDesc(!sortDesc)}
+          className="p-2 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors"
+          title={sortDesc ? "升序" : "降序"}
+        >
+          {sortDesc ? <ArrowDown className="w-4 h-4" /> : <ArrowUp className="w-4 h-4" />}
+        </button>
       </div>
     </div>
   );

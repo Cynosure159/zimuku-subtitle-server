@@ -22,10 +22,24 @@ export default function MoviesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMovieTitle, setSelectedMovieTitle] = useState<string | null>(null);
 
-  // Filter and sort state
+  // Filter and sort state - load from localStorage
   const [filter, setFilter] = useState<FilterOption>('all');
-  const [sortBy, setSortBy] = useState<SortOption>('name');
-  const [sortDesc, setSortDesc] = useState(false);
+  const [sortBy, setSortBy] = useState<SortOption>(() => {
+    const saved = localStorage.getItem('movies-sort-by');
+    return (saved as SortOption) || 'name';
+  });
+  const [sortDesc, setSortDesc] = useState<boolean>(() => {
+    const saved = localStorage.getItem('movies-sort-desc');
+    return saved === 'true';
+  });
+
+  // Persist sort preferences to localStorage
+  useEffect(() => {
+    localStorage.setItem('movies-sort-by', sortBy);
+  }, [sortBy]);
+  useEffect(() => {
+    localStorage.setItem('movies-sort-desc', String(sortDesc));
+  }, [sortDesc]);
 
   const groupedMovies = useMemo(() => {
     const groups: Record<string, { title: string; year?: string; files: ScannedFile[]; createdAt?: string }> = {};
@@ -59,7 +73,7 @@ export default function MoviesPage() {
           cmp = a.title.localeCompare(b.title);
           break;
         case 'year':
-          cmp = (a.year || '').localeCompare(b.year || '');
+          cmp = (parseInt(a.year || '0') || 0) - (parseInt(b.year || '0') || 0);
           break;
         case 'created':
           cmp = (a.createdAt || '').localeCompare(b.createdAt || '');
@@ -152,7 +166,7 @@ export default function MoviesPage() {
       />
 
       <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-160px)] min-h-[600px]">
-        <div className="flex flex-col w-full lg:w-80 shrink-0">
+        <div className="flex flex-col w-full lg:w-96 shrink-0">
           <MediaFilterBar
             filter={filter}
             setFilter={setFilter}
