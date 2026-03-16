@@ -95,5 +95,14 @@ export function useMediaPolling(type: 'movie' | 'tv') {
     }));
   };
 
-  return { paths, files, status, fetchData, setIsScanningOptimistic, setMatchingFileOptimistic };
+  const setMatchingSeasonOptimistic = (title: string, season: number, isMatching: boolean) => {
+    setStatus(prev => ({
+      ...prev,
+      matching_seasons: isMatching
+        ? [...prev.matching_seasons, { title, season }]
+        : prev.matching_seasons.filter(m => !(m.title === title && m.season === season))
+    }));
+  };
+
+  return { paths, files, status, fetchData, setIsScanningOptimistic, setMatchingFileOptimistic, setMatchingSeasonOptimistic };
 }

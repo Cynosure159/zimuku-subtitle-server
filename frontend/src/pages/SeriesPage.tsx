@@ -19,7 +19,7 @@ async function fetchSeriesMetadata(fileId: number) {
 
 export default function SeriesPage() {
   const navigate = useNavigate();
-  const { paths, files, status, fetchData, setIsScanningOptimistic, setMatchingFileOptimistic } = useMediaPolling('tv');
+  const { paths, files, status, fetchData, setIsScanningOptimistic, setMatchingFileOptimistic, setMatchingSeasonOptimistic } = useMediaPolling('tv');
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSeriesTitle, setSelectedSeriesTitle] = useState<string | null>(null);
@@ -49,9 +49,15 @@ export default function SeriesPage() {
   };
 
   const handleMatchSeason = async (title: string, season: number) => {
+    // Optimistic update for immediate UI feedback
+    setMatchingSeasonOptimistic(title, season, true);
+    // Fallback to clear state after 3 seconds
+    const timeoutId = setTimeout(() => setMatchingSeasonOptimistic(title, season, false), 3000);
     try {
       await matchTVSeason(title, season);
     } catch (err: unknown) {
+      clearTimeout(timeoutId);
+      setMatchingSeasonOptimistic(title, season, false);
       const message = err instanceof Error ? err.message : String(err);
       alert('补全任务触发失败: ' + message);
     }
