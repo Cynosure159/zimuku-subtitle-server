@@ -118,12 +118,13 @@ None
 |---|-------------|------|--------|-----------|
 | 1 | 点击自动搜索按钮没有马上变成搜索中状态；点击刷新电影有没有刷新中的UI反馈 | 2026-03-12 | | [1-ui](./quick/1-ui/) |
 | 3 | 扫描目录添加debug日志 | 2026-03-16 | | [3-debug](./quick/3-debug/) |
-| 4 | 剧集文件列表样式优化 | 2026-03-16 | 0696a3e | [4-series-style](./quick/004/) |
-| 5 | 智能补全本季字幕按钮点击无作用 | 2026-03-16 | 2b0c071 | [5-season-match-button](./quick/005/) |
+| 4 | 剧集文件列表样式优化 | 2026-03-16 | 0696a3e | [004-series-style](./quick/004/) |
+| 5 | 智能补全本季字幕按钮点击无作用 | 2026-03-16 | 2b0c071 | [005-season-match-button](./quick/005/) |
+| 6 | 智能补全本季字幕 点击了并没有进行字幕搜索，后端日志也没有debug日志 | 2026-03-16 | 50abb59 | [004-debug](./quick/004-debug/) |
 
 ---
 
-Last activity: 2026-03-16 - Completed quick task 5: 智能补全本季字幕按钮点击无作用
+Last activity: 2026-03-16 - Completed quick task 6: 智能补全本季字幕 点击了并没有进行字幕搜索，后端日志也没有debug日志
 
 ## Session Continuity
 
