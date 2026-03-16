@@ -337,13 +337,15 @@ class MediaService:
     async def run_season_match_process(title: str, season: int):
         from ..db.session import engine
 
-        logger.debug(f"开始季匹配: title={title}, season={season}")
+        # 去除年份，与单文件自动匹配保持一致
+        query_title = re.sub(r"\s*\(\d{4}\)", "", title).strip()
+        logger.debug(f"开始季匹配: title={title}, query_title={query_title}, season={season}")
         global_task_status.matching_seasons.add((title, season))
         try:
             with Session(engine) as session:
-                logger.debug(f"查询条件: title={title}, season={season}, type=tv, has_subtitle=false")
+                logger.debug(f"查询条件: title={query_title}, season={season}, type=tv, has_subtitle=false")
                 statement = select(ScannedFile).where(
-                    ScannedFile.extracted_title == title,
+                    ScannedFile.extracted_title == query_title,
                     ScannedFile.type == "tv",
                     ScannedFile.season == season,
                     not ScannedFile.has_subtitle,
@@ -351,7 +353,7 @@ class MediaService:
                 files = session.exec(statement).all()
                 logger.debug(f"查询到 {len(files)} 个无字幕文件")
                 if not files:
-                    logger.debug(f"未找到匹配的文件: title={title}, season={season}")
+                    logger.debug(f"未找到匹配的文件: query_title={query_title}, season={season}")
                     return
 
                 for f in files:
@@ -359,9 +361,9 @@ class MediaService:
                     # 复用内部匹配流程
                     await MediaService._run_auto_match_internal(f.id, session)
                     await asyncio.sleep(2)
-                logger.debug(f"季匹配完成: title={title}, season={season}")
+                logger.debug(f"季匹配完成: query_title={query_title}, season={season}")
         except Exception as e:
-            logger.debug(f"季匹配异常: title={title}, season={season}, error={e}")
+            logger.debug(f"季匹配异常: query_title={query_title}, season={season}, error={e}")
             raise
         finally:
             global_task_status.matching_seasons.discard((title, season))
