@@ -335,6 +335,8 @@ class MediaService:
 
     @staticmethod
     async def run_season_match_process(title: str, season: int):
+        from sqlmodel import or_
+
         from ..db.session import engine
 
         # 去除年份，与单文件自动匹配保持一致
@@ -343,9 +345,13 @@ class MediaService:
         global_task_status.matching_seasons.add((title, season))
         try:
             with Session(engine) as session:
-                logger.debug(f"查询条件: title={query_title}, season={season}, type=tv, has_subtitle=false")
+                # 同时匹配带年份和不带年份的标题（数据库中可能存的是带年份的）
+                logger.debug(f"查询条件: title={query_title}/{title}, season={season}, type=tv, has_subtitle=false")
                 statement = select(ScannedFile).where(
-                    ScannedFile.extracted_title == query_title,
+                    or_(
+                        ScannedFile.extracted_title == query_title,
+                        ScannedFile.extracted_title == title,
+                    ),
                     ScannedFile.type == "tv",
                     ScannedFile.season == season,
                     not ScannedFile.has_subtitle,
