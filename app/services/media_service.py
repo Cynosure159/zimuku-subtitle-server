@@ -337,9 +337,11 @@ class MediaService:
     async def run_season_match_process(title: str, season: int):
         from ..db.session import engine
 
+        logger.debug(f"开始季匹配: title={title}, season={season}")
         global_task_status.matching_seasons.add((title, season))
         try:
             with Session(engine) as session:
+                logger.debug(f"查询条件: title={title}, season={season}, type=tv, has_subtitle=false")
                 statement = select(ScannedFile).where(
                     ScannedFile.extracted_title == title,
                     ScannedFile.type == "tv",
@@ -347,12 +349,19 @@ class MediaService:
                     not ScannedFile.has_subtitle,
                 )
                 files = session.exec(statement).all()
+                logger.debug(f"查询到 {len(files)} 个无字幕文件")
                 if not files:
+                    logger.debug(f"未找到匹配的文件: title={title}, season={season}")
                     return
 
                 for f in files:
+                    logger.debug(f"处理文件: {f.filename}")
                     # 复用内部匹配流程
                     await MediaService._run_auto_match_internal(f.id, session)
                     await asyncio.sleep(2)
+                logger.debug(f"季匹配完成: title={title}, season={season}")
+        except Exception as e:
+            logger.debug(f"季匹配异常: title={title}, season={season}, error={e}")
+            raise
         finally:
             global_task_status.matching_seasons.discard((title, season))
