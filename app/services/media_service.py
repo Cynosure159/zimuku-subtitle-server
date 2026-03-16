@@ -354,7 +354,7 @@ class MediaService:
                     ),
                     ScannedFile.type == "tv",
                     ScannedFile.season == season,
-                    not ScannedFile.has_subtitle,
+                    ScannedFile.has_subtitle.is_(False),
                 )
                 files = session.exec(statement).all()
                 logger.debug(f"查询到 {len(files)} 个无字幕文件")
