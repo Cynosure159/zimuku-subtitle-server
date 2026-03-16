@@ -118,10 +118,11 @@ None
 |---|-------------|------|--------|-----------|
 | 1 | 点击自动搜索按钮没有马上变成搜索中状态；点击刷新电影有没有刷新中的UI反馈 | 2026-03-12 | | [1-ui](./quick/1-ui/) |
 | 3 | 扫描目录添加debug日志 | 2026-03-16 | | [3-debug](./quick/3-debug/) |
+| 4 | 剧集文件列表样式优化 | 2026-03-16 | 1ced73d | [4-series-style](./quick/004/) |
 
 ---
 
-Last activity: 2026-03-16 - Completed quick task 3: 扫描目录添加debug日志
+Last activity: 2026-03-16 - Completed quick task 4: 剧集文件列表样式优化
 
 ## Session Continuity
 
