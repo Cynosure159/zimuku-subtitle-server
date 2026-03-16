@@ -136,8 +136,10 @@ class MediaService:
             video_extensions = {".mp4", ".mkv", ".avi", ".ts", ".rmvb"}
             for mp in paths:
                 logger.info(f"扫描路径: {mp.path}")
+                logger.debug(f"开始扫描路径: {mp.path}")
                 scan_dir = Path(mp.path)
                 if not scan_dir.exists() or not scan_dir.is_dir():
+                    logger.debug(f"路径不存在或不是目录: {mp.path}")
                     continue
 
                 try:
@@ -148,12 +150,22 @@ class MediaService:
                         """处理单个视频文件"""
                         str_path = str(file_path.absolute())
                         filename = file_path.name
+                        logger.debug(f"处理文件: {filename}, title={title}")
                         parsed = parse_media_filename(filename)
+                        logger.debug(f"解析结果: {parsed}")
                         has_sub = check_has_subtitle(file_path)
+                        logger.debug(f"字幕检测结果: has_sub={has_sub}")
+
+                        logger.debug(f"文件存在检查: {str_path} -> {os.path.exists(str_path)}")
 
                         existing_file = session_data.exec(
                             select(ScannedFile).where(ScannedFile.file_path == str_path)
                         ).first()
+
+                        if not existing_file:
+                            logger.debug(f"新增文件记录: {filename}")
+                        else:
+                            logger.debug(f"更新文件记录: {filename}")
 
                         if not existing_file:
                             new_file = ScannedFile(
@@ -178,6 +190,7 @@ class MediaService:
                             session_data.add(existing_file)
 
                     for sub_dir in scan_dir.iterdir():
+                        logger.debug(f"处理子目录: {sub_dir}")
                         if sub_dir.is_dir():
                             extracted_title = sub_dir.name
                             # TV 类型：一级文件夹 = 剧集名称，扫描该文件夹下所有层级的视频
