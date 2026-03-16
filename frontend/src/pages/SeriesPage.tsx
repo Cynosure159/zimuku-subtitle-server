@@ -233,12 +233,12 @@ export default function SeriesPage() {
             </div>
 
             {/* File List Table */}
-            <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm flex flex-col">
-              <div className="bg-slate-100 px-5 py-3 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider flex items-center">
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col min-h-[200px]">
+              <div className="bg-slate-100 px-5 py-3 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider flex items-center shrink-0">
                 <div className="flex-1">集数与文件名称</div>
                 <div className="w-48 text-center">状态与操作</div>
               </div>
-              <div className="flex flex-col">
+              <div className="flex flex-col overflow-y-auto max-h-[400px] custom-scrollbar">
                 {currentSeasonFiles.map((file, i) => {
                   const isMatching = status.matching_files.includes(file.id);
                   return (
