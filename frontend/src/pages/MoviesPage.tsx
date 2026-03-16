@@ -7,6 +7,7 @@ import { MediaInfoCard } from '../components/MediaInfoCard';
 import { EmptySelectionState } from '../components/EmptySelectionState';
 import { MediaList } from '../components/MediaList';
 import { useMediaPolling, type ScannedFile } from '../hooks/useMediaPolling';
+import { MediaFilterBar, type FilterOption, type SortOption } from '../components/MediaFilterBar';
 
 const API_BASE = 'http://127.0.0.1:8000';
 
@@ -21,20 +22,75 @@ export default function MoviesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMovieTitle, setSelectedMovieTitle] = useState<string | null>(null);
 
+  // Filter and sort state
+  const [filter, setFilter] = useState<FilterOption>('all');
+  const [sortBy, setSortBy] = useState<SortOption>('name');
+  const [sortDesc, setSortDesc] = useState(false);
+
   const groupedMovies = useMemo(() => {
-    const groups: Record<string, { title: string; year?: string; files: ScannedFile[] }> = {};
+    const groups: Record<string, { title: string; year?: string; files: ScannedFile[]; createdAt?: string }> = {};
     files.forEach(file => {
       const title = file.extracted_title || '未知电影';
       if (!groups[title]) {
-        groups[title] = { title, year: file.year, files: [] };
+        groups[title] = { title, year: file.year, files: [], createdAt: file.created_at };
       }
       groups[title].files.push(file);
     });
-    
-    return Object.values(groups).filter(m => 
+
+    const result = Object.values(groups).filter(m =>
       m.title.toLowerCase().includes(searchTerm.toLowerCase())
-    ).sort((a, b) => a.title.localeCompare(b.title));
-  }, [files, searchTerm]);
+    );
+
+    // Apply filter based on subtitle status
+    const filtered = result.filter(m => {
+      const totalCount = m.files.length;
+      const hasSubCount = m.files.filter(f => f.has_subtitle).length;
+      if (filter === 'all') return true;
+      if (filter === 'has') return totalCount === hasSubCount;
+      if (filter === 'missing') return hasSubCount < totalCount;
+      return true;
+    });
+
+    // Apply sort
+    return filtered.sort((a, b) => {
+      let cmp = 0;
+      switch (sortBy) {
+        case 'name':
+          cmp = a.title.localeCompare(b.title);
+          break;
+        case 'year':
+          cmp = (a.year || '').localeCompare(b.year || '');
+          break;
+        case 'created':
+          cmp = (a.createdAt || '').localeCompare(b.createdAt || '');
+          break;
+        case 'subtitle_status': {
+          const aRatio = a.files.filter(f => f.has_subtitle).length / a.files.length;
+          const bRatio = b.files.filter(f => f.has_subtitle).length / b.files.length;
+          cmp = aRatio - bRatio;
+          break;
+        }
+      }
+      return sortDesc ? -cmp : cmp;
+    });
+  }, [files, searchTerm, filter, sortBy, sortDesc]);
+
+  // Calculate filter counts
+  const filterCounts = useMemo(() => {
+    const groups: Record<string, { totalCount: number; hasSubCount: number }> = {};
+    files.forEach(file => {
+      const title = file.extracted_title || '未知电影';
+      if (!groups[title]) {
+        groups[title] = { totalCount: 0, hasSubCount: 0 };
+      }
+      groups[title].totalCount++;
+      if (file.has_subtitle) groups[title].hasSubCount++;
+    });
+    const all = Object.keys(groups).length;
+    const has = Object.values(groups).filter(g => g.totalCount === g.hasSubCount).length;
+    const missing = all - has;
+    return { all, has, missing };
+  }, [files]);
 
   // 批量获取每个电影的元数据（海报和 NFO 信息）
   const metadataQueries = useQueries({
@@ -96,15 +152,37 @@ export default function MoviesPage() {
       />
 
       <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-160px)] min-h-[600px]">
-        <MediaSidebar
-          items={sidebarItems}
-          searchTerm={searchTerm}
-          onSearchTermChange={setSearchTerm}
-          selectedTitle={selectedMovieTitle}
-          onSelectTitle={setSelectedMovieTitle}
-          searchPlaceholder="搜索电影..."
-          emptyText="未找到电影"
-        />
+        <div className="flex flex-col w-full lg:w-80 shrink-0">
+          <MediaFilterBar
+            filter={filter}
+            setFilter={setFilter}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
+            sortDesc={sortDesc}
+            setSortDesc={setSortDesc}
+            counts={filterCounts}
+          />
+          <MediaSidebar
+            items={sidebarItems}
+            searchTerm={searchTerm}
+            onSearchTermChange={setSearchTerm}
+            selectedTitle={selectedMovieTitle}
+            onSelectTitle={setSelectedMovieTitle}
+            searchPlaceholder="搜索电影..."
+            emptyText="未找到电影"
+          />
+          {sidebarItems.length === 0 && filter !== 'all' && (
+            <div className="mt-4 p-4 bg-slate-50 rounded-lg text-center">
+              <p className="text-sm text-slate-500 mb-2">筛选结果为空</p>
+              <button
+                onClick={() => setFilter('all')}
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              >
+                清除筛选条件
+              </button>
+            </div>
+          )}
+        </div>
 
         {selectedMovie ? (
           <div className="flex-1 flex flex-col gap-6 overflow-y-auto pb-6 custom-scrollbar pr-2 lg:ml-0 ml-2">

@@ -8,6 +8,7 @@ import { MediaSidebar, type SidebarItem } from '../components/MediaSidebar';
 import { MediaInfoCard } from '../components/MediaInfoCard';
 import { EmptySelectionState } from '../components/EmptySelectionState';
 import { useMediaPolling, type ScannedFile } from '../hooks/useMediaPolling';
+import { MediaFilterBar, type FilterOption, type SortOption } from '../components/MediaFilterBar';
 import { Search, Loader2 } from 'lucide-react';
 
 const API_BASE = 'http://127.0.0.1:8000';
@@ -24,6 +25,11 @@ export default function SeriesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSeriesTitle, setSelectedSeriesTitle] = useState<string | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<number>(1);
+
+  // Filter and sort state
+  const [filter, setFilter] = useState<FilterOption>('all');
+  const [sortBy, setSortBy] = useState<SortOption>('name');
+  const [sortDesc, setSortDesc] = useState(false);
 
   const handleAutoSearch = async (fileId: number) => {
     // Optimistic update for immediate UI feedback
@@ -72,6 +78,7 @@ export default function SeriesPage() {
       hasSubCount: number;
       firstPath: string;
       firstFileId: number;
+      createdAt?: string;
       seasons: Record<number, ScannedFile[]>
     }> = {};
 
@@ -85,6 +92,7 @@ export default function SeriesPage() {
           hasSubCount: 0,
           firstPath: file.file_path,
           firstFileId: file.id,
+          createdAt: file.created_at,
           seasons: {}
         };
       }
@@ -95,15 +103,64 @@ export default function SeriesPage() {
       groups[title].seasons[s].push(file);
       // Sort episodes inside season
       groups[title].seasons[s].sort((a, b) => (a.episode || 0) - (b.episode || 0));
-      
+
       groups[title].totalCount++;
       if (file.has_subtitle) groups[title].hasSubCount++;
     });
-    
-    return Object.values(groups).filter(s => 
+
+    const result = Object.values(groups).filter(s =>
       s.title.toLowerCase().includes(searchTerm.toLowerCase())
-    ).sort((a, b) => a.title.localeCompare(b.title));
-  }, [files, searchTerm]);
+    );
+
+    // Apply filter based on subtitle status
+    // For series: "has subtitles" = ALL episodes have subtitles
+    const filtered = result.filter(s => {
+      if (filter === 'all') return true;
+      if (filter === 'has') return s.totalCount === s.hasSubCount;
+      if (filter === 'missing') return s.hasSubCount < s.totalCount;
+      return true;
+    });
+
+    // Apply sort
+    return filtered.sort((a, b) => {
+      let cmp = 0;
+      switch (sortBy) {
+        case 'name':
+          cmp = a.title.localeCompare(b.title);
+          break;
+        case 'year':
+          cmp = (a.year || '').localeCompare(b.year || '');
+          break;
+        case 'created':
+          cmp = (a.createdAt || '').localeCompare(b.createdAt || '');
+          break;
+        case 'subtitle_status': {
+          const aRatio = a.hasSubCount / a.totalCount;
+          const bRatio = b.hasSubCount / b.totalCount;
+          cmp = aRatio - bRatio;
+          break;
+        }
+      }
+      return sortDesc ? -cmp : cmp;
+    });
+  }, [files, searchTerm, filter, sortBy, sortDesc]);
+
+  // Calculate filter counts
+  const filterCounts = useMemo(() => {
+    const groups: Record<string, { totalCount: number; hasSubCount: number }> = {};
+    files.forEach(file => {
+      const title = file.extracted_title || '未知剧集';
+      if (!groups[title]) {
+        groups[title] = { totalCount: 0, hasSubCount: 0 };
+      }
+      groups[title].totalCount++;
+      if (file.has_subtitle) groups[title].hasSubCount++;
+    });
+    const all = Object.keys(groups).length;
+    const has = Object.values(groups).filter(g => g.totalCount === g.hasSubCount).length;
+    const missing = all - has;
+    return { all, has, missing };
+  }, [files]);
 
   // 批量获取每个剧集的元数据（海报和 NFO 信息）
   const metadataQueries = useQueries({
@@ -189,15 +246,37 @@ export default function SeriesPage() {
       />
 
       <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-160px)] min-h-[600px]">
-        <MediaSidebar
-          items={sidebarItems}
-          searchTerm={searchTerm}
-          onSearchTermChange={setSearchTerm}
-          selectedTitle={selectedSeriesTitle}
-          onSelectTitle={setSelectedSeriesTitle}
-          searchPlaceholder="搜索剧集..."
-          emptyText="未找到剧集"
-        />
+        <div className="flex flex-col w-full lg:w-80 shrink-0">
+          <MediaFilterBar
+            filter={filter}
+            setFilter={setFilter}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
+            sortDesc={sortDesc}
+            setSortDesc={setSortDesc}
+            counts={filterCounts}
+          />
+          <MediaSidebar
+            items={sidebarItems}
+            searchTerm={searchTerm}
+            onSearchTermChange={setSearchTerm}
+            selectedTitle={selectedSeriesTitle}
+            onSelectTitle={setSelectedSeriesTitle}
+            searchPlaceholder="搜索剧集..."
+            emptyText="未找到剧集"
+          />
+          {sidebarItems.length === 0 && filter !== 'all' && (
+            <div className="mt-4 p-4 bg-slate-50 rounded-lg text-center">
+              <p className="text-sm text-slate-500 mb-2">筛选结果为空</p>
+              <button
+                onClick={() => setFilter('all')}
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              >
+                清除筛选条件
+              </button>
+            </div>
+          )}
+        </div>
 
         {selectedSeries ? (
           <div className="flex-1 flex flex-col gap-6 overflow-y-auto pb-6 custom-scrollbar pr-2 lg:ml-0 ml-2">
