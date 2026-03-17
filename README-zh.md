@@ -1,5 +1,7 @@
 # Zimuku Subtitle Server (字幕库字幕服务)
 
+[English](./README.md) | 中文
+
 一款独立的字幕管理与刮削服务，支持高效的 TV 剧集精确匹配、自动化媒体库扫描及 MCP（Model Context Protocol）协议集成，方便 AI 驱动实现自动化字幕管理。
 
 ## 核心特性

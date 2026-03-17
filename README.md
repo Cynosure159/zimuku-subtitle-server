@@ -1,5 +1,7 @@
 # Zimuku Subtitle Server
 
+[中文](./README-zh.md) | English
+
 A subtitle management and scraping service with intelligent TV series matching, supporting automated media library scanning and AI-driven automation via MCP protocol.
 
 ## Key Features
