@@ -123,10 +123,11 @@ None
 | 5 | 智能补全本季字幕按钮点击无作用 | 2026-03-16 | 2b0c071 | [005-season-match-button](./quick/005/) |
 | 6 | 智能补全本季字幕 点击了并没有进行字幕搜索，后端日志也没有debug日志 | 2026-03-16 | 50abb59 | [004-debug](./quick/004-debug/) |
 | 7 | 创建 README.md 和 README-zh.md 文档 | 2026-03-17 | d2a62d5 | [7-readme-md-readme-zh-md-mit-ai](./quick/7-readme-md-readme-zh-md-mit-ai/) |
+| 8 | 创建 Dockerfile 和 docker-compose.yml 用于容器化部署 | 2026-03-17 | | [8-dockerfile-docker-compose](./quick/8-dockerfile-docker-compose/) |
 
 ---
 
-Last activity: 2026-03-17 - Completed quick task 7: 创建 README.md 和 README-zh.md 文档
+Last activity: 2026-03-17 - Completed quick task 8: 创建 Dockerfile 和 docker-compose.yml 用于容器化部署
 
 ## Session Continuity
 
