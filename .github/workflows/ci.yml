@@ -20,7 +20,8 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install pytest ruff sqlmodel python-multipart
+          pip install -r requirements.txt
+          pip install pytest
 
       - name: Run ruff check
         run: ruff check .
