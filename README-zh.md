@@ -46,6 +46,37 @@ npm run dev
 
 前端服务地址: `http://localhost:5173`
 
+## Docker 部署
+
+### 构建并运行
+
+```bash
+docker-compose up --build
+```
+
+### 服务
+
+- **前端**: http://localhost (nginx)
+- **后端**: http://localhost:8000
+
+### 单独运行
+
+```bash
+# 只运行后端
+docker-compose build backend
+docker-compose up backend
+
+# 只运行前端
+docker-compose build frontend
+docker-compose up frontend
+```
+
+### 说明
+
+- 后端存储挂载到宿主机的 `./storage` 目录
+- 后端以非 root 用户运行，确保安全
+- 前端将 `/api/*` 请求代理到后端
+
 ## API 文档
 
 完整的 API 接口文档请参阅 [API.md](./API.md)。

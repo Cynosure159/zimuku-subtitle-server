@@ -46,6 +46,37 @@ npm run dev
 
 The frontend will be available at `http://localhost:5173`
 
+## Docker Deployment
+
+### Build and Run
+
+```bash
+docker-compose up --build
+```
+
+### Services
+
+- **Frontend**: http://localhost (nginx)
+- **Backend**: http://localhost:8000
+
+### Development
+
+```bash
+# Backend only
+docker-compose build backend
+docker-compose up backend
+
+# Frontend only
+docker-compose build frontend
+docker-compose up frontend
+```
+
+### Notes
+
+- Backend storage is mounted to `./storage` on host
+- Backend runs as non-root user for security
+- Frontend proxies `/api/*` requests to backend
+
 ## API Documentation
 
 See [API.md](./API.md) for complete API reference.
