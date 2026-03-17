@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { listMediaPaths, listScannedFiles, getMediaStatus } from '../api';
+import { listMediaPaths, listScannedFiles, getTaskStatus } from '../api';
 
 export interface MediaPath {
   id: number;
@@ -21,7 +21,7 @@ export interface ScannedFile {
   created_at: string;
 }
 
-export interface MediaStatus {
+export interface TaskStatus {
   is_scanning: boolean;
   matching_files: number[];
   matching_seasons: { title: string; season: number }[];
@@ -30,7 +30,7 @@ export interface MediaStatus {
 export function useMediaPolling(type: 'movie' | 'tv') {
   const [paths, setPaths] = useState<MediaPath[]>([]);
   const [files, setFiles] = useState<ScannedFile[]>([]);
-  const [status, setStatus] = useState<MediaStatus>({ 
+  const [status, setStatus] = useState<TaskStatus>({ 
     is_scanning: false, 
     matching_files: [], 
     matching_seasons: [] 
@@ -41,7 +41,7 @@ export function useMediaPolling(type: 'movie' | 'tv') {
       const [pathsData, filesData, statusData] = await Promise.all([
         listMediaPaths(),
         listScannedFiles(type),
-        getMediaStatus()
+        getTaskStatus()
       ]);
       setPaths(pathsData.filter((p: MediaPath) => p.type === type));
       setFiles(filesData);
@@ -58,7 +58,7 @@ export function useMediaPolling(type: 'movie' | 'tv') {
         const [pathsData, filesData, statusData] = await Promise.all([
           listMediaPaths(),
           listScannedFiles(type),
-          getMediaStatus()
+          getTaskStatus()
         ]);
         setPaths(pathsData.filter((p: MediaPath) => p.type === type));
         setFiles(filesData);

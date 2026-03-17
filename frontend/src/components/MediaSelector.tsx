@@ -71,6 +71,9 @@ export default function MediaSelector({ onSelect, defaultType = 'movie' }: Media
         path: file.file_path,
         path_type: file.type as 'movie' | 'tv',
         year: file.year ? parseInt(file.year) : undefined,
+        episode_count: undefined,
+        seasons: undefined,
+        seasonEpisodes: undefined,
       }));
     } else {
       // For TV, group by title and collect seasons and episodes
@@ -119,7 +122,7 @@ export default function MediaSelector({ onSelect, defaultType = 'movie' }: Media
     }
   }, [rawData, mediaType]);
 
-  const toggleExpand = (id: number) => {
+  const toggleExpand = (id: number | string) => {
     setExpandedItems((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {

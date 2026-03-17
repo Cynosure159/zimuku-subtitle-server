@@ -16,7 +16,7 @@
 | POST | `/media/files/{id}/auto-match` | 单文件自动匹配 | path: `id` |
 | POST | `/media/tv/match-season` | 剧集季批量补全 | `title`, `season` |
 | POST | `/media/match` | 触发全局扫描 | `path_type?` |
-| GET | `/media/status` | 获取当前任务状态 | - |
+| GET | `/media/task-status` | 获取当前任务状态 | - |
 
 ---
 

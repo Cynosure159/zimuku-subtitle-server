@@ -98,8 +98,8 @@ def test_trigger_match_api():
     assert "started" in response.json()["message"]
 
 
-def test_media_status_api():
-    response = client.get("/media/status")
+def test_media_task_status_api():
+    response = client.get("/media/task-status")
     assert response.status_code == 200
     data = response.json()
     assert "is_scanning" in data

@@ -97,8 +97,8 @@ export async function matchTVSeason(title: string, season: number) {
   return response.data;
 }
 
-export async function getMediaStatus() {
-  const response = await api.get('/media/status');
+export async function getTaskStatus() {
+  const response = await api.get('/media/task-status');
   return response.data;
 }
 

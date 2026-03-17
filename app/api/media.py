@@ -16,8 +16,8 @@ router = APIRouter(prefix="/media", tags=["Media"])
 logger = logging.getLogger(__name__)
 
 
-@router.get("/status")
-async def get_media_task_status():
+@router.get("/task-status")
+async def get_task_status():
     """获取当前的后台任务状态"""
     return global_task_status.to_dict()
 
