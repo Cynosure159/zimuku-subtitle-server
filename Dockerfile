@@ -8,9 +8,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxslt-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy and install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies (exclude dev-only packages)
+RUN pip install --no-cache-dir \
+    fastapi \
+    uvicicorn \
+    httpx \
+    beautifulsoup4 \
+    lxml \
+    sqlmodel \
+    python-multipart \
+    pyyaml \
+    py7zr \
+    mcp
 
 # Production stage
 FROM python:3.12-slim
