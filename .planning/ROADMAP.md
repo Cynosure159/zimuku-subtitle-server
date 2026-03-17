@@ -78,7 +78,7 @@
 2. User can sort lists by name, date, or other criteria
 3. UI shows filter controls and sorted results
 
-**Plans:** 1/1 plan complete
+**Plans:** 1/1 plans complete
 
 **Plan List:**
 - [x] 03-01-PLAN.md — Filter & Sort Implementation
@@ -139,7 +139,7 @@
 |-------|----------------|--------|-----------|
 | 1. Foundation & UI Enhancement | 3/3 | Complete   | 2026-03-12 |
 | 2. Manual Download Flow | 3/3 | Complete   | 2026-03-13 |
-| 3. Filter & Sort | 1/1 | Complete   | 2026-03-15 |
+| 3. Filter & Sort | 1/1 | Complete   | 2026-03-16 |
 | 4. 字幕下载定位和移动逻辑 | 3/3 | Complete   | 2026-03-15 |
 | 5. 后端代码结构优化整理 | 3/3 | Complete   | 2026-03-15 |
 
