@@ -1,4 +1,5 @@
 import { Download } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { SearchResult } from '../api';
 
 interface SearchResultRowProps {
@@ -14,6 +15,7 @@ const languageColors: Record<string, string> = {
 };
 
 export default function SearchResultRow({ item, onDownload }: SearchResultRowProps) {
+  const { t } = useTranslation();
   const getLanguageClass = (lang: string) => {
     return languageColors[lang] || 'bg-slate-100 text-slate-700';
   };
@@ -52,12 +54,12 @@ export default function SearchResultRow({ item, onDownload }: SearchResultRowPro
           )}
           {item.download_count && (
             <span className="text-slate-400 text-xs">
-              {item.download_count} 次下载
+              {t('downloadCount', { count: Number(item.download_count) })}
             </span>
           )}
           {item.author && (
             <span className="text-slate-400 text-xs">
-              作者: {item.author}
+              {t('author')}: {item.author}
             </span>
           )}
         </div>
@@ -67,7 +69,7 @@ export default function SearchResultRow({ item, onDownload }: SearchResultRowPro
         className="text-blue-500 text-xs px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors flex items-center gap-1 shrink-0"
       >
         <Download className="w-3.5 h-3.5" />
-        下载
+        {t('action.download')}
       </button>
     </div>
   );

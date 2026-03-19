@@ -1,0 +1,168 @@
+{
+  "nav": {
+    "search": "Subtitle Search",
+    "movies": "Movies",
+    "series": "TV Series",
+    "tasks": "Downloads",
+    "settings": "Settings"
+  },
+  "page": {
+    "search": {
+      "title": "Search Subtitles",
+      "placeholder": "Enter name...",
+      "button": "Search",
+      "noResults": "No results for current filter"
+    },
+    "movies": {
+      "title": "Movie Management",
+      "unknownMovie": "Unknown Movie",
+      "noMovies": "No movies found",
+      "filterEmpty": "Filter result is empty",
+      "clearFilter": "Clear filter",
+      "localFiles": "Local Video Files"
+    },
+    "series": {
+      "title": "Series Management",
+      "unknownSeries": "Unknown Series",
+      "noSeries": "No series found",
+      "filterEmpty": "Filter result is empty",
+      "clearFilter": "Clear filter",
+      "season": "Season {n}",
+      "smartMatch": "Smart Match Season",
+      "smartMatching": "Matching...",
+      "noVideos": "No video files for this season",
+      "episodeFile": "Episode & File Name",
+      "statusAction": "Status & Actions"
+    },
+    "tasks": {
+      "title": "Download Tasks",
+      "clearCompleted": "Clear Completed",
+      "noTasks": "No tasks",
+      "status": {
+        "completed": "Completed",
+        "failed": "Failed",
+        "downloading": "Downloading",
+        "pending": "Pending"
+      },
+      "retry": "Retry",
+      "delete": "Delete",
+      "createdAt": "Created at",
+      "error": "Error",
+      "saveTo": "Saved to"
+    },
+    "settings": {
+      "title": "Settings",
+      "language": "Language",
+      "save": "Save",
+      "saved": "Saved successfully",
+      "saveFailed": "Save failed",
+      "lastUpdated": "Last updated",
+      "noConfig": "No configuration items. Please initialize or insert data in backend.",
+      "loading": "Loading..."
+    }
+  },
+  "filter": {
+    "all": "All",
+    "has": "Has Subtitles",
+    "missing": "Missing Subtitles"
+  },
+  "sort": {
+    "name": "Name",
+    "year": "Year",
+    "created": "Added Time",
+    "subtitleStatus": "Subtitle Status",
+    "ascending": "Ascending",
+    "descending": "Descending"
+  },
+  "status": {
+    "searching": "Searching",
+    "matched": "Matched",
+    "missing": "Missing",
+    "hasSubtitle": "Has Subtitles",
+    "noSubtitle": "No Subtitles",
+    "incomplete": "Incomplete {has}/{total}"
+  },
+  "action": {
+    "autoSearch": "Auto Search",
+    "manualSearch": "Manual Search",
+    "download": "Download",
+    "add": "Add",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "retry": "Retry",
+    "delete": "Delete",
+    "clear": "Clear",
+    "refresh": "Refresh",
+    "save": "Save",
+    "close": "Close",
+    "back": "Back"
+  },
+  "mediaConfig": {
+    "directoryConfig": "Directory Config",
+    "scanDirectoryConfig": "Scan Directory Config",
+    "addPath": "Add Path",
+    "inputPathPlaceholder": "Enter absolute path for movie folder, e.g.: /mnt/media/movies",
+    "inputTvPathPlaceholder": "Enter absolute path for TV folder, e.g.: /mnt/media/tv",
+    "deletePath": "Delete this path? (Related scan records will also be deleted)",
+    "addFailed": "Add failed",
+    "deleteFailed": "Delete failed",
+    "triggerFailed": "Trigger failed",
+    "refreshing": "Refreshing...",
+    "refreshMovie": "Refresh Movies",
+    "refreshTv": "Refresh Series"
+  },
+  "download": {
+    "title": "Download Subtitle",
+    "selectLanguage": "Select Language",
+    "format": "Format",
+    "selectTargetMedia": "Select Target Media",
+    "advancedOptions": "Advanced Options",
+    "customPathPlaceholder": "Or enter custom path...",
+    "customPathNote": "If left empty, the selected media path above will be used",
+    "startDownload": "Start Download",
+    "adding": "Adding...",
+    "downloadAdded": "Added to download tasks",
+    "downloadFailed": "Failed to add download task"
+  },
+  "mediaSelector": {
+    "loading": "Loading media library...",
+    "movie": "Movies",
+    "tv": "TV Series",
+    "notFound": "No movies found",
+    "notFoundTv": "No series found",
+    "episodes": "{count} episodes"
+  },
+  "episodeSelector": {
+    "season": "Season {n}"
+  },
+  "empty": {
+    "selectLeft": "Select a {type} on the left to view details"
+  },
+  "year": {
+    "unknown": "Unknown Year"
+  },
+  "downloadCount": "{count} downloads",
+  "author": "Author",
+  "association": "Associated Scan Directory",
+  "noPlot": "No synopsis available. Details will be added automatically by the scraper later.",
+  "metadataError": "Failed to load metadata",
+  "metadataRetry": "Retry",
+  "sidebar": {
+    "open": "Open sidebar",
+    "close": "Close sidebar"
+  },
+  "searchFilter": {
+    "all": "All",
+    "simplified": "Simplified",
+    "traditional": "Traditional",
+    "english": "English",
+    "bilingual": "Bilingual"
+  },
+  "confirm": {
+    "deleteTask": "Are you sure you want to delete this task?",
+    "deletePath": "Are you sure you want to delete this path? (Related scan records will also be deleted)",
+    "clearCompleted": "Are you sure you want to clear all completed task records?"
+  },
+  "movie": "Movie",
+  "tv": "TV Series"
+}

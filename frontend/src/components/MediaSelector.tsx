@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Film, Tv, ChevronRight, ChevronDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { listScannedFiles } from '../api';
 
 interface ScannedFile {
@@ -41,6 +42,7 @@ export interface MediaSelection {
 }
 
 export default function MediaSelector({ onSelect, defaultType = 'movie' }: MediaSelectorProps) {
+  const { t } = useTranslation();
   const [mediaType, setMediaType] = useState<'movie' | 'tv'>(defaultType);
   const [rawData, setRawData] = useState<ScannedFile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -150,7 +152,7 @@ export default function MediaSelector({ onSelect, defaultType = 'movie' }: Media
   };
 
   if (loading) {
-    return <div className="text-sm text-slate-500 py-4">加载媒体库...</div>;
+    return <div className="text-sm text-slate-500 py-4">{t('mediaSelector.loading')}</div>;
   }
 
   return (
@@ -165,7 +167,7 @@ export default function MediaSelector({ onSelect, defaultType = 'movie' }: Media
           }`}
         >
           <Film className="w-4 h-4" />
-          电影
+          {t('mediaSelector.movie')}
         </button>
         <button
           onClick={() => setMediaType('tv')}
@@ -176,14 +178,14 @@ export default function MediaSelector({ onSelect, defaultType = 'movie' }: Media
           }`}
         >
           <Tv className="w-4 h-4" />
-          剧集
+          {t('mediaSelector.tv')}
         </button>
       </div>
 
       <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-lg">
         {mediaItems.length === 0 ? (
           <div className="p-4 text-sm text-slate-500 text-center">
-            未找到{mediaType === 'movie' ? '电影' : '剧集'}
+            {mediaType === 'movie' ? t('mediaSelector.notFound') : t('mediaSelector.notFoundTv')}
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
@@ -206,7 +208,7 @@ export default function MediaSelector({ onSelect, defaultType = 'movie' }: Media
                     <div className="font-medium text-slate-900 truncate">{item.title}</div>
                     <div className="text-sm text-slate-500 shrink-0 ml-2">
                       {item.path_type === 'movie' && item.year && `${item.year}`}
-                      {item.path_type === 'tv' && item.episode_count && `${item.episode_count} 集`}
+                      {item.path_type === 'tv' && item.episode_count && t('mediaSelector.episodes', { count: item.episode_count })}
                     </div>
                   </div>
                 </button>
@@ -219,7 +221,7 @@ export default function MediaSelector({ onSelect, defaultType = 'movie' }: Media
                         onClick={() => handleSelect(item, season)}
                         className="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-sm hover:bg-blue-500 hover:text-white transition-colors"
                       >
-                        第 {season} 季
+                        {t('episodeSelector.season', { n: season })}
                       </button>
                     ))}
                   </div>

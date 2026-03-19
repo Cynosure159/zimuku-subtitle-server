@@ -1,4 +1,5 @@
 import { Search, Image as ImageIcon, Menu, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../stores/useUIStore';
 
 export interface SidebarItem {
@@ -29,7 +30,15 @@ export function MediaSidebar({
   searchPlaceholder,
   emptyText,
 }: MediaSidebarProps) {
+  const { t } = useTranslation();
   const { sidebarOpen, toggleSidebar } = useUIStore();
+
+  const getSubtitleStatusText = (item: SidebarItem) => {
+    if (item.totalCount === 0) return '';
+    if (item.hasSubCount === item.totalCount) return t('status.hasSubtitle');
+    if (item.hasSubCount === 0) return t('status.noSubtitle');
+    return t('status.incomplete', { has: item.hasSubCount, total: item.totalCount });
+  };
 
   return (
     <>
@@ -37,7 +46,7 @@ export function MediaSidebar({
       <button
         onClick={toggleSidebar}
         className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-md border border-slate-200"
-        aria-label={sidebarOpen ? '关闭侧边栏' : '打开侧边栏'}
+        aria-label={sidebarOpen ? t('sidebar.close') : t('sidebar.open')}
       >
         {sidebarOpen ? (
           <X className="w-5 h-5 text-slate-600" />
@@ -92,10 +101,10 @@ export function MediaSidebar({
               </div>
               <div className="flex flex-col gap-1 overflow-hidden w-full">
                 <div className="text-sm font-semibold text-slate-900 truncate" title={item.displayTitle}>{item.displayTitle}</div>
-                <div className="text-xs text-slate-500">{item.year || '未知年份'}</div>
+                <div className="text-xs text-slate-500">{item.year || t('year.unknown')}</div>
                 {item.totalCount > 0 && (
                   <div className={`text-[10px] font-medium px-1.5 py-0.5 rounded w-fit ${item.totalCount === item.hasSubCount ? 'bg-green-100 text-green-700' : 'bg-red-50 text-red-600'}`}>
-                    {item.hasSubCount === item.totalCount ? '有字幕' : item.hasSubCount === 0 ? '无字幕' : `字幕不全 ${item.hasSubCount}/${item.totalCount}`}
+                    {getSubtitleStatusText(item)}
                   </div>
                 )}
               </div>

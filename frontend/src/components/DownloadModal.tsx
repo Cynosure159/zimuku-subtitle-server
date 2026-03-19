@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Download, Loader2, ChevronDown, ChevronUp, Film, Tv } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import Modal from './Modal';
 import MediaSelector, { type MediaSelection } from './MediaSelector';
 import EpisodeSelector from './EpisodeSelector';
@@ -13,6 +14,7 @@ interface DownloadModalProps {
 }
 
 export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }: DownloadModalProps) {
+  const { t } = useTranslation();
   const [selectedLangs, setSelectedLangs] = useState<string[]>([]);
   const [selectedFormat, setSelectedFormat] = useState<string>('');
   const [targetMedia, setTargetMedia] = useState<MediaSelection | null>(null);
@@ -92,10 +94,10 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
       }
       onDownload?.();
       onClose();
-      alert('已添加到下载任务');
+      alert(t('download.downloadAdded'));
     } catch (err) {
       console.error('Download failed:', err);
-      alert('添加下载任务失败');
+      alert(t('download.downloadFailed'));
     } finally {
       setLoading(false);
     }
@@ -104,11 +106,11 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
   const getTargetDisplay = () => {
     if (!targetMedia) return null;
     if (targetMedia.type === 'movie') {
-      return `电影: ${targetMedia.title}${targetMedia.year ? ` (${targetMedia.year})` : ''}`;
+      return `${t('movie')}: ${targetMedia.title}${targetMedia.year ? ` (${targetMedia.year})` : ''}`;
     } else if (selectedSeason && selectedEpisode) {
-      return `剧集: ${targetMedia.title} S${selectedSeason.toString().padStart(2, '0')}E${selectedEpisode.toString().padStart(2, '0')}`;
+      return `${t('tv')}: ${targetMedia.title} S${selectedSeason.toString().padStart(2, '0')}E${selectedEpisode.toString().padStart(2, '0')}`;
     } else if (selectedSeason) {
-      return `剧集: ${targetMedia.title} 第 ${selectedSeason} 季`;
+      return `${t('tv')}: ${targetMedia.title} ${t('episodeSelector.season', { n: selectedSeason })}`;
     }
     return null;
   };
@@ -123,20 +125,20 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
 
   if (!subtitle) return null;
 
-  const availableLangs = subtitle.lang || ['简体', '繁体', '英文', '双语'];
+  const availableLangs = subtitle.lang || [t('searchFilter.simplified'), t('searchFilter.traditional'), t('searchFilter.english'), t('searchFilter.bilingual')];
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="下载字幕">
+    <Modal isOpen={isOpen} onClose={onClose} title={t('download.title')}>
       <div className="flex flex-col gap-6">
         <div className="bg-slate-50 rounded-lg p-4">
           <h3 className="font-medium text-slate-900">{subtitle.title}</h3>
           {subtitle.format && (
-            <p className="text-sm text-slate-500 mt-1">格式: {subtitle.format}</p>
+            <p className="text-sm text-slate-500 mt-1">{t('download.format')}: {subtitle.format}</p>
           )}
         </div>
 
         <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-slate-700">选择语言</label>
+          <label className="text-sm font-medium text-slate-700">{t('download.selectLanguage')}</label>
           <div className="flex flex-wrap gap-2">
             {availableLangs.map((lang) => (
               <button
@@ -162,7 +164,7 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
 
         {subtitle.format && (
           <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-slate-700">格式</label>
+            <label className="text-sm font-medium text-slate-700">{t('download.format')}</label>
             <div className="flex gap-2">
               <button
                 onClick={() => setSelectedFormat(subtitle.format || '')}
@@ -179,7 +181,7 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
         )}
 
         <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-slate-700">选择目标媒体</label>
+          <label className="text-sm font-medium text-slate-700">{t('download.selectTargetMedia')}</label>
           {targetMedia && targetMedia.type === 'tv' && !selectedEpisode ? (
             <EpisodeSelector
               seriesTitle={targetMedia.title}
@@ -219,7 +221,7 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
             ) : (
               <ChevronDown className="w-4 h-4" />
             )}
-            高级选项
+            {t('download.advancedOptions')}
           </button>
 
           {showAdvanced && (
@@ -228,11 +230,11 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
                 type="text"
                 value={customPath}
                 onChange={(e) => setCustomPath(e.target.value)}
-                placeholder="或输入自定义路径..."
+                placeholder={t('download.customPathPlaceholder')}
                 className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg outline-none focus:border-blue-500"
               />
               <p className="text-xs text-slate-500 mt-1">
-                留空将使用上方选择的媒体路径
+                {t('download.customPathNote')}
               </p>
             </div>
           )}
@@ -246,12 +248,12 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
           {loading ? (
             <>
               <Loader2 className="w-5 h-5 animate-spin" />
-              添加中...
+              {t('download.adding')}
             </>
           ) : (
             <>
               <Download className="w-5 h-5" />
-              开始下载
+              {t('download.startDownload')}
             </>
           )}
         </button>

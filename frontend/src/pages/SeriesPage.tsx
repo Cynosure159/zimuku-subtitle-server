@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueries } from '@tanstack/react-query';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 import { autoMatchFile, matchTVSeason } from '../api';
 import { MediaConfigPanel } from '../components/MediaConfigPanel';
 import { MediaSidebar, type SidebarItem } from '../components/MediaSidebar';
@@ -19,9 +20,10 @@ async function fetchSeriesMetadata(fileId: number) {
 }
 
 export default function SeriesPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { paths, files, status, fetchData, setIsScanningOptimistic, setMatchingFileOptimistic, setMatchingSeasonOptimistic } = useMediaPolling('tv');
-  
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSeriesTitle, setSelectedSeriesTitle] = useState<string | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<number>(1);
@@ -56,7 +58,7 @@ export default function SeriesPage() {
       await autoMatchFile(fileId);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      alert('自动搜索触发失败: ' + message);
+      alert(t('mediaConfig.triggerFailed') + ': ' + message);
       // Revert optimistic state on error
       if (setMatchingFileOptimistic) {
         setMatchingFileOptimistic(fileId, false);
@@ -79,7 +81,7 @@ export default function SeriesPage() {
       clearTimeout(timeoutId);
       setMatchingSeasonOptimistic(title, season, false);
       const message = err instanceof Error ? err.message : String(err);
-      alert('补全任务触发失败: ' + message);
+      alert(t('mediaConfig.triggerFailed') + ': ' + message);
     }
   };
 
@@ -97,7 +99,7 @@ export default function SeriesPage() {
     }> = {};
 
     files.forEach(file => {
-      const title = file.extracted_title || '未知剧集';
+      const title = file.extracted_title || t('page.series.unknownSeries');
       if (!groups[title]) {
         groups[title] = {
           title,
@@ -157,13 +159,13 @@ export default function SeriesPage() {
       }
       return sortDesc ? -cmp : cmp;
     });
-  }, [files, searchTerm, filter, sortBy, sortDesc]);
+  }, [files, searchTerm, filter, sortBy, sortDesc, t]);
 
   // Calculate filter counts
   const filterCounts = useMemo(() => {
     const groups: Record<string, { totalCount: number; hasSubCount: number }> = {};
     files.forEach(file => {
-      const title = file.extracted_title || '未知剧集';
+      const title = file.extracted_title || t('page.series.unknownSeries');
       if (!groups[title]) {
         groups[title] = { totalCount: 0, hasSubCount: 0 };
       }
@@ -174,7 +176,7 @@ export default function SeriesPage() {
     const has = Object.values(groups).filter(g => g.totalCount === g.hasSubCount).length;
     const missing = all - has;
     return { all, has, missing };
-  }, [files]);
+  }, [files, t]);
 
   // 批量获取每个剧集的元数据（海报和 NFO 信息）
   const metadataQueries = useQueries({
@@ -230,7 +232,7 @@ export default function SeriesPage() {
   const availableSeasons = useMemo(() => {
     return selectedSeries ? Object.keys(selectedSeries.seasons).map(Number).sort((a, b) => a - b) : [];
   }, [selectedSeries]);
-  
+
   // Update season when selected series changes
   useEffect(() => {
     if (selectedSeries && !availableSeasons.includes(selectedSeason)) {
@@ -252,7 +254,7 @@ export default function SeriesPage() {
     <div className="flex flex-col gap-6 w-full h-full">
       <MediaConfigPanel
         type="tv"
-        title="剧集管理"
+        title={t('page.series.title')}
         paths={paths}
         isScanning={status.is_scanning}
         onRefreshData={fetchData}
@@ -276,17 +278,17 @@ export default function SeriesPage() {
             onSearchTermChange={setSearchTerm}
             selectedTitle={selectedSeriesTitle}
             onSelectTitle={setSelectedSeriesTitle}
-            searchPlaceholder="搜索剧集..."
-            emptyText="未找到剧集"
+            searchPlaceholder={t('page.series.noSeries').replace('未找到', '搜索')}
+            emptyText={t('page.series.noSeries')}
           />
           {sidebarItems.length === 0 && filter !== 'all' && (
             <div className="mt-4 p-4 bg-slate-50 rounded-lg text-center">
-              <p className="text-sm text-slate-500 mb-2">筛选结果为空</p>
+              <p className="text-sm text-slate-500 mb-2">{t('page.series.filterEmpty')}</p>
               <button
                 onClick={() => setFilter('all')}
                 className="text-sm text-blue-600 hover:text-blue-700 font-medium"
               >
-                清除筛选条件
+                {t('page.series.clearFilter')}
               </button>
             </div>
           )}
@@ -310,7 +312,7 @@ export default function SeriesPage() {
                     onClick={() => setSelectedSeason(s)}
                     className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${selectedSeason === s ? 'bg-blue-500 text-white shadow-sm shadow-blue-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                   >
-                    第 {s} 季
+                    {t('page.series.season', { n: s })}
                   </button>
                 ))}
               </div>
@@ -326,7 +328,7 @@ export default function SeriesPage() {
                   ) : (
                     <Search className="w-3.5 h-3.5" />
                   )}
-                  {isSelectedSeasonMatching ? '智能补全中...' : '智能补全本季字幕'}
+                  {isSelectedSeasonMatching ? t('page.series.smartMatching') : t('page.series.smartMatch')}
                 </button>
               )}
             </div>
@@ -334,8 +336,8 @@ export default function SeriesPage() {
             {/* File List Table */}
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col min-h-[200px]">
               <div className="bg-slate-100 px-5 py-3 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider flex items-center shrink-0">
-                <div className="flex-1">集数与文件名称</div>
-                <div className="w-48 text-center">状态与操作</div>
+                <div className="flex-1">{t('page.series.episodeFile')}</div>
+                <div className="w-48 text-center">{t('page.series.statusAction')}</div>
               </div>
               <div className="flex flex-col overflow-y-auto max-h-[400px] custom-scrollbar">
                 {currentSeasonFiles.map((file, i) => {
@@ -354,12 +356,12 @@ export default function SeriesPage() {
                         {isMatching ? (
                           <span className="bg-blue-50 text-blue-600 text-xs px-2.5 py-1 rounded-md font-medium border border-blue-100 flex items-center gap-1.5 shadow-sm">
                             <Loader2 className="w-3 h-3 animate-spin" />
-                            搜索中
+                            {t('status.searching')}
                           </span>
                         ) : file.has_subtitle ? (
-                          <span className="bg-green-50 text-green-600 text-xs px-2.5 py-1 rounded-md font-medium border border-green-100 shadow-sm">已匹配</span>
+                          <span className="bg-green-50 text-green-600 text-xs px-2.5 py-1 rounded-md font-medium border border-green-100 shadow-sm">{t('status.matched')}</span>
                         ) : (
-                          <span className="bg-red-50 text-red-500 text-xs px-2.5 py-1 rounded-md font-medium border border-red-100 shadow-sm">缺字幕</span>
+                          <span className="bg-red-50 text-red-500 text-xs px-2.5 py-1 rounded-md font-medium border border-red-100 shadow-sm">{t('status.missing')}</span>
                         )}
 
                         <div className="flex items-center gap-1.5">
@@ -368,14 +370,14 @@ export default function SeriesPage() {
                               onClick={() => handleAutoSearch(file.id)}
                               className="bg-emerald-50 text-emerald-600 text-xs px-2.5 py-1 rounded-md font-medium border border-emerald-100 hover:bg-emerald-100 transition-colors"
                             >
-                              自动搜索
+                              {t('action.autoSearch')}
                             </button>
                           )}
                           <button
                             onClick={() => handleManualSearch(file.extracted_title || file.filename)}
                             className="bg-blue-50 text-blue-600 text-xs px-2.5 py-1 rounded-md font-medium border border-blue-100 hover:bg-blue-100 transition-colors"
                           >
-                            手动搜索
+                            {t('action.manualSearch')}
                           </button>
                         </div>
                       </div>
@@ -384,14 +386,14 @@ export default function SeriesPage() {
                 })}
                 {currentSeasonFiles.length === 0 && (
                   <div className="p-8 text-center text-sm text-slate-400">
-                    本季暂无视频文件
+                    {t('page.series.noVideos')}
                   </div>
-               )}
+                )}
               </div>
             </div>
           </div>
         ) : (
-          <EmptySelectionState typeName="剧集" />
+          <EmptySelectionState typeName={t('tv')} />
         )}
       </div>
     </div>

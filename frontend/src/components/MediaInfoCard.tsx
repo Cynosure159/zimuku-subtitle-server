@@ -1,4 +1,5 @@
 import { Image as ImageIcon, Star, Calendar } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useMediaMetadata, useMediaPosterUrl } from '../hooks/useMetadata';
 
 interface MediaInfoCardProps {
@@ -28,6 +29,7 @@ function SkeletonLoader() {
 }
 
 function ErrorState({ title, year, onRetry }: { title: string; year?: string; onRetry: () => void }) {
+  const { t } = useTranslation();
   return (
     <div className="bg-white rounded-2xl p-8 shadow-sm flex gap-8 border border-slate-100">
       <div className="w-36 h-[216px] bg-slate-100 rounded-xl flex items-center justify-center shrink-0">
@@ -36,15 +38,15 @@ function ErrorState({ title, year, onRetry }: { title: string; year?: string; on
       <div className="flex flex-col gap-4 flex-1">
         <div className="flex flex-col gap-2">
           <h2 className="text-2xl font-bold text-slate-900">{title}</h2>
-          <div className="text-sm text-slate-500">{year || '未知年份'}</div>
+          <div className="text-sm text-slate-500">{year || t('year.unknown')}</div>
         </div>
         <div className="text-sm text-red-500">
-          无法加载元数据
+          {t('metadataError')}
           <button
             onClick={onRetry}
             className="ml-2 text-blue-500 hover:underline"
           >
-            重试
+            {t('metadataRetry')}
           </button>
         </div>
       </div>
@@ -53,6 +55,7 @@ function ErrorState({ title, year, onRetry }: { title: string; year?: string; on
 }
 
 export function MediaInfoCard({ fileId, title, year, path }: MediaInfoCardProps) {
+  const { t } = useTranslation();
   const { data: metadata, isLoading, error, refetch } = useMediaMetadata(fileId);
   const posterUrl = useMediaPosterUrl(metadata?.poster_path ?? null);
 
@@ -80,7 +83,7 @@ export function MediaInfoCard({ fileId, title, year, path }: MediaInfoCardProps)
     return (
       <div className="flex flex-col gap-6">
         <div className="bg-slate-50 rounded-xl flex flex-col gap-3 border border-slate-100">
-          <div className="text-sm font-semibold text-slate-600">关联扫描目录</div>
+          <div className="text-sm font-semibold text-slate-600">{t('association')}</div>
           <div className="bg-white px-4 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-800 break-all">
             {displayPath}
           </div>
@@ -94,7 +97,7 @@ export function MediaInfoCard({ fileId, title, year, path }: MediaInfoCardProps)
     return (
       <div className="flex flex-col gap-6">
         <div className="bg-slate-50 rounded-xl flex flex-col gap-3 border border-slate-100">
-          <div className="text-sm font-semibold text-slate-600">关联扫描目录</div>
+          <div className="text-sm font-semibold text-slate-600">{t('association')}</div>
           <div className="bg-white px-4 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-800 break-all">
             {displayPath}
           </div>
@@ -107,7 +110,7 @@ export function MediaInfoCard({ fileId, title, year, path }: MediaInfoCardProps)
   return (
     <div className="flex flex-col gap-6">
       <div className="bg-slate-50 rounded-xl flex flex-col gap-3 border border-slate-100">
-        <div className="text-sm font-semibold text-slate-600">关联扫描目录</div>
+        <div className="text-sm font-semibold text-slate-600">{t('association')}</div>
         <div className="bg-white px-4 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-800 break-all">
           {displayPath}
         </div>
@@ -145,7 +148,7 @@ export function MediaInfoCard({ fileId, title, year, path }: MediaInfoCardProps)
                   {rating}
                 </span>
               )}
-              {!displayYear && !rating && <span>未知年份</span>}
+              {!displayYear && !rating && <span>{t('year.unknown')}</span>}
             </div>
             {genres && genres.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-1">
@@ -164,7 +167,7 @@ export function MediaInfoCard({ fileId, title, year, path }: MediaInfoCardProps)
             <p className="text-sm text-slate-600 leading-relaxed">{plot}</p>
           ) : (
             <p className="text-sm text-slate-500 leading-relaxed">
-              暂无简介信息。后续将通过刮削器自动补充详细信息。
+              {t('noPlot')}
             </p>
           )}
         </div>

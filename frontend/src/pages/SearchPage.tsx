@@ -1,18 +1,20 @@
 import { useState } from 'react';
 import { Search, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { searchSubtitles, type SearchResult as SearchResultType } from '../api';
 import SearchResultRow from '../components/SearchResultRow';
 import DownloadModal from '../components/DownloadModal';
 
 export default function SearchPage() {
+  const { t } = useTranslation();
   const [activeFilter, setActiveFilter] = useState('全部');
-  const filters = ['全部', '简体', '繁体', '英文', '双语'];
-  
+  const filters = [t('searchFilter.all'), t('searchFilter.simplified'), t('searchFilter.traditional'), t('searchFilter.english'), t('searchFilter.bilingual')];
+
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResultType[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-    const [selectedSubtitle, setSelectedSubtitle] = useState<SearchResultType | null>(null);
+  const [selectedSubtitle, setSelectedSubtitle] = useState<SearchResultType | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
   const handleSearch = async () => {
@@ -24,7 +26,7 @@ export default function SearchPage() {
       setResults(data);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      setError(message || '搜索失败');
+      setError(message || t('page.search.searchFailed') || 'Search failed');
     } finally {
       setLoading(false);
     }
@@ -45,33 +47,45 @@ export default function SearchPage() {
     setSelectedSubtitle(null);
   };
 
+  const getFilterLabel = (filter: string) => {
+    const filterMap: Record<string, string> = {
+      [t('searchFilter.all')]: t('searchFilter.all'),
+      [t('searchFilter.simplified')]: '简体',
+      [t('searchFilter.traditional')]: '繁体',
+      [t('searchFilter.english')]: '英文',
+      [t('searchFilter.bilingual')]: '双语',
+    };
+    return filterMap[filter] || filter;
+  };
+
   const filteredResults = results.filter(item => {
-    if (activeFilter === '全部') return true;
+    const filterLabel = getFilterLabel(activeFilter);
+    if (filterLabel === t('searchFilter.all')) return true;
     if (!item.lang) return true; // If no lang parsed, show it anyway
-    return item.lang.some(lang => lang.includes(activeFilter));
+    return item.lang.some(lang => lang.includes(filterLabel));
   });
 
   return (
     <div className="flex flex-col gap-8 w-full max-w-4xl">
-      <h1 className="text-3xl font-bold text-slate-900">搜索字幕</h1>
+      <h1 className="text-3xl font-bold text-slate-900">{t('page.search.title')}</h1>
 
       <div className="bg-white rounded-2xl p-5 flex items-center gap-3 w-full shadow-sm">
         <Search className="w-5 h-5 text-slate-400 shrink-0" />
-        <input 
-          type="text" 
+        <input
+          type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-          placeholder="输入名称..." 
+          placeholder={t('page.search.placeholder')}
           className="flex-1 outline-none text-sm text-slate-900 placeholder:text-slate-400 bg-transparent"
         />
-        <button 
+        <button
           onClick={handleSearch}
           disabled={loading}
           className="bg-blue-500 text-white text-sm px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 flex items-center gap-2"
         >
           {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-          搜索
+          {t('page.search.button')}
         </button>
       </div>
 
@@ -102,7 +116,7 @@ export default function SearchPage() {
           />
         ))}
         {results.length > 0 && filteredResults.length === 0 && (
-          <div className="text-slate-500 text-sm py-4 text-center">当前筛选条件下没有结果</div>
+          <div className="text-slate-500 text-sm py-4 text-center">{t('page.search.noResults')}</div>
         )}
       </div>
 

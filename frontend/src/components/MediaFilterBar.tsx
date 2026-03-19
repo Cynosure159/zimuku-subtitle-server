@@ -1,4 +1,5 @@
 import { ArrowDown, ArrowUp, Filter, SortAsc } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export type FilterOption = 'all' | 'has' | 'missing';
 export type SortOption = 'name' | 'year' | 'created' | 'subtitle_status';
@@ -19,19 +20,6 @@ interface MediaFilterBarProps {
   counts: FilterCounts;
 }
 
-const FILTER_LABELS: Record<FilterOption, string> = {
-  all: '全部',
-  has: '有字幕',
-  missing: '无字幕'
-};
-
-const SORT_LABELS: Record<SortOption, string> = {
-  name: '名称',
-  year: '年份',
-  created: '添加时间',
-  subtitle_status: '字幕状态'
-};
-
 export function MediaFilterBar({
   filter,
   setFilter,
@@ -41,6 +29,21 @@ export function MediaFilterBar({
   setSortDesc,
   counts
 }: MediaFilterBarProps) {
+  const { t } = useTranslation();
+
+  const filterLabels: Record<FilterOption, string> = {
+    all: t('filter.all'),
+    has: t('filter.has'),
+    missing: t('filter.missing')
+  };
+
+  const sortLabels: Record<SortOption, string> = {
+    name: t('sort.name'),
+    year: t('sort.year'),
+    created: t('sort.created'),
+    subtitle_status: t('sort.subtitleStatus')
+  };
+
   return (
     <div className="flex items-center justify-between gap-4 mb-4">
       {/* Filter Dropdown */}
@@ -51,9 +54,9 @@ export function MediaFilterBar({
           onChange={(e) => setFilter(e.target.value as FilterOption)}
           className="px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
         >
-          <option value="all">{FILTER_LABELS.all} ({counts.all})</option>
-          <option value="has">{FILTER_LABELS.has} ({counts.has})</option>
-          <option value="missing">{FILTER_LABELS.missing} ({counts.missing})</option>
+          <option value="all">{filterLabels.all} ({counts.all})</option>
+          <option value="has">{filterLabels.has} ({counts.has})</option>
+          <option value="missing">{filterLabels.missing} ({counts.missing})</option>
         </select>
       </div>
 
@@ -65,15 +68,15 @@ export function MediaFilterBar({
           onChange={(e) => setSortBy(e.target.value as SortOption)}
           className="px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
         >
-          <option value="name">{SORT_LABELS.name}</option>
-          <option value="year">{SORT_LABELS.year}</option>
-          <option value="created">{SORT_LABELS.created}</option>
-          <option value="subtitle_status">{SORT_LABELS.subtitle_status}</option>
+          <option value="name">{sortLabels.name}</option>
+          <option value="year">{sortLabels.year}</option>
+          <option value="created">{sortLabels.created}</option>
+          <option value="subtitle_status">{sortLabels.subtitle_status}</option>
         </select>
         <button
           onClick={() => setSortDesc(!sortDesc)}
           className="p-2 bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors"
-          title={sortDesc ? "升序" : "降序"}
+          title={sortDesc ? t('sort.ascending') : t('sort.descending')}
         >
           {sortDesc ? <ArrowDown className="w-4 h-4" /> : <ArrowUp className="w-4 h-4" />}
         </button>

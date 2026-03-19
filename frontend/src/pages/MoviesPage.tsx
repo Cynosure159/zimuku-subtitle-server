@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 import { MediaConfigPanel } from '../components/MediaConfigPanel';
 import { MediaSidebar, type SidebarItem } from '../components/MediaSidebar';
 import { MediaInfoCard } from '../components/MediaInfoCard';
@@ -17,8 +18,9 @@ async function fetchMovieMetadata(fileId: number) {
 }
 
 export default function MoviesPage() {
+  const { t } = useTranslation();
   const { paths, files, status, fetchData, setIsScanningOptimistic, setMatchingFileOptimistic } = useMediaPolling('movie');
-  
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMovieTitle, setSelectedMovieTitle] = useState<string | null>(null);
 
@@ -44,7 +46,7 @@ export default function MoviesPage() {
   const groupedMovies = useMemo(() => {
     const groups: Record<string, { title: string; year?: string; files: ScannedFile[]; createdAt?: string }> = {};
     files.forEach(file => {
-      const title = file.extracted_title || '未知电影';
+      const title = file.extracted_title || t('page.movies.unknownMovie');
       if (!groups[title]) {
         groups[title] = { title, year: file.year, files: [], createdAt: file.created_at };
       }
@@ -87,13 +89,13 @@ export default function MoviesPage() {
       }
       return sortDesc ? -cmp : cmp;
     });
-  }, [files, searchTerm, filter, sortBy, sortDesc]);
+  }, [files, searchTerm, filter, sortBy, sortDesc, t]);
 
   // Calculate filter counts
   const filterCounts = useMemo(() => {
     const groups: Record<string, { totalCount: number; hasSubCount: number }> = {};
     files.forEach(file => {
-      const title = file.extracted_title || '未知电影';
+      const title = file.extracted_title || t('page.movies.unknownMovie');
       if (!groups[title]) {
         groups[title] = { totalCount: 0, hasSubCount: 0 };
       }
@@ -104,7 +106,7 @@ export default function MoviesPage() {
     const has = Object.values(groups).filter(g => g.totalCount === g.hasSubCount).length;
     const missing = all - has;
     return { all, has, missing };
-  }, [files]);
+  }, [files, t]);
 
   // 批量获取每个电影的元数据（海报和 NFO 信息）
   const metadataQueries = useQueries({
@@ -158,7 +160,7 @@ export default function MoviesPage() {
     <div className="flex flex-col gap-6 w-full h-full">
       <MediaConfigPanel
         type="movie"
-        title="电影管理"
+        title={t('page.movies.title')}
         paths={paths}
         isScanning={status.is_scanning}
         onRefreshData={fetchData}
@@ -182,17 +184,17 @@ export default function MoviesPage() {
             onSearchTermChange={setSearchTerm}
             selectedTitle={selectedMovieTitle}
             onSelectTitle={setSelectedMovieTitle}
-            searchPlaceholder="搜索电影..."
-            emptyText="未找到电影"
+            searchPlaceholder={t('page.movies.noMovies').replace('未找到', '搜索')}
+            emptyText={t('page.movies.noMovies')}
           />
           {sidebarItems.length === 0 && filter !== 'all' && (
             <div className="mt-4 p-4 bg-slate-50 rounded-lg text-center">
-              <p className="text-sm text-slate-500 mb-2">筛选结果为空</p>
+              <p className="text-sm text-slate-500 mb-2">{t('page.movies.filterEmpty')}</p>
               <button
                 onClick={() => setFilter('all')}
                 className="text-sm text-blue-600 hover:text-blue-700 font-medium"
               >
-                清除筛选条件
+                {t('page.movies.clearFilter')}
               </button>
             </div>
           )}
@@ -208,12 +210,12 @@ export default function MoviesPage() {
             />
 
             <div className="flex flex-col gap-4">
-              <h3 className="text-lg font-semibold text-slate-900">本地视频文件 ({selectedMovie.files.length})</h3>
+              <h3 className="text-lg font-semibold text-slate-900">{t('page.movies.localFiles')} ({selectedMovie.files.length})</h3>
               <MediaList files={selectedMovie.files} status={status} setMatchingFileOptimistic={setMatchingFileOptimistic} />
             </div>
           </div>
         ) : (
-          <EmptySelectionState typeName="电影" />
+          <EmptySelectionState typeName={t('movie')} />
         )}
       </div>
     </div>

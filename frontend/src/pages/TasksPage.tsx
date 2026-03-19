@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw, Trash2, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { listTasks, deleteTask, retryTask, clearCompletedTasks } from '../api';
 
 interface Task {
@@ -32,6 +33,7 @@ function TaskSkeleton() {
 }
 
 export default function TasksPage() {
+  const { t } = useTranslation();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -53,7 +55,7 @@ export default function TasksPage() {
   }, []);
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('确定要删除此任务吗？')) return;
+    if (!window.confirm(t('confirm.deleteTask'))) return;
     await deleteTask(id);
     fetchTasks();
   };
@@ -64,7 +66,7 @@ export default function TasksPage() {
   };
 
   const handleClear = async () => {
-    if (!window.confirm('确定要清理所有已完成的任务记录吗？')) return;
+    if (!window.confirm(t('confirm.clearCompleted'))) return;
     await clearCompletedTasks();
     fetchTasks();
   };
@@ -80,22 +82,22 @@ export default function TasksPage() {
 
   const StatusText = ({ status }: { status: Task['status'] }) => {
     switch (status) {
-      case 'completed': return <span className="text-green-600">已完成</span>;
-      case 'failed': return <span className="text-red-600">失败</span>;
-      case 'downloading': return <span className="text-blue-600">下载中</span>;
-      default: return <span className="text-slate-500">等待中</span>;
+      case 'completed': return <span className="text-green-600">{t('page.tasks.status.completed')}</span>;
+      case 'failed': return <span className="text-red-600">{t('page.tasks.status.failed')}</span>;
+      case 'downloading': return <span className="text-blue-600">{t('page.tasks.status.downloading')}</span>;
+      default: return <span className="text-slate-500">{t('page.tasks.status.pending')}</span>;
     }
   };
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-4xl">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-slate-900">下载任务</h1>
+        <h1 className="text-3xl font-bold text-slate-900">{t('page.tasks.title')}</h1>
         <button
           onClick={handleClear}
           className="text-sm px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors duration-150 hover:shadow-sm"
         >
-          清理已完成
+          {t('page.tasks.clearCompleted')}
         </button>
       </div>
 
@@ -107,7 +109,7 @@ export default function TasksPage() {
             <TaskSkeleton />
           </div>
         ) : tasks.length === 0 ? (
-          <div className="text-slate-500 py-8 text-center bg-white rounded-2xl shadow-sm">暂无任务</div>
+          <div className="text-slate-500 py-8 text-center bg-white rounded-2xl shadow-sm">{t('page.tasks.noTasks')}</div>
         ) : (
           tasks.map(task => (
             <div
@@ -122,16 +124,16 @@ export default function TasksPage() {
                   </div>
                   <div className="text-xs text-slate-500 flex gap-4">
                     <StatusText status={task.status} />
-                    <span>创建于: {new Date(task.created_at).toLocaleString()}</span>
+                    <span>{t('page.tasks.createdAt')}: {new Date(task.created_at).toLocaleString()}</span>
                   </div>
                   {task.error_msg && (
                     <div className="text-xs text-red-500 truncate" title={task.error_msg}>
-                      错误: {task.error_msg}
+                      {t('page.tasks.error')}: {task.error_msg}
                     </div>
                   )}
                   {task.save_path && (
                     <div className="text-xs text-slate-400 truncate" title={task.save_path}>
-                      保存至: {task.save_path}
+                      {t('page.tasks.saveTo')}: {task.save_path}
                     </div>
                   )}
                 </div>
@@ -141,7 +143,7 @@ export default function TasksPage() {
                   <button
                     onClick={() => handleRetry(task.id)}
                     className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors duration-150 hover:shadow-sm"
-                    title="重试"
+                    title={t('page.tasks.retry')}
                   >
                     <RefreshCw className="w-5 h-5" />
                   </button>
@@ -149,7 +151,7 @@ export default function TasksPage() {
                 <button
                   onClick={() => handleDelete(task.id)}
                   className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors duration-150 hover:shadow-sm"
-                  title="删除"
+                  title={t('page.tasks.delete')}
                 >
                   <Trash2 className="w-5 h-5" />
                 </button>

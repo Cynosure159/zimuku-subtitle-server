@@ -1,5 +1,6 @@
 import { FolderOpen, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { autoMatchFile } from '../api';
 import type { ScannedFile, TaskStatus } from '../hooks/useMediaPolling';
 
@@ -11,6 +12,7 @@ interface MediaListProps {
 }
 
 export function MediaList({ files, status, onAutoSearch, setMatchingFileOptimistic }: MediaListProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   const handleAutoSearch = async (fileId: number) => {
@@ -28,7 +30,7 @@ export function MediaList({ files, status, onAutoSearch, setMatchingFileOptimist
       await autoMatchFile(fileId);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      alert('自动搜索触发失败: ' + message);
+      alert(t('mediaConfig.triggerFailed') + ': ' + message);
       // Revert optimistic state on error
       if (setMatchingFileOptimistic) {
         setMatchingFileOptimistic(fileId, false);
@@ -56,12 +58,12 @@ export function MediaList({ files, status, onAutoSearch, setMatchingFileOptimist
               {isMatching ? (
                 <div className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded font-medium flex items-center gap-1">
                   <Loader2 className="w-3 h-3 animate-spin" />
-                  搜索中
+                  {t('status.searching')}
                 </div>
               ) : file.has_subtitle ? (
-                <div className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded font-medium">已匹配字幕</div>
+                <div className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded font-medium">{t('status.matched')}</div>
               ) : (
-                <div className="bg-red-50 text-red-600 text-xs px-2 py-1 rounded font-medium">缺字幕</div>
+                <div className="bg-red-50 text-red-600 text-xs px-2 py-1 rounded font-medium">{t('status.missing')}</div>
               )}
 
               <div className="flex items-center gap-2">
@@ -70,14 +72,14 @@ export function MediaList({ files, status, onAutoSearch, setMatchingFileOptimist
                     onClick={() => handleAutoSearch(file.id)}
                     className="bg-emerald-50 text-emerald-600 text-xs px-3 py-1.5 rounded-md font-medium hover:bg-emerald-100 transition-colors"
                   >
-                    自动搜索
+                    {t('action.autoSearch')}
                   </button>
                 )}
                 <button
                   onClick={() => handleManualSearch(file.extracted_title || file.filename)}
                   className="bg-blue-50 text-blue-600 text-xs px-3 py-1.5 rounded-md font-medium hover:bg-blue-100 transition-colors"
                 >
-                  手动搜索
+                  {t('action.manualSearch')}
                 </button>
               </div>
             </div>

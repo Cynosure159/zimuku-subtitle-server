@@ -1,5 +1,6 @@
 import { Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { autoMatchFile } from '../api';
 import type { ScannedFile, TaskStatus } from '../hooks/useMediaPolling';
 
@@ -11,6 +12,7 @@ interface MediaListItemProps {
 }
 
 export function MediaListItem({ file, status, showEpisode = false, onAutoSearch }: MediaListItemProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const isMatching = status.matching_files.includes(file.id);
 
@@ -23,7 +25,7 @@ export function MediaListItem({ file, status, showEpisode = false, onAutoSearch 
       await autoMatchFile(file.id);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      alert('自动搜索触发失败: ' + message);
+      alert(t('mediaConfig.triggerFailed') + ': ' + message);
     }
   };
 
@@ -47,12 +49,12 @@ export function MediaListItem({ file, status, showEpisode = false, onAutoSearch 
         {isMatching ? (
           <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded font-medium flex items-center gap-1">
             <Loader2 className="w-3 h-3 animate-spin" />
-            搜索中
+            {t('status.searching')}
           </span>
         ) : file.has_subtitle ? (
-          <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded font-medium">已匹配</span>
+          <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded font-medium">{t('status.matched')}</span>
         ) : (
-          <span className="bg-red-50 text-red-600 text-xs px-2 py-1 rounded font-medium">缺字幕</span>
+          <span className="bg-red-50 text-red-600 text-xs px-2 py-1 rounded font-medium">{t('status.missing')}</span>
         )}
 
         <div className="flex items-center gap-2">
@@ -61,14 +63,14 @@ export function MediaListItem({ file, status, showEpisode = false, onAutoSearch 
               onClick={handleAutoSearch}
               className="bg-emerald-50 text-emerald-600 text-[10px] px-2 py-1 rounded-md font-medium hover:bg-emerald-100 transition-colors duration-150 hover:shadow-sm"
             >
-              自动搜索
+              {t('action.autoSearch')}
             </button>
           )}
           <button
             onClick={handleManualSearch}
             className="bg-blue-50 text-blue-600 text-[10px] px-2 py-1 rounded-md font-medium hover:bg-blue-100 transition-colors duration-150 hover:shadow-sm"
           >
-            手动搜索
+            {t('action.manualSearch')}
           </button>
         </div>
       </div>

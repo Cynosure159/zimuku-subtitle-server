@@ -1,4 +1,5 @@
 import { ChevronLeft } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface EpisodeSelectorProps {
   seriesTitle: string;
@@ -9,6 +10,7 @@ interface EpisodeSelectorProps {
 }
 
 export default function EpisodeSelector({ seriesTitle, season, episodes, onSelect, onBack }: EpisodeSelectorProps) {
+  const { t } = useTranslation();
   // Use provided episodes or default to 1-24 if empty
   const displayEpisodes = episodes.length > 0 ? episodes : Array.from({ length: 24 }, (_, i) => i + 1);
 
@@ -23,7 +25,7 @@ export default function EpisodeSelector({ seriesTitle, season, episodes, onSelec
         </button>
         <div>
           <div className="font-medium text-slate-900">{seriesTitle}</div>
-          <div className="text-sm text-slate-500">第 {season} 季</div>
+          <div className="text-sm text-slate-500">{t('episodeSelector.season', { n: season })}</div>
         </div>
       </div>
 

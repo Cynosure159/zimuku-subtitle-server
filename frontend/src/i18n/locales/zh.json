@@ -1,0 +1,168 @@
+{
+  "nav": {
+    "search": "字幕搜索",
+    "movies": "电影管理",
+    "series": "剧集管理",
+    "tasks": "下载任务",
+    "settings": "系统设置"
+  },
+  "page": {
+    "search": {
+      "title": "搜索字幕",
+      "placeholder": "输入名称...",
+      "button": "搜索",
+      "noResults": "当前筛选条件下没有结果"
+    },
+    "movies": {
+      "title": "电影管理",
+      "unknownMovie": "未知电影",
+      "noMovies": "未找到电影",
+      "filterEmpty": "筛选结果为空",
+      "clearFilter": "清除筛选条件",
+      "localFiles": "本地视频文件"
+    },
+    "series": {
+      "title": "剧集管理",
+      "unknownSeries": "未知剧集",
+      "noSeries": "未找到剧集",
+      "filterEmpty": "筛选结果为空",
+      "clearFilter": "清除筛选条件",
+      "season": "第 {n} 季",
+      "smartMatch": "智能补全本季字幕",
+      "smartMatching": "智能补全中...",
+      "noVideos": "本季暂无视频文件",
+      "episodeFile": "集数与文件名称",
+      "statusAction": "状态与操作"
+    },
+    "tasks": {
+      "title": "下载任务",
+      "clearCompleted": "清理已完成",
+      "noTasks": "暂无任务",
+      "status": {
+        "completed": "已完成",
+        "failed": "失败",
+        "downloading": "下载中",
+        "pending": "等待中"
+      },
+      "retry": "重试",
+      "delete": "删除",
+      "createdAt": "创建于",
+      "error": "错误",
+      "saveTo": "保存至"
+    },
+    "settings": {
+      "title": "系统设置",
+      "language": "语言",
+      "save": "保存",
+      "saved": "保存成功",
+      "saveFailed": "保存失败",
+      "lastUpdated": "最后更新",
+      "noConfig": "暂无配置项，请在后端初始化或插入数据",
+      "loading": "加载中..."
+    }
+  },
+  "filter": {
+    "all": "全部",
+    "has": "有字幕",
+    "missing": "无字幕"
+  },
+  "sort": {
+    "name": "名称",
+    "year": "年份",
+    "created": "添加时间",
+    "subtitleStatus": "字幕状态",
+    "ascending": "升序",
+    "descending": "降序"
+  },
+  "status": {
+    "searching": "搜索中",
+    "matched": "已匹配",
+    "missing": "缺字幕",
+    "hasSubtitle": "有字幕",
+    "noSubtitle": "无字幕",
+    "incomplete": "字幕不全 {has}/{total}"
+  },
+  "action": {
+    "autoSearch": "自动搜索",
+    "manualSearch": "手动搜索",
+    "download": "下载",
+    "add": "添加",
+    "cancel": "取消",
+    "confirm": "确认",
+    "retry": "重试",
+    "delete": "删除",
+    "clear": "清除",
+    "refresh": "刷新",
+    "save": "保存",
+    "close": "关闭",
+    "back": "返回"
+  },
+  "mediaConfig": {
+    "directoryConfig": "目录配置",
+    "scanDirectoryConfig": "扫描目录配置",
+    "addPath": "添加路径",
+    "inputPathPlaceholder": "输入电影文件夹的绝对路径，例如：/mnt/media/movies",
+    "inputTvPathPlaceholder": "输入剧集文件夹的绝对路径，例如：/mnt/media/tv",
+    "deletePath": "删除此路径？（相关的扫描记录也会被删除）",
+    "addFailed": "添加失败",
+    "deleteFailed": "删除失败",
+    "triggerFailed": "触发失败",
+    "refreshing": "刷新中...",
+    "refreshMovie": "刷新电影",
+    "refreshTv": "刷新剧集"
+  },
+  "download": {
+    "title": "下载字幕",
+    "selectLanguage": "选择语言",
+    "format": "格式",
+    "selectTargetMedia": "选择目标媒体",
+    "advancedOptions": "高级选项",
+    "customPathPlaceholder": "或输入自定义路径...",
+    "customPathNote": "留空将使用上方选择的媒体路径",
+    "startDownload": "开始下载",
+    "adding": "添加中...",
+    "downloadAdded": "已添加到下载任务",
+    "downloadFailed": "添加下载任务失败"
+  },
+  "mediaSelector": {
+    "loading": "加载媒体库...",
+    "movie": "电影",
+    "tv": "剧集",
+    "notFound": "未找到电影",
+    "notFoundTv": "未找到剧集",
+    "episodes": "{count} 集"
+  },
+  "episodeSelector": {
+    "season": "第 {n} 季"
+  },
+  "empty": {
+    "selectLeft": "请选择左侧{type}查看详情"
+  },
+  "year": {
+    "unknown": "未知年份"
+  },
+  "downloadCount": "{count} 次下载",
+  "author": "作者",
+  "association": "关联扫描目录",
+  "noPlot": "暂无简介信息。后续将通过刮削器自动补充详细信息。",
+  "metadataError": "无法加载元数据",
+  "metadataRetry": "重试",
+  "sidebar": {
+    "open": "打开侧边栏",
+    "close": "关闭侧边栏"
+  },
+  "searchFilter": {
+    "all": "全部",
+    "simplified": "简体",
+    "traditional": "繁体",
+    "english": "英文",
+    "bilingual": "双语"
+  },
+  "confirm": {
+    "deleteTask": "确定要删除此任务吗？",
+    "deletePath": "确定要删除此路径吗？（相关的扫描记录也会被删除）",
+    "clearCompleted": "确定要清理所有已完成的任务记录吗？"
+  },
+  "movie": "电影",
+  "tv": "剧集"
+}
