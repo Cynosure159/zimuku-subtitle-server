@@ -20,3 +20,6 @@ build/
 .claudecignore
 .clauderules
 .claude/settings.local.json
+
+# 编辑器配置
+.vscode/
