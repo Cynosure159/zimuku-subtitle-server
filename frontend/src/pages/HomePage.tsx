@@ -211,7 +211,17 @@ export default function HomePage() {
           {recentFiles.map((file) => (
             <div
               key={`${file.type}-${file.id}`}
-              onClick={() => navigate(file.type === 'movie' ? '/movies' : '/series')}
+              onClick={() => {
+                const searchParams = new URLSearchParams();
+                searchParams.set('title', file.extracted_title);
+                if (file.type === 'tv' && file.season) {
+                  searchParams.set('season', file.season.toString());
+                }
+                navigate({
+                  pathname: file.type === 'movie' ? '/movies' : '/series',
+                  search: searchParams.toString(),
+                });
+              }}
               className="group flex items-center gap-4 p-4 rounded-2xl bg-surface-container border border-outline-variant/5 cursor-pointer hover:bg-surface-container-highest hover:-translate-y-1 transition-all duration-300"
             >
               <div className="w-12 h-12 rounded-xl bg-surface-container-low flex items-center justify-center shrink-0">

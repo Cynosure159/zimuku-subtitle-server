@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQueries } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { API_BASE, autoMatchFile, fetchMediaMetadata, matchTVSeason, triggerMediaMatch } from '../api';
@@ -12,6 +13,7 @@ import { useUIStore } from '../stores/useUIStore';
 
 export default function SeriesPage() {
   const { t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { files, status, setIsScanningOptimistic, setMatchingFileOptimistic, setMatchingSeasonOptimistic } = useMediaPolling('tv');
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -198,9 +200,22 @@ export default function SeriesPage() {
     return () => mql.removeEventListener('change', handler);
   }, []);
 
-  // Auto-select first series
+  // Auto-select first series OR select via search params
   useEffect(() => {
-    if (groupedSeries.length > 0 && (!selectedSeriesTitle || !groupedSeries.find(s => s.title === selectedSeriesTitle))) {
+    const titleFromUrl = searchParams.get('title');
+    const seasonFromUrl = searchParams.get('season');
+    
+    if (titleFromUrl && groupedSeries.find(s => s.title === titleFromUrl)) {
+      setSelectedSeriesTitle(titleFromUrl);
+      if (seasonFromUrl) {
+        setSelectedSeason(Number(seasonFromUrl));
+      }
+      // Clear params
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('title');
+      newParams.delete('season');
+      setSearchParams(newParams, { replace: true });
+    } else if (groupedSeries.length > 0 && (!selectedSeriesTitle || !groupedSeries.find(s => s.title === selectedSeriesTitle))) {
       const timer = setTimeout(() => {
         const first = groupedSeries[0];
         setSelectedSeriesTitle(first.title);
@@ -211,7 +226,7 @@ export default function SeriesPage() {
       }, 0);
       return () => clearTimeout(timer);
     }
-  }, [groupedSeries, selectedSeriesTitle]);
+  }, [groupedSeries, selectedSeriesTitle, searchParams, setSearchParams]);
 
   const selectedSeries = groupedSeries.find(s => s.title === selectedSeriesTitle);
   const availableSeasons = useMemo(() => {

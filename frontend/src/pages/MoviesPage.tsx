@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQueries } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { API_BASE, fetchMediaMetadata, triggerMediaMatch } from '../api';
@@ -11,6 +12,7 @@ import { useUIStore } from '../stores/useUIStore';
 
 export default function MoviesPage() {
   const { t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { files, status, setIsScanningOptimistic, setMatchingFileOptimistic } = useMediaPolling('movie');
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -143,13 +145,20 @@ export default function MoviesPage() {
     return () => mql.removeEventListener('change', handler);
   }, []);
 
-  // Auto-select first movie if none selected
+  // Auto-select first movie if none selected OR select via search params
   useEffect(() => {
-    if (groupedMovies.length > 0 && (!selectedMovieTitle || !groupedMovies.find(m => m.title === selectedMovieTitle))) {
+    const titleFromUrl = searchParams.get('title');
+    if (titleFromUrl && groupedMovies.find(m => m.title === titleFromUrl)) {
+      setSelectedMovieTitle(titleFromUrl);
+      // Optional: Clear the param after selection
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('title');
+      setSearchParams(newParams, { replace: true });
+    } else if (groupedMovies.length > 0 && (!selectedMovieTitle || !groupedMovies.find(m => m.title === selectedMovieTitle))) {
       const timer = setTimeout(() => setSelectedMovieTitle(groupedMovies[0].title), 0);
       return () => clearTimeout(timer);
     }
-  }, [groupedMovies, selectedMovieTitle]);
+  }, [groupedMovies, selectedMovieTitle, searchParams, setSearchParams]);
 
   const selectedMovie = groupedMovies.find(m => m.title === selectedMovieTitle);
 
