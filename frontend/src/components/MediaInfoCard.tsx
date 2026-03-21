@@ -5,7 +5,6 @@ interface MediaInfoCardProps {
   fileId: number;
   title: string;
   year?: string;
-  path: string;
 }
 
 function SkeletonLoader() {
@@ -57,16 +56,10 @@ function ErrorState({ title, year, onRetry }: { title: string; year?: string; on
   );
 }
 
-export function MediaInfoCard({ fileId, title, year, path }: MediaInfoCardProps) {
+export function MediaInfoCard({ fileId, title, year }: MediaInfoCardProps) {
   const { t } = useTranslation();
   const { data: metadata, isLoading, error, refetch } = useMediaMetadata(fileId);
-  const posterUrl = useMediaPosterUrl(metadata?.poster_path ?? null);
-
-  const isWindows = path.includes('\\');
-  const separator = isWindows ? '\\' : '/';
-  const parts = path.split(separator).filter(Boolean);
-  const parentFolder = parts[parts.length - 2] || '';
-  const isTvShow = /Season|S\d{2}/i.test(parentFolder);
+  const bannerUrl = useMediaPosterUrl(metadata?.fanart_path ?? metadata?.poster_path ?? null);
 
   const displayTitle = metadata?.nfo_data?.title || title;
   const displayYear = metadata?.nfo_data?.year || year;
@@ -77,8 +70,8 @@ export function MediaInfoCard({ fileId, title, year, path }: MediaInfoCardProps)
 
   return (
     <div className="h-[260px] relative overflow-hidden flex-shrink-0 border-b border-outline-variant/10">
-      {posterUrl ? (
-        <img alt={displayTitle} className="w-full h-full object-cover opacity-30 blur-sm scale-105" src={posterUrl} />
+      {bannerUrl ? (
+        <img alt={displayTitle} className="w-full h-full object-cover opacity-30 blur-sm scale-105" src={bannerUrl} />
       ) : (
         <div className="absolute w-full h-full bg-surface-container-lowest"></div>
       )}
@@ -86,9 +79,6 @@ export function MediaInfoCard({ fileId, title, year, path }: MediaInfoCardProps)
       <div className="absolute bottom-8 left-10 right-10 flex justify-between items-end">
         <div className="flex gap-8 items-end">
           <div className="mb-2">
-            <p className="text-sm font-label font-semibold text-primary mb-1 uppercase tracking-widest">
-              {isTvShow ? 'Selected Series' : 'Selected Movie'}
-            </p>
             <h2 className="text-5xl font-extrabold font-headline text-on-surface tracking-tight leading-none truncate max-w-3xl hover:text-wrap">{displayTitle}</h2>
             <div className="flex items-center gap-6 mt-5 text-on-surface-variant font-medium">
               <span className="flex items-center gap-2">

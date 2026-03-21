@@ -156,13 +156,18 @@ async def get_file_metadata(file_id: int, session: Session = Depends(get_session
         if nfo_path:
             nfo_data = MetadataService.parse_nfo(nfo_path)
 
-    # Find poster (prioritize show root for TV)
+    # Find poster and fanart (prioritize show root for TV)
     poster_path = None
+    fanart_path = None
+    
     if is_tv and show_root.exists():
         poster_path = MetadataService.find_poster(show_root, file_record.filename)
+        fanart_path = MetadataService.find_fanart(show_root, file_record.filename)
 
     if not poster_path:
         poster_path = MetadataService.find_poster(folder, file_record.filename)
+    if not fanart_path:
+        fanart_path = MetadataService.find_fanart(folder, file_record.filename)
 
     # Find and parse TXT fallback
     txt_info = None
@@ -170,22 +175,30 @@ async def get_file_metadata(file_id: int, session: Session = Depends(get_session
     if txt_path:
         txt_info = MetadataService.parse_txt_info(txt_path)
 
-    # Return relative poster path for frontend to construct URL
+    # Return relative paths for frontend to construct URL
     poster_relative = None
+    fanart_relative = None
+    
     if poster_path:
         try:
-            # Get relative path from media root
             if media_root:
                 poster_relative = str(poster_path.relative_to(media_root))
         except ValueError:
-            # If not relative, just use the folder name
             poster_relative = str(poster_path.name)
+            
+    if fanart_path:
+        try:
+            if media_root:
+                fanart_relative = str(fanart_path.relative_to(media_root))
+        except ValueError:
+            fanart_relative = str(fanart_path.name)
 
     return {
         "file_id": file_id,
         "filename": file_record.filename,
         "nfo_data": nfo_data,
         "poster_path": poster_relative,
+        "fanart_path": fanart_relative,
         "txt_info": txt_info,
     }
 

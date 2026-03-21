@@ -66,7 +66,7 @@ export default function SearchPage() {
   });
 
   return (
-    <div className="flex flex-col gap-8 w-full max-w-4xl">
+    <div className="flex flex-col gap-8 w-full h-full max-w-[1800px]">
       <h1 className="text-3xl font-bold text-slate-900">{t('page.search.title')}</h1>
 
       <div className="bg-white rounded-2xl p-5 flex items-center gap-3 w-full shadow-sm">

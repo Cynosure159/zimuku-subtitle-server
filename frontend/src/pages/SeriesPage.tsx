@@ -2,8 +2,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
-import { autoMatchFile, matchTVSeason } from '../api';
-import { MediaConfigPanel } from '../components/MediaConfigPanel';
+import { autoMatchFile, matchTVSeason, triggerMediaMatch } from '../api';
 import { MediaSidebar, type SidebarItem } from '../components/MediaSidebar';
 import { MediaInfoCard } from '../components/MediaInfoCard';
 import { EmptySelectionState } from '../components/EmptySelectionState';
@@ -20,11 +19,23 @@ async function fetchSeriesMetadata(fileId: number) {
 
 export default function SeriesPage() {
   const { t } = useTranslation();
-  const { paths, files, status, fetchData, setIsScanningOptimistic, setMatchingFileOptimistic, setMatchingSeasonOptimistic } = useMediaPolling('tv');
+  const { files, status, setIsScanningOptimistic, setMatchingFileOptimistic, setMatchingSeasonOptimistic } = useMediaPolling('tv');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSeriesTitle, setSelectedSeriesTitle] = useState<string | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<number>(1);
+
+  const handleRefresh = async () => {
+    try {
+      if (setIsScanningOptimistic) {
+        setIsScanningOptimistic(true);
+        setTimeout(() => setIsScanningOptimistic(false), 3000);
+      }
+      await triggerMediaMatch('tv');
+    } catch (err: unknown) {
+      console.error(err);
+    }
+  };
 
   const handleAutoSearch = async (fileId: number) => {
     if (setMatchingFileOptimistic) {
@@ -172,17 +183,9 @@ export default function SeriesPage() {
   );
 
   return (
-    <div className="flex flex-col gap-6 w-full h-full">
-      <MediaConfigPanel
-        type="tv"
-        title={t('page.series.title')}
-        paths={paths}
-        isScanning={status.is_scanning}
-        onRefreshData={fetchData}
-        setIsScanningOptimistic={setIsScanningOptimistic}
-      />
+    <div className="flex flex-col gap-6 w-full h-full max-w-[1800px]">
 
-      <div className="flex flex-col lg:flex-row gap-4 h-[calc(100vh-120px)] w-full w-full">
+      <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-120px)] w-full">
         <div className="flex flex-col shrink-0">
           <MediaSidebar
             items={sidebarItems}
@@ -192,6 +195,9 @@ export default function SeriesPage() {
             onSelectTitle={setSelectedSeriesTitle}
             searchPlaceholder={t('page.series.noSeries').replace('未找到', '搜索')}
             emptyText={t('page.series.noSeries')}
+            onRefresh={handleRefresh}
+            isRefreshing={status.is_scanning}
+            title="剧集"
           />
         </div>
 
@@ -201,7 +207,6 @@ export default function SeriesPage() {
               fileId={selectedSeries.firstFileId}
               title={selectedSeries.title}
               year={selectedSeries.year}
-              path={selectedSeries.firstPath}
             />
 
             <div className="flex-1 p-10 pt-6 space-y-8 overflow-y-auto custom-scrollbar">

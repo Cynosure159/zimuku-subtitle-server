@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
-import { MediaConfigPanel } from '../components/MediaConfigPanel';
+import { triggerMediaMatch } from '../api';
 import { MediaSidebar, type SidebarItem } from '../components/MediaSidebar';
 import { MediaInfoCard } from '../components/MediaInfoCard';
 import { EmptySelectionState } from '../components/EmptySelectionState';
@@ -18,10 +18,22 @@ async function fetchMovieMetadata(fileId: number) {
 
 export default function MoviesPage() {
   const { t } = useTranslation();
-  const { paths, files, status, fetchData, setIsScanningOptimistic, setMatchingFileOptimistic } = useMediaPolling('movie');
+  const { files, status, setIsScanningOptimistic, setMatchingFileOptimistic } = useMediaPolling('movie');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMovieTitle, setSelectedMovieTitle] = useState<string | null>(null);
+
+  const handleRefresh = async () => {
+    try {
+      if (setIsScanningOptimistic) {
+        setIsScanningOptimistic(true);
+        setTimeout(() => setIsScanningOptimistic(false), 3000);
+      }
+      await triggerMediaMatch('movie');
+    } catch (err: unknown) {
+      console.error(err);
+    }
+  };
 
   const groupedMovies = useMemo(() => {
     const groups: Record<string, { title: string; year?: string; files: ScannedFile[]; createdAt?: string }> = {};
@@ -89,17 +101,9 @@ export default function MoviesPage() {
   const selectedMovie = groupedMovies.find(m => m.title === selectedMovieTitle);
 
   return (
-    <div className="flex flex-col gap-6 w-full h-full">
-      <MediaConfigPanel
-        type="movie"
-        title={t('page.movies.title')}
-        paths={paths}
-        isScanning={status.is_scanning}
-        onRefreshData={fetchData}
-        setIsScanningOptimistic={setIsScanningOptimistic}
-      />
+    <div className="flex flex-col gap-6 w-full h-full max-w-[1800px]">
 
-      <div className="flex flex-col lg:flex-row gap-4 h-[calc(100vh-120px)] w-full">
+      <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-120px)] w-full">
         <div className="flex flex-col shrink-0">
           <MediaSidebar
             items={sidebarItems}
@@ -109,6 +113,9 @@ export default function MoviesPage() {
             onSelectTitle={setSelectedMovieTitle}
             searchPlaceholder={t('page.movies.noMovies').replace('未找到', '搜索')}
             emptyText={t('page.movies.noMovies')}
+            onRefresh={handleRefresh}
+            isRefreshing={status.is_scanning}
+            title="电影"
           />
         </div>
 
@@ -118,7 +125,6 @@ export default function MoviesPage() {
               fileId={selectedMovie.files[0]?.id}
               title={selectedMovie.title}
               year={selectedMovie.year}
-              path={selectedMovie.files[0]?.file_path}
             />
 
             <div className="flex-1 p-10 pt-6 space-y-8 overflow-y-auto custom-scrollbar">

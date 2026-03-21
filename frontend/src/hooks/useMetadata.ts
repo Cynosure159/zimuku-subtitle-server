@@ -13,6 +13,7 @@ export interface MediaMetadata {
     director?: string;
   } | null;
   poster_path: string | null;
+  fanart_path: string | null;
   txt_info: Record<string, string> | null;
 }
 

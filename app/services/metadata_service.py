@@ -18,6 +18,11 @@ class MetadataService:
         return metadata_module.find_poster(folder, video_filename)
 
     @staticmethod
+    def find_fanart(folder: Path, video_filename: Optional[str] = None) -> Optional[Path]:
+        """Find fanart image in folder"""
+        return metadata_module.find_fanart(folder, video_filename)
+
+    @staticmethod
     def parse_txt_info(txt_path: Path) -> Optional[dict]:
         """Parse TXT file with key:value metadata"""
         return metadata_module.parse_txt_info(txt_path)

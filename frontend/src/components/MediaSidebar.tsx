@@ -18,6 +18,9 @@ interface MediaSidebarProps {
   onSelectTitle: (title: string) => void;
   searchPlaceholder: string;
   emptyText: string;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
+  title?: string;
 }
 
 export function MediaSidebar({
@@ -28,6 +31,9 @@ export function MediaSidebar({
   onSelectTitle,
   searchPlaceholder,
   emptyText,
+  onRefresh,
+  isRefreshing,
+  title = 'Library'
 }: MediaSidebarProps) {
   const { t } = useTranslation();
   const { sidebarOpen, toggleSidebar } = useUIStore();
@@ -41,16 +47,23 @@ export function MediaSidebar({
 
   return (
     <>
-      {/* Mobile toggle button */}
-      <button
-        onClick={toggleSidebar}
-        className="lg:hidden fixed top-4 right-4 z-50 p-2 bg-surface-container rounded-lg shadow-md border border-outline-variant/10 text-on-surface"
-      >
-        <span className="material-symbols-outlined">{sidebarOpen ? 'close' : 'menu'}</span>
-      </button>
+      <div className="lg:hidden fixed bottom-6 right-6 z-50">
+        <button
+          onClick={toggleSidebar}
+          className="w-14 h-14 bg-primary text-white rounded-full shadow-lg shadow-indigo-500/30 flex items-center justify-center active:scale-90 transition-transform"
+        >
+          <span className="material-symbols-outlined">{sidebarOpen ? 'close' : 'menu'}</span>
+        </button>
+      </div>
 
-      {/* Sidebar / Left Column */}
-      <div
+      {sidebarOpen && (
+        <div 
+          className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+          onClick={toggleSidebar}
+        />
+      )}
+
+      <aside
         className={`
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
           lg:translate-x-0
@@ -63,9 +76,14 @@ export function MediaSidebar({
       >
         <div className="flex justify-between items-center px-2">
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold font-headline text-on-surface">Library</h1>
-            <button className="p-1.5 hover:bg-surface-container-high rounded-lg text-on-surface-variant hover:text-primary transition-all">
-              <span className="material-symbols-outlined text-xl">refresh</span>
+            <h1 className="text-2xl font-bold font-headline text-on-surface">{title}</h1>
+            <button
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              className={`p-1.5 hover:bg-surface-container-high rounded-lg text-on-surface-variant hover:text-primary transition-all active:scale-95 ${isRefreshing ? 'opacity-50' : ''}`}
+              title="重新扫描目录"
+            >
+              <span className={`material-symbols-outlined text-xl ${isRefreshing ? 'animate-spin' : ''}`}>refresh</span>
             </button>
           </div>
         </div>
@@ -137,14 +155,7 @@ export function MediaSidebar({
             <div className="text-center text-sm text-on-surface-variant font-label py-10 opacity-70">{emptyText}</div>
           )}
         </div>
-      </div>
-
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-30 lg:hidden"
-          onClick={toggleSidebar}
-        />
-      )}
+      </aside>
     </>
   );
 }
