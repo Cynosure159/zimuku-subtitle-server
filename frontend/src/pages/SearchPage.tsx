@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { searchSubtitles, type SearchResult as SearchResultType } from '../api';
@@ -7,6 +8,7 @@ import DownloadModal from '../components/DownloadModal';
 
 export default function SearchPage() {
   const { t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeFilter, setActiveFilter] = useState(t('searchFilter.all'));
   const filters = [t('searchFilter.all'), t('searchFilter.simplified'), t('searchFilter.traditional'), t('searchFilter.english'), t('searchFilter.bilingual')];
 
@@ -16,6 +18,31 @@ export default function SearchPage() {
   const [error, setError] = useState('');
   const [selectedSubtitle, setSelectedSubtitle] = useState<SearchResultType | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+
+  // Handle search params on mount
+  useEffect(() => {
+    const qParam = searchParams.get('q');
+    if (qParam) {
+      setQuery(qParam);
+      // Trigger search with the query from URL
+      const doSearch = async () => {
+        setLoading(true);
+        setError('');
+        try {
+          const data = await searchSubtitles(qParam);
+          setResults(data);
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : String(err);
+          setError(message || t('page.search.searchFailed') || 'Search failed');
+        } finally {
+          setLoading(false);
+        }
+      };
+      doSearch();
+      // Clear the search param from URL
+      setSearchParams(new URLSearchParams(), { replace: true });
+    }
+  }, [searchParams, setSearchParams, t]);
 
   const handleSearch = async () => {
     if (!query.trim()) return;
