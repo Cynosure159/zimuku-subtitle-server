@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../stores/useUIStore';
 
@@ -8,7 +9,12 @@ export interface SidebarItem {
   totalCount: number;
   hasSubCount: number;
   poster?: string | null;
+  createdAt?: string;
 }
+
+export type SortOption = 'name' | 'year' | 'created' | 'status';
+export type FilterOption = 'all' | 'missing';
+export type SortOrder = 'asc' | 'desc';
 
 interface MediaSidebarProps {
   items: SidebarItem[];
@@ -21,6 +27,12 @@ interface MediaSidebarProps {
   onRefresh?: () => void;
   isRefreshing?: boolean;
   title?: string;
+  // New props for sorting and filtering
+  sortOption?: SortOption;
+  onSortOptionChange?: (opt: SortOption) => void;
+  sortOrder?: SortOrder;
+  filterOption?: FilterOption;
+  onFilterOptionChange?: (opt: FilterOption) => void;
 }
 
 export function MediaSidebar({
@@ -33,10 +45,17 @@ export function MediaSidebar({
   emptyText,
   onRefresh,
   isRefreshing,
-  title = 'Library'
+  title = 'Library',
+  sortOption = 'name',
+  onSortOptionChange,
+  sortOrder = 'asc',
+  filterOption = 'all',
+  onFilterOptionChange
 }: MediaSidebarProps) {
   const { t } = useTranslation();
   const { sidebarOpen, toggleSidebar } = useUIStore();
+
+  const [isSortOpen, setIsSortOpen] = useState(false);
 
   const getSubtitleStatusText = (item: SidebarItem) => {
     if (item.totalCount === 0) return '';
@@ -44,6 +63,16 @@ export function MediaSidebar({
     if (item.hasSubCount === 0) return t('status.missing');
     return t('status.matchedCount', { has: item.hasSubCount, total: item.totalCount });
   };
+
+  const currentSortLabel = useMemo(() => {
+    switch(sortOption) {
+      case 'name': return t('sort.name');
+      case 'year': return t('sort.year');
+      case 'created': return t('sort.created');
+      case 'status': return t('sort.subtitleStatus');
+      default: return '';
+    }
+  }, [sortOption, t]);
 
   return (
     <>
@@ -86,6 +115,33 @@ export function MediaSidebar({
               <span className={`material-symbols-outlined text-sm ${isRefreshing ? 'animate-spin' : ''}`}>sync</span>
             </button>
           </div>
+          <div className="relative">
+            <button
+              onClick={() => setIsSortOpen(!isSortOpen)}
+              className="flex items-center gap-2 bg-surface-container hover:bg-surface-container-high text-on-surface-variant font-bold py-2.5 px-4 rounded-xl transition-all border border-outline-variant/10 active:scale-95 shadow-sm"
+            >
+              <span className="material-symbols-outlined text-sm">sort</span>
+              <span className="text-xs uppercase tracking-wider">{currentSortLabel}</span>
+              <span className={`material-symbols-outlined text-[14px] transition-transform duration-300 ${sortOrder === 'desc' ? 'rotate-180' : ''}`}>straight</span>
+            </button>
+            
+            {isSortOpen && (
+              <div className="absolute right-0 mt-2 w-40 bg-surface-container-high rounded-xl shadow-2xl border border-outline-variant/10 z-50 overflow-hidden backdrop-blur-md">
+                {(['name', 'year', 'created', 'status'] as SortOption[]).map((opt) => (
+                  <button
+                    key={opt}
+                    onClick={() => {
+                      onSortOptionChange?.(opt);
+                      setIsSortOpen(false);
+                    }}
+                    className={`w-full text-left px-4 py-3 text-xs font-bold transition-colors hover:bg-primary/10 ${sortOption === opt ? 'text-primary bg-primary/5' : 'text-on-surface-variant'}`}
+                  >
+                    {opt === 'name' ? t('sort.name') : opt === 'year' ? t('sort.year') : opt === 'created' ? t('sort.created') : t('sort.subtitleStatus')}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="space-y-4 px-2">
@@ -98,6 +154,29 @@ export function MediaSidebar({
               className="w-full bg-surface-container rounded-xl py-3 pl-11 pr-4 border-none focus:ring-1 focus:ring-primary/40 text-sm font-body transition-all placeholder:text-outline text-on-surface outline-none"
             />
             <span className="material-symbols-outlined absolute left-5 top-1/2 -translate-y-1/2 text-outline text-xl group-focus-within:text-primary transition-colors">search</span>
+          </div>
+
+          <div className="flex p-1.5 bg-surface-container rounded-2xl border border-outline-variant/5 shadow-inner">
+            <button
+              onClick={() => onFilterOptionChange?.('all')}
+              className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all duration-300 ${
+                filterOption === 'all'
+                  ? 'bg-primary-container text-primary shadow-[0_4px_12px_rgba(189,194,255,0.3)]'
+                  : 'text-on-surface-variant hover:bg-surface-container-high'
+              }`}
+            >
+              {t('filter.all')}
+            </button>
+            <button
+              onClick={() => onFilterOptionChange?.('missing')}
+              className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all duration-300 ${
+                filterOption === 'missing'
+                  ? 'bg-primary-container text-primary shadow-[0_4px_12px_rgba(189,194,255,0.3)]'
+                  : 'text-on-surface-variant hover:bg-surface-container-high'
+              }`}
+            >
+              {t('filter.missing')}
+            </button>
           </div>
         </div>
 
@@ -121,7 +200,7 @@ export function MediaSidebar({
                 
                 <div className={`w-16 h-24 rounded-lg bg-surface-container-highest flex-shrink-0 overflow-hidden ${isSelected ? 'shadow-md' : 'opacity-70 group-hover:opacity-100 transition-opacity'}`}>
                   {item.poster ? (
-                    <img src={item.poster} alt={item.displayTitle} className={`w-full h-full object-cover ${isSelected ? '' : 'grayscale group-hover:grayscale-0 transition-all'}`} />
+                    <img src={item.poster} alt={item.displayTitle} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <span className="material-symbols-outlined text-outline">movie</span>
@@ -159,3 +238,4 @@ export function MediaSidebar({
     </>
   );
 }
+

@@ -3,7 +3,7 @@ import { useQueries } from '@tanstack/react-query';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { autoMatchFile, matchTVSeason, triggerMediaMatch } from '../api';
-import { MediaSidebar, type SidebarItem } from '../components/MediaSidebar';
+import { MediaSidebar, type SidebarItem, type SortOption, type FilterOption, type SortOrder } from '../components/MediaSidebar';
 import { MediaInfoCard } from '../components/MediaInfoCard';
 import { EmptySelectionState } from '../components/EmptySelectionState';
 import { useMediaPolling, type ScannedFile } from '../hooks/useMediaPolling';
@@ -24,6 +24,9 @@ export default function SeriesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSeriesTitle, setSelectedSeriesTitle] = useState<string | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<number>(1);
+  const [sortOption, setSortOption] = useState<SortOption>('name');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+  const [filterOption, setFilterOption] = useState<FilterOption>('all');
 
   const handleRefresh = async () => {
     try {
@@ -34,6 +37,16 @@ export default function SeriesPage() {
       await triggerMediaMatch('tv');
     } catch (err: unknown) {
       console.error(err);
+    }
+  };
+
+  const handleSortChange = (opt: SortOption) => {
+    if (opt === sortOption) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortOption(opt);
+      if (opt === 'name') setSortOrder('asc');
+      else setSortOrder('desc');
     }
   };
 
@@ -103,12 +116,37 @@ export default function SeriesPage() {
       if (file.has_subtitle) groups[title].hasSubCount++;
     });
 
-    const result = Object.values(groups).filter(s =>
+    let result = Object.values(groups).filter(s =>
       s.title.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    return result.sort((a, b) => a.title.localeCompare(b.title));
-  }, [files, searchTerm, t]);
+    // Filter
+    if (filterOption === 'missing') {
+      result = result.filter(s => s.hasSubCount < s.totalCount);
+    }
+
+    // Sort
+    result.sort((a, b) => {
+      let comparison = 0;
+      if (sortOption === 'year') {
+        const yearA = parseInt(a.year || '0');
+        const yearB = parseInt(b.year || '0');
+        comparison = yearA - yearB;
+      } else if (sortOption === 'created') {
+        comparison = (a.createdAt || '').localeCompare(b.createdAt || '');
+      } else if (sortOption === 'status') {
+        const ratioA = a.hasSubCount / a.totalCount;
+        const ratioB = b.hasSubCount / b.totalCount;
+        comparison = ratioA - ratioB;
+      } else {
+        comparison = a.title.localeCompare(b.title);
+      }
+      
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
+    return result;
+  }, [files, searchTerm, t, sortOption, sortOrder, filterOption]);
 
   // 批量获取每个剧集的元数据（海报和 NFO 信息）
   const metadataQueries = useQueries({
@@ -140,7 +178,8 @@ export default function SeriesPage() {
         year: nfoYear || series.year,
         totalCount: series.totalCount,
         hasSubCount: series.hasSubCount,
-        poster: posterUrl
+        poster: posterUrl,
+        createdAt: series.createdAt
       };
     });
   }, [groupedSeries, metadataQueries]);
@@ -203,6 +242,11 @@ export default function SeriesPage() {
             onRefresh={handleRefresh}
             isRefreshing={status.is_scanning}
             title={t('tv')}
+            sortOption={sortOption}
+            onSortOptionChange={handleSortChange}
+            sortOrder={sortOrder}
+            filterOption={filterOption}
+            onFilterOptionChange={setFilterOption}
           />
         </div>
 

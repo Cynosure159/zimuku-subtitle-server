@@ -3,7 +3,7 @@ import { useQueries } from '@tanstack/react-query';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { triggerMediaMatch } from '../api';
-import { MediaSidebar, type SidebarItem } from '../components/MediaSidebar';
+import { MediaSidebar, type SidebarItem, type SortOption, type FilterOption, type SortOrder } from '../components/MediaSidebar';
 import { MediaInfoCard } from '../components/MediaInfoCard';
 import { EmptySelectionState } from '../components/EmptySelectionState';
 import { MediaList } from '../components/MediaList';
@@ -22,6 +22,9 @@ export default function MoviesPage() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMovieTitle, setSelectedMovieTitle] = useState<string | null>(null);
+  const [sortOption, setSortOption] = useState<SortOption>('name');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+  const [filterOption, setFilterOption] = useState<FilterOption>('all');
 
   const handleRefresh = async () => {
     try {
@@ -35,22 +38,60 @@ export default function MoviesPage() {
     }
   };
 
+  const handleSortChange = (opt: SortOption) => {
+    if (opt === sortOption) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortOption(opt);
+      // Set default order for new options
+      if (opt === 'name') setSortOrder('asc');
+      else setSortOrder('desc');
+    }
+  };
+
   const groupedMovies = useMemo(() => {
-    const groups: Record<string, { title: string; year?: string; files: ScannedFile[]; createdAt?: string }> = {};
+    const groups: Record<string, { title: string; year?: string; files: ScannedFile[]; createdAt?: string; hasSubCount: number; totalCount: number }> = {};
     files.forEach(file => {
       const title = file.extracted_title || t('page.movies.unknownMovie');
       if (!groups[title]) {
-        groups[title] = { title, year: file.year, files: [], createdAt: file.created_at };
+        groups[title] = { title, year: file.year, files: [], createdAt: file.created_at, hasSubCount: 0, totalCount: 0 };
       }
       groups[title].files.push(file);
+      groups[title].totalCount++;
+      if (file.has_subtitle) groups[title].hasSubCount++;
     });
 
-    const result = Object.values(groups).filter(m =>
+    let result = Object.values(groups).filter(m =>
       m.title.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    return result.sort((a, b) => a.title.localeCompare(b.title));
-  }, [files, searchTerm, t]);
+    // Filter
+    if (filterOption === 'missing') {
+      result = result.filter(m => m.hasSubCount < m.totalCount);
+    }
+
+    // Sort
+    result.sort((a, b) => {
+      let comparison = 0;
+      if (sortOption === 'year') {
+        const yearA = parseInt(a.year || '0');
+        const yearB = parseInt(b.year || '0');
+        comparison = yearA - yearB;
+      } else if (sortOption === 'created') {
+        comparison = (a.createdAt || '').localeCompare(b.createdAt || '');
+      } else if (sortOption === 'status') {
+        const ratioA = a.hasSubCount / a.totalCount;
+        const ratioB = b.hasSubCount / b.totalCount;
+        comparison = ratioA - ratioB;
+      } else {
+        comparison = a.title.localeCompare(b.title);
+      }
+      
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
+    return result;
+  }, [files, searchTerm, t, sortOption, sortOrder, filterOption]);
 
   // 批量获取每个电影的元数据（海报和 NFO 信息）
   const metadataQueries = useQueries({
@@ -116,6 +157,11 @@ export default function MoviesPage() {
             onRefresh={handleRefresh}
             isRefreshing={status.is_scanning}
             title={t('movie')}
+            sortOption={sortOption}
+            onSortOptionChange={handleSortChange}
+            sortOrder={sortOrder}
+            filterOption={filterOption}
+            onFilterOptionChange={setFilterOption}
           />
         </div>
 
