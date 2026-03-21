@@ -178,6 +178,7 @@ class MediaService:
                                 season=parsed["season"],
                                 episode=parsed["episode"],
                                 has_subtitle=has_sub,
+                                series_root_path=str(sub_dir.absolute()) if mp.type == "tv" else None,
                             )
                             session_data.add(new_file)
                         else:
@@ -187,6 +188,8 @@ class MediaService:
                             existing_file.season = parsed["season"]
                             existing_file.episode = parsed["episode"]
                             existing_file.has_subtitle = has_sub
+                            if mp.type == "tv":
+                                existing_file.series_root_path = str(sub_dir.absolute())
                             session_data.add(existing_file)
 
                     for sub_dir in scan_dir.iterdir():

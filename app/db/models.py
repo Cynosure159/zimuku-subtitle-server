@@ -69,4 +69,5 @@ class ScannedFile(SQLModel, table=True):
     season: Optional[int] = None
     episode: Optional[int] = None
     has_subtitle: bool = Field(default=False)
+    series_root_path: Optional[str] = Field(default=None)  # TV series root directory
     created_at: datetime = Field(default_factory=datetime.now)

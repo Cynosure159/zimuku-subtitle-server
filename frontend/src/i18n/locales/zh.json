@@ -31,13 +31,13 @@
       "placeholder": "搜索剧集...",
       "filterEmpty": "筛选结果为空",
       "clearFilter": "清除筛选条件",
-      "season": "第 {n} 季",
+      "season": "第 {{n}} 季",
       "smartMatch": "智能补全本季字幕",
       "smartMatching": "智能补全中...",
       "noVideos": "本季暂无视频文件",
       "episodeFile": "集数与文件名称",
       "statusAction": "状态与操作",
-      "episodes": "{count} 集"
+      "episodes": "{{count}} 集"
     },
     "tasks": {
       "title": "下载任务",
@@ -148,18 +148,18 @@
     "tv": "剧集",
     "notFound": "未找到电影",
     "notFoundTv": "未找到剧集",
-    "episodes": "{count} 集"
+    "episodes": "{{count}} 集"
   },
   "episodeSelector": {
-    "season": "第 {n} 季"
+    "season": "第 {{n}} 季"
   },
   "empty": {
-    "selectLeft": "请选择左侧{type}查看详情"
+    "selectLeft": "请选择左侧{{type}}查看详情"
   },
   "year": {
     "unknown": "未知年份"
   },
-  "downloadCount": "{count} 次下载",
+  "downloadCount": "{{count}} 次下载",
   "author": "作者",
   "association": "关联扫描目录",
   "noPlot": "暂无简介信息。后续将通过刮削器自动补充详细信息。",

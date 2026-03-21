@@ -18,6 +18,7 @@ export interface ScannedFile {
   season?: number;
   episode?: number;
   has_subtitle: boolean;
+  series_root_path?: string;
   created_at: string;
 }
 

@@ -31,13 +31,13 @@
       "placeholder": "Search series...",
       "filterEmpty": "Filter result is empty",
       "clearFilter": "Clear filter",
-      "season": "Season {n}",
+      "season": "Season {{n}}",
       "smartMatch": "Smart Match Season",
       "smartMatching": "Matching...",
       "noVideos": "No video files for this season",
       "episodeFile": "Episode & File Name",
       "statusAction": "Status & Actions",
-      "episodes": "{count} episodes"
+      "episodes": "{{count}} episodes"
     },
     "tasks": {
       "title": "Download Tasks",
@@ -148,18 +148,18 @@
     "tv": "TV Series",
     "notFound": "No movies found",
     "notFoundTv": "No series found",
-    "episodes": "{count} episodes"
+    "episodes": "{{count}} episodes"
   },
   "episodeSelector": {
-    "season": "Season {n}"
+    "season": "Season {{n}}"
   },
   "empty": {
-    "selectLeft": "Select a {type} on the left to view details"
+    "selectLeft": "Select a {{type}} on the left to view details"
   },
   "year": {
     "unknown": "Unknown Year"
   },
-  "downloadCount": "{count} downloads",
+  "downloadCount": "{{count}} downloads",
   "author": "Author",
   "association": "Associated Scan Directory",
   "noPlot": "No synopsis available. Details will be added automatically by the scraper later.",

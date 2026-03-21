@@ -79,6 +79,7 @@ export default function SeriesPage() {
       totalCount: number;
       hasSubCount: number;
       firstPath: string;
+      seriesRootPath: string;
       firstFileId: number;
       createdAt?: string;
       seasons: Record<number, ScannedFile[]>
@@ -93,6 +94,7 @@ export default function SeriesPage() {
           totalCount: 0,
           hasSubCount: 0,
           firstPath: file.file_path,
+          seriesRootPath: file.series_root_path || file.file_path.split('/').slice(0, -1).join('/'),
           firstFileId: file.id,
           createdAt: file.created_at,
           seasons: {}
@@ -276,7 +278,7 @@ export default function SeriesPage() {
               <div className="flex justify-between items-center bg-surface-container/50 p-4 rounded-xl border border-outline-variant/10">
                 <div className="flex items-center gap-3">
                   <span className="material-symbols-outlined text-on-surface-variant">folder_open</span>
-                  <code className="text-sm text-on-surface-variant font-body">{selectedSeries.firstPath?.split('/').slice(0, -1).join('/') || selectedSeries.firstPath?.split('\\').slice(0, -1).join('\\')}</code>
+                  <code className="text-sm text-on-surface-variant font-body">{selectedSeries.seriesRootPath}</code>
                 </div>
               </div>
 
