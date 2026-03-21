@@ -1,22 +1,14 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useQueries } from '@tanstack/react-query';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
-import { autoMatchFile, matchTVSeason, triggerMediaMatch } from '../api';
+import { API_BASE, autoMatchFile, fetchMediaMetadata, matchTVSeason, triggerMediaMatch } from '../api';
 import { MediaSidebar, type SidebarItem, type SortOption, type FilterOption, type SortOrder } from '../components/MediaSidebar';
 import { MediaInfoCard } from '../components/MediaInfoCard';
 import { EmptySelectionState } from '../components/EmptySelectionState';
 import { useMediaPolling, type ScannedFile } from '../hooks/useMediaPolling';
-import { MediaListItem } from '../components/MediaListItem';
+import { MediaItem } from '../components/MediaItem';
 import { Search, Loader2 } from 'lucide-react';
 import { useUIStore } from '../stores/useUIStore';
-
-const API_BASE = 'http://127.0.0.1:8000';
-
-async function fetchSeriesMetadata(fileId: number) {
-  const response = await axios.get(`${API_BASE}/media/metadata/${fileId}`);
-  return response.data;
-}
 
 export default function SeriesPage() {
   const { t } = useTranslation();
@@ -153,7 +145,7 @@ export default function SeriesPage() {
   const metadataQueries = useQueries({
     queries: (groupedSeries || []).map(series => ({
       queryKey: ['media', 'metadata', series.firstFileId],
-      queryFn: () => fetchSeriesMetadata(series.firstFileId),
+      queryFn: () => fetchMediaMetadata(series.firstFileId),
       staleTime: 10 * 60 * 1000, // 10 minutes
       retry: 1,
     }))
@@ -335,10 +327,11 @@ export default function SeriesPage() {
                 
                 <div className="flex flex-col gap-3 w-full">
                   {currentSeasonFiles.map(file => (
-                    <MediaListItem
+                    <MediaItem
                       key={file.id}
                       file={file}
                       status={status}
+                      variant="tv"
                       showEpisode={true}
                       onAutoSearch={handleAutoSearch}
                     />

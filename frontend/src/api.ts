@@ -1,8 +1,32 @@
 import axios from 'axios';
 
+export const API_BASE = 'http://127.0.0.1:8000';
+
 const api = axios.create({
-  baseURL: 'http://127.0.0.1:8000',
+  baseURL: API_BASE,
 });
+
+export interface MediaMetadata {
+  file_id: number;
+  filename: string;
+  nfo_data: {
+    title?: string;
+    year?: string;
+    plot?: string;
+    rating?: string;
+    genres?: string[];
+    director?: string;
+    runtime?: string;
+  } | null;
+  poster_path: string | null;
+  fanart_path: string | null;
+  txt_info: Record<string, string> | null;
+}
+
+export const fetchMediaMetadata = async (fileId: number): Promise<MediaMetadata> => {
+  const response = await api.get(`/media/metadata/${fileId}`);
+  return response.data;
+};
 
 export const searchSubtitles = async (q: string) => {
   const response = await api.get('/search/', { params: { q } });
@@ -72,13 +96,6 @@ export const addMediaPath = async (path: string, path_type: 'movie' | 'tv') => {
 
 export const deleteMediaPath = async (pathId: number) => {
   const response = await api.delete(`/media/paths/${pathId}`);
-  return response.data;
-};
-
-export const updateMediaPath = async (pathId: number, enabled?: boolean, path_type?: 'movie' | 'tv') => {
-  const response = await api.patch(`/media/paths/${pathId}`, null, {
-    params: { enabled, path_type }
-  });
   return response.data;
 };
 

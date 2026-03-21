@@ -1,21 +1,13 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useQueries } from '@tanstack/react-query';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
-import { triggerMediaMatch } from '../api';
+import { API_BASE, fetchMediaMetadata, triggerMediaMatch } from '../api';
 import { MediaSidebar, type SidebarItem, type SortOption, type FilterOption, type SortOrder } from '../components/MediaSidebar';
 import { MediaInfoCard } from '../components/MediaInfoCard';
 import { EmptySelectionState } from '../components/EmptySelectionState';
-import { MediaList } from '../components/MediaList';
+import { MediaList } from '../components/MediaItem';
 import { useMediaPolling, type ScannedFile } from '../hooks/useMediaPolling';
 import { useUIStore } from '../stores/useUIStore';
-
-const API_BASE = 'http://127.0.0.1:8000';
-
-async function fetchMovieMetadata(fileId: number) {
-  const response = await axios.get(`${API_BASE}/media/metadata/${fileId}`);
-  return response.data;
-}
 
 export default function MoviesPage() {
   const { t } = useTranslation();
@@ -98,7 +90,7 @@ export default function MoviesPage() {
   const metadataQueries = useQueries({
     queries: (groupedMovies || []).map(movie => ({
       queryKey: ['media', 'metadata', movie.files[0]?.id],
-      queryFn: () => fetchMovieMetadata(movie.files[0].id),
+      queryFn: () => fetchMediaMetadata(movie.files[0].id),
       staleTime: 10 * 60 * 1000, // 10 minutes
       retry: 1,
       enabled: movie.files.length > 0
