@@ -17,6 +17,9 @@ source .venv/bin/activate
 # 运行开发服务器
 uvicorn app.main:app --reload
 
+# 打印调试日志（可选）
+LOG_LEVEL=DEBUG uvicorn app.main:app --reload
+
 # 运行代码检查和格式化（测试前必须执行）
 ruff check .
 ruff format .

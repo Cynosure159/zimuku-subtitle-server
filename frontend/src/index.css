@@ -1,14 +1,68 @@
 @import "tailwindcss";
 
-:root {
-  --bg_main: #F8FAFC;
-  --border_light: #E2E8F0;
-  --primary: #3B82F6;
-  --primary_hover: #2563EB;
-  --radius_card: 16px;
-  --shadow_card: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-  --text_primary: #0F172A;
-  --text_secondary: #64748B;
+@theme {
+  --font-headline: 'Manrope', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-label: 'Inter', sans-serif;
+
+  --color-background: #060e20;
+  --color-on-background: #dee5ff;
+  --color-surface: #060e20;
+  --color-surface-dim: #060e20;
+  --color-surface-bright: #182b52;
+  --color-surface-container-lowest: #000000;
+  --color-surface-container-low: #06122c;
+  --color-surface-container: #0a1836;
+  --color-surface-container-high: #0f1e3f;
+  --color-surface-container-highest: #11244c;
+  --color-surface-tint: #bdc2ff;
+  --color-surface-variant: #11244c;
+  --color-on-surface: #dee5ff;
+  --color-on-surface-variant: #99aad9;
+  --color-inverse-surface: #faf8ff;
+  --color-inverse-on-surface: #4d556b;
+  --color-outline: #6475a1;
+  --color-outline-variant: #364770;
+
+  --color-primary: #bdc2ff;
+  --color-primary-dim: #8a95ff;
+  --color-primary-container: #3c47af;
+  --color-primary-fixed: #818cf8;
+  --color-primary-fixed-dim: #747fea;
+  --color-on-primary: #28329c;
+  --color-on-primary-container: #e0e1ff;
+  --color-on-primary-fixed: #000000;
+  --color-on-primary-fixed-variant: #000979;
+  --color-inverse-primary: #4954bc;
+
+  --color-secondary: #b9c7df;
+  --color-secondary-dim: #abbad1;
+  --color-secondary-container: #2e3c4f;
+  --color-secondary-fixed: #d5e3fc;
+  --color-secondary-fixed-dim: #c7d5ed;
+  --color-on-secondary: #334154;
+  --color-on-secondary-container: #b2c0d8;
+  --color-on-secondary-fixed: #324053;
+  --color-on-secondary-fixed-variant: #4e5c71;
+
+  --color-tertiary: #c890ff;
+  --color-tertiary-dim: #be83fa;
+  --color-tertiary-container: #bc80f8;
+  --color-tertiary-fixed: #bc80f8;
+  --color-tertiary-fixed-dim: #ae73e9;
+  --color-on-tertiary: #400072;
+  --color-on-tertiary-container: #2e0055;
+  --color-on-tertiary-fixed: #000000;
+  --color-on-tertiary-fixed-variant: #3c006c;
+
+  --color-error: #f97386;
+  --color-error-dim: #c44b5f;
+  --color-error-container: #871c34;
+  --color-on-error: #490013;
+  --color-on-error-container: #ff97a3;
+
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
 }
 
 @layer base {
@@ -16,13 +70,29 @@
     height: 100%;
     margin: 0;
     padding: 0;
-    background-color: var(--bg_main);
-    color: var(--text_primary);
+    background-color: var(--color-background);
+    color: var(--color-on-surface);
+    font-family: var(--font-body);
   }
+  
+  /* Apply dark mode globally since it's a dark design system */
+  html {
+    color-scheme: dark;
+  }
+
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--color-outline-variant); border-radius: 10px; }
+
+  .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--color-outline-variant); border-radius: 10px; }
+  
+  .glass-panel { backdrop-filter: blur(16px); }
 
   #root {
     height: 100%;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
   }
 }

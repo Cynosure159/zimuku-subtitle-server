@@ -8,7 +8,6 @@ import { MediaInfoCard } from '../components/MediaInfoCard';
 import { EmptySelectionState } from '../components/EmptySelectionState';
 import { MediaList } from '../components/MediaList';
 import { useMediaPolling, type ScannedFile } from '../hooks/useMediaPolling';
-import { MediaFilterBar, type FilterOption, type SortOption } from '../components/MediaFilterBar';
 
 const API_BASE = 'http://127.0.0.1:8000';
 
@@ -24,25 +23,6 @@ export default function MoviesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMovieTitle, setSelectedMovieTitle] = useState<string | null>(null);
 
-  // Filter and sort state - load from localStorage
-  const [filter, setFilter] = useState<FilterOption>('all');
-  const [sortBy, setSortBy] = useState<SortOption>(() => {
-    const saved = localStorage.getItem('movies-sort-by');
-    return (saved as SortOption) || 'name';
-  });
-  const [sortDesc, setSortDesc] = useState<boolean>(() => {
-    const saved = localStorage.getItem('movies-sort-desc');
-    return saved === 'true';
-  });
-
-  // Persist sort preferences to localStorage
-  useEffect(() => {
-    localStorage.setItem('movies-sort-by', sortBy);
-  }, [sortBy]);
-  useEffect(() => {
-    localStorage.setItem('movies-sort-desc', String(sortDesc));
-  }, [sortDesc]);
-
   const groupedMovies = useMemo(() => {
     const groups: Record<string, { title: string; year?: string; files: ScannedFile[]; createdAt?: string }> = {};
     files.forEach(file => {
@@ -57,56 +37,8 @@ export default function MoviesPage() {
       m.title.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // Apply filter based on subtitle status
-    const filtered = result.filter(m => {
-      const totalCount = m.files.length;
-      const hasSubCount = m.files.filter(f => f.has_subtitle).length;
-      if (filter === 'all') return true;
-      if (filter === 'has') return totalCount === hasSubCount;
-      if (filter === 'missing') return hasSubCount < totalCount;
-      return true;
-    });
-
-    // Apply sort
-    return filtered.sort((a, b) => {
-      let cmp = 0;
-      switch (sortBy) {
-        case 'name':
-          cmp = a.title.localeCompare(b.title);
-          break;
-        case 'year':
-          cmp = (parseInt(a.year || '0') || 0) - (parseInt(b.year || '0') || 0);
-          break;
-        case 'created':
-          cmp = (a.createdAt || '').localeCompare(b.createdAt || '');
-          break;
-        case 'subtitle_status': {
-          const aRatio = a.files.filter(f => f.has_subtitle).length / a.files.length;
-          const bRatio = b.files.filter(f => f.has_subtitle).length / b.files.length;
-          cmp = aRatio - bRatio;
-          break;
-        }
-      }
-      return sortDesc ? -cmp : cmp;
-    });
-  }, [files, searchTerm, filter, sortBy, sortDesc, t]);
-
-  // Calculate filter counts
-  const filterCounts = useMemo(() => {
-    const groups: Record<string, { totalCount: number; hasSubCount: number }> = {};
-    files.forEach(file => {
-      const title = file.extracted_title || t('page.movies.unknownMovie');
-      if (!groups[title]) {
-        groups[title] = { totalCount: 0, hasSubCount: 0 };
-      }
-      groups[title].totalCount++;
-      if (file.has_subtitle) groups[title].hasSubCount++;
-    });
-    const all = Object.keys(groups).length;
-    const has = Object.values(groups).filter(g => g.totalCount === g.hasSubCount).length;
-    const missing = all - has;
-    return { all, has, missing };
-  }, [files, t]);
+    return result.sort((a, b) => a.title.localeCompare(b.title));
+  }, [files, searchTerm, t]);
 
   // 批量获取每个电影的元数据（海报和 NFO 信息）
   const metadataQueries = useQueries({
@@ -167,17 +99,8 @@ export default function MoviesPage() {
         setIsScanningOptimistic={setIsScanningOptimistic}
       />
 
-      <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-160px)] min-h-[600px]">
-        <div className="flex flex-col w-full lg:w-96 shrink-0">
-          <MediaFilterBar
-            filter={filter}
-            setFilter={setFilter}
-            sortBy={sortBy}
-            setSortBy={setSortBy}
-            sortDesc={sortDesc}
-            setSortDesc={setSortDesc}
-            counts={filterCounts}
-          />
+      <div className="flex flex-col lg:flex-row gap-4 h-[calc(100vh-120px)] w-full">
+        <div className="flex flex-col shrink-0">
           <MediaSidebar
             items={sidebarItems}
             searchTerm={searchTerm}
@@ -187,21 +110,10 @@ export default function MoviesPage() {
             searchPlaceholder={t('page.movies.noMovies').replace('未找到', '搜索')}
             emptyText={t('page.movies.noMovies')}
           />
-          {sidebarItems.length === 0 && filter !== 'all' && (
-            <div className="mt-4 p-4 bg-slate-50 rounded-lg text-center">
-              <p className="text-sm text-slate-500 mb-2">{t('page.movies.filterEmpty')}</p>
-              <button
-                onClick={() => setFilter('all')}
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-              >
-                {t('page.movies.clearFilter')}
-              </button>
-            </div>
-          )}
         </div>
 
         {selectedMovie ? (
-          <div className="flex-1 flex flex-col gap-6 overflow-y-auto pb-6 custom-scrollbar pr-2 lg:ml-0 ml-2">
+          <section className="flex-1 flex flex-col bg-surface-container-low rounded-2xl overflow-hidden relative border border-outline-variant/5 max-w-full">
             <MediaInfoCard
               fileId={selectedMovie.files[0]?.id}
               title={selectedMovie.title}
@@ -209,13 +121,29 @@ export default function MoviesPage() {
               path={selectedMovie.files[0]?.file_path}
             />
 
-            <div className="flex flex-col gap-4">
-              <h3 className="text-lg font-semibold text-slate-900">{t('page.movies.localFiles')} ({selectedMovie.files.length})</h3>
-              <MediaList files={selectedMovie.files} status={status} setMatchingFileOptimistic={setMatchingFileOptimistic} />
+            <div className="flex-1 p-10 pt-6 space-y-8 overflow-y-auto custom-scrollbar">
+              <div className="flex justify-between items-center bg-surface-container/50 p-4 rounded-xl border border-outline-variant/10">
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-on-surface-variant">folder_open</span>
+                  <code className="text-sm text-on-surface-variant font-body">{selectedMovie.files[0]?.file_path?.split('/').slice(0, -1).join('/') || selectedMovie.files[0]?.file_path?.split('\\').slice(0, -1).join('\\')}</code>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="flex items-center justify-between px-2 w-full">
+                  <h3 className="text-xl font-bold font-headline text-on-surface">{t('page.movies.localFiles')}</h3>
+                  <span className="text-sm text-on-surface-variant font-label">{selectedMovie.files.length} {selectedMovie.files.length === 1 ? 'file' : 'files'} found</span>
+                </div>
+                <div className="w-full">
+                  <MediaList files={selectedMovie.files} status={status} setMatchingFileOptimistic={setMatchingFileOptimistic} />
+                </div>
+              </div>
             </div>
-          </div>
+          </section>
         ) : (
-          <EmptySelectionState typeName={t('movie')} />
+          <div className="flex-1">
+            <EmptySelectionState typeName={t('movie')} />
+          </div>
         )}
       </div>
     </div>

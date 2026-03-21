@@ -1,5 +1,4 @@
 import { useMemo, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useQueries } from '@tanstack/react-query';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
@@ -9,7 +8,7 @@ import { MediaSidebar, type SidebarItem } from '../components/MediaSidebar';
 import { MediaInfoCard } from '../components/MediaInfoCard';
 import { EmptySelectionState } from '../components/EmptySelectionState';
 import { useMediaPolling, type ScannedFile } from '../hooks/useMediaPolling';
-import { MediaFilterBar, type FilterOption, type SortOption } from '../components/MediaFilterBar';
+import { MediaListItem } from '../components/MediaListItem';
 import { Search, Loader2 } from 'lucide-react';
 
 const API_BASE = 'http://127.0.0.1:8000';
@@ -21,37 +20,15 @@ async function fetchSeriesMetadata(fileId: number) {
 
 export default function SeriesPage() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const { paths, files, status, fetchData, setIsScanningOptimistic, setMatchingFileOptimistic, setMatchingSeasonOptimistic } = useMediaPolling('tv');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSeriesTitle, setSelectedSeriesTitle] = useState<string | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<number>(1);
 
-  // Filter and sort state - load from localStorage
-  const [filter, setFilter] = useState<FilterOption>('all');
-  const [sortBy, setSortBy] = useState<SortOption>(() => {
-    const saved = localStorage.getItem('series-sort-by');
-    return (saved as SortOption) || 'name';
-  });
-  const [sortDesc, setSortDesc] = useState<boolean>(() => {
-    const saved = localStorage.getItem('series-sort-desc');
-    return saved === 'true';
-  });
-
-  // Persist sort preferences to localStorage
-  useEffect(() => {
-    localStorage.setItem('series-sort-by', sortBy);
-  }, [sortBy]);
-  useEffect(() => {
-    localStorage.setItem('series-sort-desc', String(sortDesc));
-  }, [sortDesc]);
-
   const handleAutoSearch = async (fileId: number) => {
-    // Optimistic update for immediate UI feedback
     if (setMatchingFileOptimistic) {
       setMatchingFileOptimistic(fileId, true);
-      // Fallback to clear state after 3 seconds
       setTimeout(() => setMatchingFileOptimistic(fileId, false), 3000);
     }
     try {
@@ -59,21 +36,14 @@ export default function SeriesPage() {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       alert(t('mediaConfig.triggerFailed') + ': ' + message);
-      // Revert optimistic state on error
       if (setMatchingFileOptimistic) {
         setMatchingFileOptimistic(fileId, false);
       }
     }
   };
 
-  const handleManualSearch = (query: string) => {
-    navigate(`/search?q=${encodeURIComponent(query)}`);
-  };
-
   const handleMatchSeason = async (title: string, season: number) => {
-    // Optimistic update for immediate UI feedback
     setMatchingSeasonOptimistic(title, season, true);
-    // Fallback to clear state after 3 seconds
     const timeoutId = setTimeout(() => setMatchingSeasonOptimistic(title, season, false), 3000);
     try {
       await matchTVSeason(title, season);
@@ -85,7 +55,6 @@ export default function SeriesPage() {
     }
   };
 
-  // Group files by extracted_title and season
   const groupedSeries = useMemo(() => {
     const groups: Record<string, {
       title: string;
@@ -117,7 +86,6 @@ export default function SeriesPage() {
         groups[title].seasons[s] = [];
       }
       groups[title].seasons[s].push(file);
-      // Sort episodes inside season
       groups[title].seasons[s].sort((a, b) => (a.episode || 0) - (b.episode || 0));
 
       groups[title].totalCount++;
@@ -128,55 +96,8 @@ export default function SeriesPage() {
       s.title.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // Apply filter based on subtitle status
-    // For series: "has subtitles" = ALL episodes have subtitles
-    const filtered = result.filter(s => {
-      if (filter === 'all') return true;
-      if (filter === 'has') return s.totalCount === s.hasSubCount;
-      if (filter === 'missing') return s.hasSubCount < s.totalCount;
-      return true;
-    });
-
-    // Apply sort
-    return filtered.sort((a, b) => {
-      let cmp = 0;
-      switch (sortBy) {
-        case 'name':
-          cmp = a.title.localeCompare(b.title);
-          break;
-        case 'year':
-          cmp = (parseInt(a.year || '0') || 0) - (parseInt(b.year || '0') || 0);
-          break;
-        case 'created':
-          cmp = (a.createdAt || '').localeCompare(b.createdAt || '');
-          break;
-        case 'subtitle_status': {
-          const aRatio = a.hasSubCount / a.totalCount;
-          const bRatio = b.hasSubCount / b.totalCount;
-          cmp = aRatio - bRatio;
-          break;
-        }
-      }
-      return sortDesc ? -cmp : cmp;
-    });
-  }, [files, searchTerm, filter, sortBy, sortDesc, t]);
-
-  // Calculate filter counts
-  const filterCounts = useMemo(() => {
-    const groups: Record<string, { totalCount: number; hasSubCount: number }> = {};
-    files.forEach(file => {
-      const title = file.extracted_title || t('page.series.unknownSeries');
-      if (!groups[title]) {
-        groups[title] = { totalCount: 0, hasSubCount: 0 };
-      }
-      groups[title].totalCount++;
-      if (file.has_subtitle) groups[title].hasSubCount++;
-    });
-    const all = Object.keys(groups).length;
-    const has = Object.values(groups).filter(g => g.totalCount === g.hasSubCount).length;
-    const missing = all - has;
-    return { all, has, missing };
-  }, [files, t]);
+    return result.sort((a, b) => a.title.localeCompare(b.title));
+  }, [files, searchTerm, t]);
 
   // 批量获取每个剧集的元数据（海报和 NFO 信息）
   const metadataQueries = useQueries({
@@ -261,17 +182,8 @@ export default function SeriesPage() {
         setIsScanningOptimistic={setIsScanningOptimistic}
       />
 
-      <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-160px)] min-h-[600px]">
-        <div className="flex flex-col w-full lg:w-96 shrink-0">
-          <MediaFilterBar
-            filter={filter}
-            setFilter={setFilter}
-            sortBy={sortBy}
-            setSortBy={setSortBy}
-            sortDesc={sortDesc}
-            setSortDesc={setSortDesc}
-            counts={filterCounts}
-          />
+      <div className="flex flex-col lg:flex-row gap-4 h-[calc(100vh-120px)] w-full w-full">
+        <div className="flex flex-col shrink-0">
           <MediaSidebar
             items={sidebarItems}
             searchTerm={searchTerm}
@@ -281,21 +193,10 @@ export default function SeriesPage() {
             searchPlaceholder={t('page.series.noSeries').replace('未找到', '搜索')}
             emptyText={t('page.series.noSeries')}
           />
-          {sidebarItems.length === 0 && filter !== 'all' && (
-            <div className="mt-4 p-4 bg-slate-50 rounded-lg text-center">
-              <p className="text-sm text-slate-500 mb-2">{t('page.series.filterEmpty')}</p>
-              <button
-                onClick={() => setFilter('all')}
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-              >
-                {t('page.series.clearFilter')}
-              </button>
-            </div>
-          )}
         </div>
 
         {selectedSeries ? (
-          <div className="flex-1 flex flex-col gap-6 overflow-y-auto pb-6 custom-scrollbar pr-2 lg:ml-0 ml-2">
+          <section className="flex-1 flex flex-col bg-surface-container-low rounded-2xl overflow-hidden relative border border-outline-variant/5 max-w-full">
             <MediaInfoCard
               fileId={selectedSeries.firstFileId}
               title={selectedSeries.title}
@@ -303,97 +204,80 @@ export default function SeriesPage() {
               path={selectedSeries.firstPath}
             />
 
-            {/* Seasons Tabs & Actions */}
-            <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-2">
-              <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
-                {availableSeasons.map(s => (
+            <div className="flex-1 p-10 pt-6 space-y-8 overflow-y-auto custom-scrollbar">
+              <div className="flex justify-between items-center bg-surface-container/50 p-4 rounded-xl border border-outline-variant/10">
+                <div className="flex items-center gap-3">
+                  <span className="material-symbols-outlined text-on-surface-variant">folder_open</span>
+                  <code className="text-sm text-on-surface-variant font-body">{selectedSeries.firstPath?.split('/').slice(0, -1).join('/') || selectedSeries.firstPath?.split('\\').slice(0, -1).join('\\')}</code>
+                </div>
+              </div>
+
+              {/* Seasons Tabs */}
+              <div className="flex items-center justify-between border-b border-outline-variant/10 relative">
+                <div className="flex gap-10 overflow-x-auto scrollbar-hide">
+                  {availableSeasons.map(s => (
+                    <button
+                      key={s}
+                      onClick={() => setSelectedSeason(s)}
+                      className={`pb-4 text-sm whitespace-nowrap transition-colors relative ${selectedSeason === s ? 'text-primary font-bold border-b-2 border-primary z-10' : 'text-on-surface-variant font-medium hover:text-on-surface'}`}
+                    >
+                      {t('page.series.season', { n: s })}
+                    </button>
+                  ))}
+                </div>
+                {selectedSeries && (
                   <button
-                    key={s}
-                    onClick={() => setSelectedSeason(s)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${selectedSeason === s ? 'bg-blue-500 text-white shadow-sm shadow-blue-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                    onClick={() => handleMatchSeason(selectedSeries.title, selectedSeason)}
+                    disabled={isSelectedSeasonMatching}
+                    className={`absolute right-0 bottom-3 text-xs px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-2 border uppercase tracking-widest ${isSelectedSeasonMatching ? 'bg-surface-container text-on-surface-variant border-outline-variant/20 cursor-not-allowed' : 'bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 hover:shadow-[0_0_12px_rgba(189,194,255,0.1)]'}`}
                   >
-                    {t('page.series.season', { n: s })}
+                    {isSelectedSeasonMatching ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                    ) : (
+                      <Search className="w-3.5 h-3.5 shrink-0" />
+                    )}
+                    {isSelectedSeasonMatching ? t('page.series.smartMatching') : t('page.series.smartMatch')}
                   </button>
-                ))}
-              </div>
-
-              {selectedSeries && (
-                <button
-                  onClick={() => handleMatchSeason(selectedSeries.title, selectedSeason)}
-                  disabled={isSelectedSeasonMatching}
-                  className={`${isSelectedSeasonMatching ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' : 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100'} text-xs px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 shrink-0 border hover:shadow-sm`}
-                >
-                  {isSelectedSeasonMatching ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Search className="w-3.5 h-3.5" />
-                  )}
-                  {isSelectedSeasonMatching ? t('page.series.smartMatching') : t('page.series.smartMatch')}
-                </button>
-              )}
-            </div>
-
-            {/* File List Table */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex flex-col min-h-[200px]">
-              <div className="bg-slate-100 px-5 py-3 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider flex items-center shrink-0">
-                <div className="flex-1">{t('page.series.episodeFile')}</div>
-                <div className="w-48 text-center">{t('page.series.statusAction')}</div>
-              </div>
-              <div className="flex flex-col overflow-y-auto max-h-[400px] custom-scrollbar">
-                {currentSeasonFiles.map((file, i) => {
-                  const isMatching = status.matching_files.includes(file.id);
-                  return (
-                    <div key={file.id} className={`flex items-center px-5 py-3.5 hover:bg-slate-50 transition-colors ${i !== currentSeasonFiles.length - 1 ? 'border-b border-slate-100' : ''}`}>
-                      <div className="flex-1 flex items-center gap-4 overflow-hidden">
-                        <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 shrink-0">
-                          {file.episode?.toString().padStart(2, '0') || '??'}
-                        </div>
-                        <div className="text-sm font-medium text-slate-700 truncate" title={file.filename}>
-                          {file.filename}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0 ml-4">
-                        {isMatching ? (
-                          <span className="bg-blue-50 text-blue-600 text-xs px-2.5 py-1 rounded-md font-medium border border-blue-100 flex items-center gap-1.5 shadow-sm">
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                            {t('status.searching')}
-                          </span>
-                        ) : file.has_subtitle ? (
-                          <span className="bg-green-50 text-green-600 text-xs px-2.5 py-1 rounded-md font-medium border border-green-100 shadow-sm">{t('status.matched')}</span>
-                        ) : (
-                          <span className="bg-red-50 text-red-500 text-xs px-2.5 py-1 rounded-md font-medium border border-red-100 shadow-sm">{t('status.missing')}</span>
-                        )}
-
-                        <div className="flex items-center gap-1.5">
-                          {!file.has_subtitle && !isMatching && (
-                            <button
-                              onClick={() => handleAutoSearch(file.id)}
-                              className="bg-emerald-50 text-emerald-600 text-xs px-2.5 py-1 rounded-md font-medium border border-emerald-100 hover:bg-emerald-100 transition-colors"
-                            >
-                              {t('action.autoSearch')}
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleManualSearch(file.extracted_title || file.filename)}
-                            className="bg-blue-50 text-blue-600 text-xs px-2.5 py-1 rounded-md font-medium border border-blue-100 hover:bg-blue-100 transition-colors"
-                          >
-                            {t('action.manualSearch')}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-                {currentSeasonFiles.length === 0 && (
-                  <div className="p-8 text-center text-sm text-slate-400">
-                    {t('page.series.noVideos')}
-                  </div>
                 )}
               </div>
+
+              <div className="space-y-6">
+                <div className="flex items-center justify-between px-2 w-full">
+                  <div className="flex items-center gap-4">
+                    <h3 className="text-xl font-bold font-headline text-on-surface">Local Video Files</h3>
+                    {currentSeasonFiles.some(f => !f.has_subtitle) && (
+                      <div className="flex items-center gap-2 bg-error-dim/10 text-error-dim px-3 py-1 rounded-full border border-error-dim/20">
+                        <span className="material-symbols-outlined text-sm">warning</span>
+                        <span className="text-[11px] font-bold uppercase tracking-wider">Missing Subtitles</span>
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-sm text-on-surface-variant font-label">{currentSeasonFiles.length} video files found</span>
+                </div>
+                
+                <div className="flex flex-col gap-3 w-full">
+                  {currentSeasonFiles.map(file => (
+                    <MediaListItem
+                      key={file.id}
+                      file={file}
+                      status={status}
+                      showEpisode={true}
+                      onAutoSearch={handleAutoSearch}
+                    />
+                  ))}
+                  {currentSeasonFiles.length === 0 && (
+                    <div className="p-8 text-center text-sm font-label text-on-surface-variant opacity-70">
+                      {t('page.series.noVideos')}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
+          </section>
         ) : (
-          <EmptySelectionState typeName={t('tv')} />
+          <div className="flex-1">
+            <EmptySelectionState typeName={t('tv')} />
+          </div>
         )}
       </div>
     </div>

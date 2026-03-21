@@ -12,47 +12,61 @@ import SettingsPage from './pages/SettingsPage';
 function Sidebar() {
   const { t } = useTranslation();
   const navItems = [
-    { path: '/search', label: t('nav.search') },
-    { path: '/movies', label: t('nav.movies') },
-    { path: '/series', label: t('nav.series') },
-    { path: '/tasks', label: t('nav.tasks') },
-    { path: '/settings', label: t('nav.settings') },
+    { path: '/search', label: t('nav.search'), icon: 'search' },
+    { path: '/movies', label: t('nav.movies'), icon: 'movie' },
+    { path: '/series', label: t('nav.series'), icon: 'tv' },
+    { path: '/tasks', label: t('nav.tasks'), icon: 'task' },
+    { path: '/settings', label: t('nav.settings'), icon: 'settings', mt: true },
   ];
 
   return (
-    <div className="w-[240px] h-full bg-[#0F172A] p-8 flex flex-col gap-8 shrink-0">
-      <div className="text-white font-bold text-xl tracking-wide">
-        ZIMUKU SERVER
+    <nav className="fixed left-4 top-4 bottom-4 w-20 hover:w-64 transition-all duration-500 rounded-2xl z-50 overflow-hidden bg-[#060e20]/70 backdrop-blur-xl shadow-[0_0_40px_rgba(138,149,255,0.06)] flex flex-col h-full py-8 gap-2 group border border-outline-variant/10">
+      {/* Logo Area */}
+      <div className="flex items-center gap-4 px-6 mb-8 overflow-hidden">
+        <div className="min-w-[32px] h-8 bg-gradient-to-br from-primary to-primary-container rounded-lg flex items-center justify-center shadow-lg">
+          <span className="material-symbols-outlined text-on-primary text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>movie</span>
+        </div>
+        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+          <p className="text-2xl font-bold tracking-tight text-[#bdc2ff] font-headline -mt-1">Zimuku</p>
+          <p className="text-[10px] text-on-surface-variant font-label uppercase tracking-widest mt-0.5">Digital Curator</p>
+        </div>
       </div>
-      <nav className="flex flex-col gap-3">
+
+      {/* Navigation Links */}
+      <div className="flex-1 space-y-1 flex flex-col">
         {navItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
             className={({ isActive }) =>
-              `px-4 py-3 rounded-xl text-sm transition-colors ${
+              `flex items-center gap-4 px-4 py-3 mx-2 rounded-xl transition-all ${
+                item.mt ? 'mt-auto' : ''
+              } ${
                 isActive
-                  ? 'bg-[#1E293B] text-white font-medium'
-                  : 'text-slate-400 hover:text-white hover:bg-[#1E293B]/50'
+                  ? 'bg-primary/10 text-primary active:scale-95 shadow-sm'
+                  : 'text-slate-400 hover:bg-surface-container-high/60 hover:text-white'
               }`
             }
           >
-            {item.label}
+            {({ isActive }) => (
+              <>
+                <span className="material-symbols-outlined shrink-0" style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}>{item.icon}</span>
+                <span className="opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap font-body font-medium">{item.label}</span>
+              </>
+            )}
           </NavLink>
         ))}
-      </nav>
-    </div>
+      </div>
+    </nav>
   );
 }
 
 function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen w-full bg-[#F8FAFC] overflow-hidden">
+    <div className="flex h-screen w-full bg-background overflow-hidden relative">
       <Sidebar />
-      <main className="flex-1 h-full overflow-y-auto">
-        <div className="p-[60px] min-h-full">
-          {children}
-        </div>
+      <main className="ml-24 mr-4 my-4 h-[calc(100vh-2rem)] flex gap-4 w-full relative">
+        {children}
       </main>
     </div>
   );

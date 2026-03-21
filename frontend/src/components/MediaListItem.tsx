@@ -1,4 +1,3 @@
-import { Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { autoMatchFile } from '../api';
@@ -33,46 +32,62 @@ export function MediaListItem({ file, status, showEpisode = false, onAutoSearch 
     navigate(`/search?q=${encodeURIComponent(file.extracted_title || file.filename)}`);
   };
 
+  const hasSub = file.has_subtitle;
+  const bgColor = hasSub || isMatching ? 'bg-surface-container-high' : 'bg-surface-container-high/60';
+  const borderColor = hasSub || isMatching ? 'hover:border-primary/20' : 'hover:border-error-dim/20';
+  const iconColor = hasSub || isMatching ? 'text-primary' : 'text-error';
+  const badgeClass = isMatching
+    ? 'bg-primary/10 text-primary border border-primary/20'
+    : hasSub
+    ? 'bg-primary/10 text-primary border border-primary/20'
+    : 'bg-error-dim/10 text-error-dim border border-error-dim/20';
+    
+  const badgeLabel = isMatching ? t('status.searching') : (hasSub ? 'Matched' : 'Missing');
+  const episodeStr = showEpisode ? `E${file.episode?.toString().padStart(2, '0') || '??'}` : null;
+
   return (
-    <div className="flex items-center px-5 py-4 border-b border-slate-50 last:border-b-0 transition-all duration-200 hover:bg-slate-50/50">
-      <div className="flex-1 flex items-center gap-3 overflow-hidden">
-        {showEpisode && (
-          <div className="w-10 text-sm font-bold text-slate-400 shrink-0">
-            E{file.episode?.toString().padStart(2, '0') || '??'}
+    <div className={`grid xl:grid-cols-12 grid-cols-1 items-center gap-4 ${bgColor} p-4 rounded-2xl hover:bg-surface-bright/40 transition-colors border border-transparent ${borderColor} group`}>
+      <div className="xl:col-span-8 flex items-center gap-5 w-full overflow-hidden">
+        <div className={`w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center ${iconColor} shadow-sm shrink-0 ${!hasSub && !isMatching ? 'opacity-80' : ''}`}>
+          {isMatching ? (
+            <span className="material-symbols-outlined text-2xl animate-spin">sync</span>
+          ) : (
+            <span className="material-symbols-outlined text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>tv</span>
+          )}
+        </div>
+        <div className="min-w-0 pr-2 overflow-hidden flex-1">
+          <div className="flex items-center gap-3">
+            {episodeStr && (
+              <span className="w-10 text-sm font-bold text-outline-variant shrink-0">{episodeStr}</span>
+            )}
+            <p className="font-bold text-on-surface truncate" title={file.filename}>{file.filename}</p>
           </div>
-        )}
-        <div className="text-sm text-slate-700 truncate" title={file.filename}>
-          {file.filename}
         </div>
       </div>
-      <div className="flex items-center gap-3 shrink-0 ml-4">
-        {isMatching ? (
-          <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded font-medium flex items-center gap-1">
-            <Loader2 className="w-3 h-3 animate-spin" />
-            {t('status.searching')}
-          </span>
-        ) : file.has_subtitle ? (
-          <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded font-medium">{t('status.matched')}</span>
-        ) : (
-          <span className="bg-red-50 text-red-600 text-xs px-2 py-1 rounded font-medium">{t('status.missing')}</span>
-        )}
 
-        <div className="flex items-center gap-2">
-          {!file.has_subtitle && !isMatching && (
-            <button
-              onClick={handleAutoSearch}
-              className="bg-emerald-50 text-emerald-600 text-[10px] px-2 py-1 rounded-md font-medium hover:bg-emerald-100 transition-colors duration-150 hover:shadow-sm"
-            >
-              {t('action.autoSearch')}
-            </button>
-          )}
+      <div className="xl:col-span-4 flex items-center justify-start xl:justify-end gap-4 mt-2 xl:mt-0">
+        <div className="flex items-center bg-surface-container rounded-lg p-0.5 border border-outline-variant/10">
           <button
             onClick={handleManualSearch}
-            className="bg-blue-50 text-blue-600 text-[10px] px-2 py-1 rounded-md font-medium hover:bg-blue-100 transition-colors duration-150 hover:shadow-sm"
+            className="w-10 h-10 flex items-center justify-center rounded-md hover:bg-surface-container-highest text-on-surface-variant hover:text-primary transition-colors tooltip"
+            title="Manual Search"
           >
-            {t('action.manualSearch')}
+            <span className="material-symbols-outlined text-xl">search</span>
           </button>
+          {!hasSub && !isMatching && (
+            <button
+              onClick={handleAutoSearch}
+              className="w-10 h-10 flex items-center justify-center rounded-md hover:bg-surface-container-highest text-on-surface-variant hover:text-primary transition-colors tooltip"
+              title="Auto Match"
+            >
+              <span className="material-symbols-outlined text-xl">download</span>
+            </button>
+          )}
         </div>
+        
+        <span className={`min-w-[84px] text-center px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest ${badgeClass}`}>
+          {badgeLabel}
+        </span>
       </div>
     </div>
   );

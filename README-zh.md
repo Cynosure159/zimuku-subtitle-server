@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🎬 Zimuku Subtitle Server（字幕库字幕服务）
+# 🎬 Zimuku Subtitle Server
 
 **一款智能的字幕管理与刮削服务，为你的媒体库提供自动化字幕解决方案。**
 
@@ -82,6 +82,9 @@ pip install -r requirements.txt
 
 # 启动开发服务器
 uvicorn app.main:app --reload
+
+# 打印调试日志（可选）
+LOG_LEVEL=DEBUG uvicorn app.main:app --reload
 ```
 
 - 🌐 API 地址：`http://127.0.0.1:8000`
