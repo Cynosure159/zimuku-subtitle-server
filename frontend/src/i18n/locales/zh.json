@@ -4,7 +4,8 @@
     "movies": "电影管理",
     "series": "剧集管理",
     "tasks": "下载任务",
-    "settings": "系统设置"
+    "settings": "系统设置",
+    "home": "仪表盘"
   },
   "page": {
     "search": {
@@ -76,6 +77,23 @@
       "noDirectories": "尚未添加相关目录",
       "noPlot": "暂无剧情简介"
     }
+  },
+  "home": {
+    "subtitle": "您的私有媒体库字幕状态概览与数据统计",
+    "totalFiles": "媒体库总量",
+    "matched": "已匹配",
+    "missing": "待匹配",
+    "coverageRate": "字幕覆盖率",
+    "globalHealth": "媒体库健康度",
+    "globalHealthDesc": "基于全量视频文件字幕存在情况的综合评分",
+    "subtitleCoverage": "字幕覆盖",
+    "recentlyAdded": "最近添加",
+    "typeMovie": "电影",
+    "typeSeries": "剧集",
+    "hasSubtitle": "有字幕",
+    "noSubtitle": "无字幕",
+    "noRecentMedia": "暂无媒体文件",
+    "quickActions": "快速操作"
   },
   "filter": {
     "all": "全部",

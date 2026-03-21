@@ -4,7 +4,8 @@
     "movies": "Movies",
     "series": "TV Series",
     "tasks": "Downloads",
-    "settings": "Settings"
+    "settings": "Settings",
+    "home": "Dashboard"
   },
   "page": {
     "search": {
@@ -76,6 +77,23 @@
       "noDirectories": "No directories added",
       "noPlot": "No synopsis available"
     }
+  },
+  "home": {
+    "subtitle": "Overview and statistics of your private media library subtitle status",
+    "totalFiles": "Library Total",
+    "matched": "Matched",
+    "missing": "Missing",
+    "coverageRate": "Coverage",
+    "globalHealth": "Health Index",
+    "globalHealthDesc": "Comprehensive score based on subtitle availability across all media",
+    "subtitleCoverage": "Coverage",
+    "recentlyAdded": "Recently Added",
+    "typeMovie": "Movie",
+    "typeSeries": "Series",
+    "hasSubtitle": "Subtitled",
+    "noSubtitle": "No Subtitle",
+    "noRecentMedia": "No media found",
+    "quickActions": "Quick Actions"
   },
   "filter": {
     "all": "All",
