@@ -31,8 +31,7 @@ function Sidebar() {
           <p className="text-[10px] text-on-surface-variant font-label uppercase tracking-widest mt-0.5">Subtitle Server</p>
         </div>
       </div>
-
-      {/* Navigation Links */}
+      {/* ...rest of navigation items remain the same... */}
       <div className="flex-1 space-y-1 flex flex-col">
         {navItems.map((item) => (
           <NavLink

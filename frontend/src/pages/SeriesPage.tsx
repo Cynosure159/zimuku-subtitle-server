@@ -9,6 +9,7 @@ import { EmptySelectionState } from '../components/EmptySelectionState';
 import { useMediaPolling, type ScannedFile } from '../hooks/useMediaPolling';
 import { MediaListItem } from '../components/MediaListItem';
 import { Search, Loader2 } from 'lucide-react';
+import { useUIStore } from '../stores/useUIStore';
 
 const API_BASE = 'http://127.0.0.1:8000';
 
@@ -184,6 +185,25 @@ export default function SeriesPage() {
     });
   }, [groupedSeries, metadataQueries]);
 
+  const { toggleSidebar, sidebarOpen } = useUIStore();
+
+  // Ensure sidebar is open on mount
+  useEffect(() => {
+    if (!sidebarOpen) {
+      toggleSidebar();
+    }
+
+    // Auto-open on desktop transition
+    const mql = window.matchMedia('(min-width: 1024px)');
+    const handler = (e: MediaQueryListEvent) => {
+      if (e.matches && !useUIStore.getState().sidebarOpen) {
+        toggleSidebar();
+      }
+    };
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
+
   // Auto-select first series
   useEffect(() => {
     if (groupedSeries.length > 0 && (!selectedSeriesTitle || !groupedSeries.find(s => s.title === selectedSeriesTitle))) {
@@ -230,14 +250,14 @@ export default function SeriesPage() {
     <div className="flex flex-col gap-6 w-full h-full max-w-[1800px]">
 
       <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-120px)] w-full">
-        <div className="flex flex-col shrink-0">
+        <div className={`flex flex-col shrink-0 lg:transition-all lg:duration-300 lg:ease-in-out lg:overflow-hidden ${sidebarOpen ? 'lg:w-[380px] lg:opacity-100 lg:mr-6' : 'lg:w-0 lg:opacity-0 lg:mr-0'}`}>
           <MediaSidebar
             items={sidebarItems}
             searchTerm={searchTerm}
             onSearchTermChange={setSearchTerm}
             selectedTitle={selectedSeriesTitle}
             onSelectTitle={setSelectedSeriesTitle}
-            searchPlaceholder={t('page.series.noSeries').replace('未找到', '搜索')}
+            searchPlaceholder={t('page.series.placeholder')}
             emptyText={t('page.series.noSeries')}
             onRefresh={handleRefresh}
             isRefreshing={status.is_scanning}
@@ -337,6 +357,15 @@ export default function SeriesPage() {
             <EmptySelectionState typeName={t('tv')} />
           </div>
         )}
+      </div>
+      {/* Floating Toggle Button - only visible on small screens as per previous design */}
+      <div className="lg:hidden fixed bottom-6 right-6 z-50">
+        <button
+          onClick={toggleSidebar}
+          className="w-14 h-14 bg-primary text-white rounded-full shadow-lg shadow-indigo-500/30 flex items-center justify-center active:scale-90 transition-transform"
+        >
+          <span className="material-symbols-outlined">{sidebarOpen ? 'close' : 'menu'}</span>
+        </button>
       </div>
     </div>
   );

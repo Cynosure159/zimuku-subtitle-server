@@ -76,15 +76,6 @@ export function MediaSidebar({
 
   return (
     <>
-      <div className="lg:hidden fixed bottom-6 right-6 z-50">
-        <button
-          onClick={toggleSidebar}
-          className="w-14 h-14 bg-primary text-white rounded-full shadow-lg shadow-indigo-500/30 flex items-center justify-center active:scale-90 transition-transform"
-        >
-          <span className="material-symbols-outlined">{sidebarOpen ? 'close' : 'menu'}</span>
-        </button>
-      </div>
-
       {sidebarOpen && (
         <div 
           className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
@@ -94,13 +85,12 @@ export function MediaSidebar({
 
       <aside
         className={`
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-          lg:translate-x-0
-          fixed lg:relative
-          z-40 lg:z-auto
-          w-full sm:w-[380px] h-full lg:h-auto
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-[120%] opacity-0'}
+          fixed lg:sticky top-0 lg:top-auto
+          z-40 h-full lg:h-auto
+          w-[320px] sm:w-[380px]
           bg-surface-container-low rounded-2xl p-6 flex flex-col gap-5 overflow-hidden border border-outline-variant/5 shrink-0
-          transition-transform duration-200 ease-in-out
+          transition-all duration-300 ease-in-out
         `}
       >
         <div className="flex justify-between items-center px-2">
