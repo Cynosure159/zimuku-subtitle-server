@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { searchSubtitles, type SearchResult as SearchResultType } from '../api';
 import SearchResultRow from '../components/SearchResultRow';
@@ -66,59 +66,94 @@ export default function SearchPage() {
   });
 
   return (
-    <div className="flex flex-col gap-8 w-full h-full max-w-[1800px] overflow-y-auto custom-scrollbar pr-4">
-      <h1 className="text-3xl font-bold text-slate-900">{t('page.search.title')}</h1>
+    <div className="flex flex-col w-full h-full max-w-[1800px] overflow-y-auto custom-scrollbar px-4 pb-12">
+      {/* Hero Search Section - Sticky Header */}
+      <div className="sticky top-0 z-30 pt-8 pb-6 bg-background/80 backdrop-blur-xl -mx-4 px-4">
+        <div className="max-w-5xl w-full mx-auto">
+          <div className="text-center mb-8">
+            <h2 className="font-headline text-3xl font-extrabold tracking-tight text-on-surface">{t('page.search.title')}</h2>
+          </div>
+          
+          <div className="relative group mx-auto max-w-3xl w-full">
+            <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-tertiary/20 rounded-2xl blur-xl opacity-0 group-focus-within:opacity-100 transition duration-500"></div>
+            <div className="relative flex items-center bg-surface-container-low border border-outline-variant/10 rounded-2xl p-2 shadow-2xl backdrop-blur-3xl focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary/20 transition-all">
+              <span className="material-symbols-outlined ml-4 text-on-surface-variant text-2xl">search</span>
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                placeholder={t('page.search.placeholder')}
+                className="w-full bg-transparent border-none focus:ring-0 text-lg font-body text-on-surface placeholder:text-outline/50 px-4 py-4 outline-none"
+              />
+              <button
+                onClick={handleSearch}
+                disabled={loading}
+                className="bg-gradient-to-br from-primary to-primary-container text-on-primary px-8 py-3 rounded-xl font-headline font-bold text-sm shadow-lg hover:shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+              >
+                {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                {t('page.search.button')}
+              </button>
+            </div>
+          </div>
 
-      <div className="bg-white rounded-2xl p-5 flex items-center gap-3 w-full shadow-sm">
-        <Search className="w-5 h-5 text-slate-400 shrink-0" />
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-          placeholder={t('page.search.placeholder')}
-          className="flex-1 outline-none text-sm text-slate-900 placeholder:text-slate-400 bg-transparent"
-        />
-        <button
-          onClick={handleSearch}
-          disabled={loading}
-          className="bg-blue-500 text-white text-sm px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 flex items-center gap-2"
-        >
-          {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-          {t('page.search.button')}
-        </button>
+          {/* Language Filter Tags */}
+          <div className="flex flex-wrap justify-center items-center gap-2 mt-6">
+            {filters.map(filter => {
+              const isActive = activeFilter === filter;
+              return (
+                <button
+                  key={filter}
+                  onClick={() => setActiveFilter(filter)}
+                  className={`flex items-center gap-2 px-4 py-1.5 rounded-full font-label font-medium text-xs transition-all ${
+                    isActive
+                      ? 'bg-primary-container text-on-primary-container shadow-sm'
+                      : 'bg-surface-container-highest border border-outline-variant/15 text-on-surface-variant hover:text-primary hover:bg-surface-bright'
+                  }`}
+                >
+                  {filter === t('searchFilter.all') && <span className="material-symbols-outlined text-xs">language</span>}
+                  {filter === t('searchFilter.simplified') && <span className="material-symbols-outlined text-xs">translate</span>}
+                  {filter === t('searchFilter.traditional') && <span className="material-symbols-outlined text-xs">history_edu</span>}
+                  {filter === t('searchFilter.english') && <span className="material-symbols-outlined text-xs">abc</span>}
+                  {filter === t('searchFilter.bilingual') && <span className="material-symbols-outlined text-xs">layers</span>}
+                  <span>{filter}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
-      <div className="flex gap-2">
-        {filters.map(filter => (
-          <button
-            key={filter}
-            onClick={() => setActiveFilter(filter)}
-            className={`px-4 py-1.5 rounded-full text-sm transition-colors ${
-              activeFilter === filter
-                ? 'bg-blue-500 text-white'
-                : 'bg-slate-200 text-slate-500 hover:bg-slate-300'
-            }`}
-          >
-            {filter}
-          </button>
-        ))}
-      </div>
-
-      {error && <div className="text-red-500 text-sm">{error}</div>}
-
-      <div className="flex flex-col gap-2">
-        {filteredResults.map((item, index) => (
-          <SearchResultRow
-            key={index}
-            item={item}
-            onDownload={handleDownload}
-          />
-        ))}
-        {results.length > 0 && filteredResults.length === 0 && (
-          <div className="text-slate-500 text-sm py-4 text-center">{t('page.search.noResults')}</div>
+      {/* Results Section */}
+      <section className="max-w-5xl mx-auto w-full mt-10">
+        {(results.length > 0 || error) && (
+          <div className="flex items-baseline justify-between mb-8 px-4">
+            <h3 className="font-headline text-xl font-bold text-indigo-100 flex items-center gap-2">
+              Results 
+              {results.length > 0 && (
+                <span className="text-sm font-medium text-outline/60 ml-2">Found {filteredResults.length} matches</span>
+              )}
+            </h3>
+          </div>
         )}
-      </div>
+
+        {error && <div className="text-error text-center py-4 bg-error-container/20 border border-error/20 rounded-xl mb-6">{error}</div>}
+
+        <div className="flex flex-col gap-4">
+          {filteredResults.map((item, index) => (
+            <SearchResultRow
+              key={index}
+              item={item}
+              onDownload={handleDownload}
+            />
+          ))}
+          {results.length > 0 && filteredResults.length === 0 && (
+            <div className="text-on-surface-variant text-sm py-12 text-center bg-surface-container rounded-2xl border border-outline-variant/10">
+              {t('page.search.noResults')}
+            </div>
+          )}
+        </div>
+      </section>
 
       <DownloadModal
         isOpen={modalOpen}
