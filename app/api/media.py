@@ -159,7 +159,7 @@ async def get_file_metadata(file_id: int, session: Session = Depends(get_session
     # Find poster and fanart (prioritize show root for TV)
     poster_path = None
     fanart_path = None
-    
+
     if is_tv and show_root.exists():
         poster_path = MetadataService.find_poster(show_root, file_record.filename)
         fanart_path = MetadataService.find_fanart(show_root, file_record.filename)
@@ -178,14 +178,14 @@ async def get_file_metadata(file_id: int, session: Session = Depends(get_session
     # Return relative paths for frontend to construct URL
     poster_relative = None
     fanart_relative = None
-    
+
     if poster_path:
         try:
             if media_root:
                 poster_relative = str(poster_path.relative_to(media_root))
         except ValueError:
             poster_relative = str(poster_path.name)
-            
+
     if fanart_path:
         try:
             if media_root:

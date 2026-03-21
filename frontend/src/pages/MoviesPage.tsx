@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, startTransition } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQueries } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -128,13 +128,8 @@ export default function MoviesPage() {
 
   const { toggleSidebar, sidebarOpen } = useUIStore();
   
-  // Ensure sidebar is open on mount
+  // Auto-open sidebar on desktop transition
   useEffect(() => {
-    if (!sidebarOpen) {
-      toggleSidebar();
-    }
-    
-    // Auto-open on desktop transition
     const mql = window.matchMedia('(min-width: 1024px)');
     const handler = (e: MediaQueryListEvent) => {
       if (e.matches && !useUIStore.getState().sidebarOpen) {
@@ -143,14 +138,16 @@ export default function MoviesPage() {
     };
     mql.addEventListener('change', handler);
     return () => mql.removeEventListener('change', handler);
-  }, []);
+  }, [toggleSidebar]);
 
   // Auto-select first movie if none selected OR select via search params
   useEffect(() => {
     const titleFromUrl = searchParams.get('title');
     if (titleFromUrl && groupedMovies.find(m => m.title === titleFromUrl)) {
-      setSelectedMovieTitle(titleFromUrl);
-      // Optional: Clear the param after selection
+      startTransition(() => {
+        setSelectedMovieTitle(titleFromUrl);
+      });
+      // Clear the param after selection
       const newParams = new URLSearchParams(searchParams);
       newParams.delete('title');
       setSearchParams(newParams, { replace: true });

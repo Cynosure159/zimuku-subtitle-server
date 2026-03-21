@@ -16,16 +16,17 @@ POSTER_NAMES = ["folder.jpg", "poster.jpg", "poster.png", "folder.png"]
 # Fanart file names to search for (for banner backgrounds)
 FANART_NAMES = ["fanart.jpg", "fanart.png", "backdrop.jpg", "background.jpg"]
 
+
 def find_fanart(folder: Path, video_filename: Optional[str] = None) -> Optional[Path]:
     """Find fanart image in folder (prioritize fanart over poster)."""
     if not folder.exists() or not folder.is_dir():
         return None
-    
+
     for name in FANART_NAMES:
         path = folder / name
         if path.exists():
             return path
-            
+
     if video_filename:
         video_stem = Path(str(video_filename)).stem
         for ext in [".jpg", ".jpeg", ".png"]:
@@ -33,7 +34,6 @@ def find_fanart(folder: Path, video_filename: Optional[str] = None) -> Optional[
             if path.exists():
                 return path
     return None
-
 
 
 def parse_nfo(nfo_path: Path) -> Optional[dict]:
@@ -98,7 +98,7 @@ def _extract_nfo_metadata(content: str) -> dict:
                         return f"{val:.1f}"
                     except ValueError:
                         return value_node.text.strip()
-        
+
         # 2. Try top-level <rating> or <userrating>
         for tag in ["rating", "userrating"]:
             node = element.find(tag)
@@ -109,7 +109,7 @@ def _extract_nfo_metadata(content: str) -> dict:
                         return f"{val:.1f}"
                 except ValueError:
                     return node.text.strip()
-                
+
         return None
 
     def get_all_text(element: ET.Element, tag: str) -> list:

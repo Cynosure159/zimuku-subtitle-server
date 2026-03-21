@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, startTransition } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQueries } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -183,13 +183,8 @@ export default function SeriesPage() {
 
   const { toggleSidebar, sidebarOpen } = useUIStore();
 
-  // Ensure sidebar is open on mount
+  // Auto-open sidebar on desktop transition
   useEffect(() => {
-    if (!sidebarOpen) {
-      toggleSidebar();
-    }
-
-    // Auto-open on desktop transition
     const mql = window.matchMedia('(min-width: 1024px)');
     const handler = (e: MediaQueryListEvent) => {
       if (e.matches && !useUIStore.getState().sidebarOpen) {
@@ -198,18 +193,20 @@ export default function SeriesPage() {
     };
     mql.addEventListener('change', handler);
     return () => mql.removeEventListener('change', handler);
-  }, []);
+  }, [toggleSidebar]);
 
   // Auto-select first series OR select via search params
   useEffect(() => {
     const titleFromUrl = searchParams.get('title');
     const seasonFromUrl = searchParams.get('season');
-    
+
     if (titleFromUrl && groupedSeries.find(s => s.title === titleFromUrl)) {
-      setSelectedSeriesTitle(titleFromUrl);
-      if (seasonFromUrl) {
-        setSelectedSeason(Number(seasonFromUrl));
-      }
+      startTransition(() => {
+        setSelectedSeriesTitle(titleFromUrl);
+        if (seasonFromUrl) {
+          setSelectedSeason(Number(seasonFromUrl));
+        }
+      });
       // Clear params
       const newParams = new URLSearchParams(searchParams);
       newParams.delete('title');
