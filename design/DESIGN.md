@@ -1,171 +1,67 @@
-# Zimuku Main Layout - Design System
+# Zimuku Subtitle Server - UI/UX Design System
 
-## 1. Overview & Creative North Star
-The Creative North Star for this design system is **"The Digital Curator."** 
+## 1. 设计概述与核心理念
+本项目的前端 UI 采用了 **"The Digital Curator"（数字策展人）** 的设计理念，旨在打造一个极具高端感、沉浸感且充满呼吸感的现代化媒体管理服务。
 
-Unlike standard media servers that feel like spreadsheets of files, this system treats metadata and subtitles as high-end editorial content. We move beyond the "template" look by embracing **Atmospheric Depth**. This is achieved through intentional asymmetry, overlapping glass elements, and a layout that breathes. We reject rigid, boxed-in grids in favor of a "floating" interface where content feels suspended in a deep, cinematic space.
+核心视觉特征包括：
+- **深空石板色调 (Deep Slate)**：以极致深邃的暗蓝色 (`#060e20`) 作为背景基调，摆脱传统的纯黑或呆板的深灰。
+- **毛玻璃与层次感 (Glassmorphism & Depth)**：放弃生硬的 1px 全局边框，采用不同明暗度的 Surface 层级（低亮、中亮、高亮）叠加，结合 Backdrop Blur 表现空间深度。
+- **微交互与律动感 (Micro-animations)**：大量的平滑过渡（如 `transition-all duration-300 hover:-translate-y-1`），让界面如同活物般响应用户的每一次悬停与点击。
 
-## 2. Color & Surface Philosophy
-The palette utilizes a sophisticated Deep Slate foundation (`surface: #060e20`) juxtaposed with an elegant, desaturated Violet (`primary: #bdc2ff`).
+## 2. 色彩与表面 (Colors & Surfaces)
 
-### The "No-Line" Rule
-**Strict Mandate:** Designers are prohibited from using 1px solid borders to define sections. Boundaries must be defined solely through:
-1.  **Tonal Shifts:** Placing a `surface-container-low` component against a `surface` background.
-2.  **Negative Space:** Utilizing the Spacing Scale (e.g., `spacing-8` or `spacing-12`) to create mental separation.
-3.  **Glass Differentiation:** Using `backdrop-blur` to signify a change in plane.
+### 2.1 表面层级架构 (Surface Hierarchy)
+在代码中，我们通过 Tailwind CSS 自定义变量或类名来构建层级关系：
+- **`bg-background` (`#060e20`)**：页面最底层的深空色，奠定整体氛围。
+- **`bg-surface-container-low`**：承载核心主内容区（例如电影详情右侧区域）的容器底色。
+- **`bg-surface-container`**：通用卡片、列表项的默认背景色。
+- **`bg-surface-container-high` / `bg-surface-container-highest`**：用于悬停态（Hover）以拉近视觉距离，提升元素优先级。
 
-### Surface Hierarchy & Nesting
-Treat the UI as a series of physical layers. We use "Tonal Stacking" to define importance:
--   **Base Layer:** `surface` (#060e20) for the main application background.
--   **Structural Areas:** `surface-container-low` (#06122c) for sidebar foundations or background groupings.
--   **Content Cards:** `surface-container` (#0a1836) or `surface-container-high` (#0f1e3f) to bring content forward.
--   **Floating Overlays:** Use `surface-bright` (#182b52) with 60% opacity and a `20px` backdrop-blur to create high-end glassmorphism.
+### 2.2 重心渐变与点缀 (Accents & Gradients)
+- **Primary (紫蓝色调)**：作为主强调色，应用于选中状态、主要按钮和电影状态强调。
+  - *常见用法*：利用 `bg-gradient-to-br from-primary to-primary-container` 制作带有“辉光”效果的图标底座或进度条。
+- **Tertiary (紫色调)**：作为次强调色（例如在仪表盘中用于区分“剧集”与“电影”），打破单调感。
+- **Status (状态色)**：使用 `error-dim` 作为告警或醒目的状态色（如无字幕提示）。
 
-### Signature Textures
-Main CTAs and hero states should avoid flat fills. Instead, apply a subtle linear gradient from `primary` (#bdc2ff) to `primary-container` (#3c47af) at a 135-degree angle. This provides a "glow" that feels professional and luminous.
+### 2.3 边框原则 (The "Ghost Border" Rule)
+绝不使用生硬的高对比度边框。模块划分主要依靠面与面的明暗对比。当必须使用边框辅助视障或边界界定时，使用“幽灵边框”：
+- *代码示例*：`border border-outline-variant/5` 或 `border border-outline-variant/10`。
 
-## 3. Typography: Editorial Authority
-We utilize two distinct typefaces to create a premium hierarchy: **Manrope** for Brand/Headlines and **Inter** for Utility/Body.
+## 3. 排版规范 (Typography)
 
--   **Display & Headlines (Manrope):** Use `display-lg` and `headline-md` with `font-weight: 700` for titles. The wide character set of Manrope feels modern and authoritative.
--   **Body & Metadata (Inter):** Use `body-md` for subtitle previews and descriptions. Inter’s legibility ensures that even dense technical data feels clean.
--   **The Hierarchy Rule:** Always pair a `headline-sm` (Manrope, Bold) with a `label-md` (Inter, Medium, `on-surface-variant`) to create a clear "Title/Subtitle" relationship that guides the eye.
+利用两套字体族构建编辑式的排版层次（已在 Tailwind 配置中注册）：
+- **`font-headline` (Manrope)**：用于展现品牌感和权威感。常与 `font-extrabold` 或 `font-bold` 结合，例如页面级标题 (`text-4xl`) 或主卡片标题 (`text-xl`)。
+- **`font-body` (Inter)**：用于标准的正文、描述与详情文本区。
+- **`font-label` (Inter)**：用于状态标签、副标题、小数据。
+  - *标志性用法*：采用全大写配合宽字间距（`uppercase tracking-widest text-xs` 或 `text-[10px]`）来呈现系统标签级的信息，如 `SUBTITLE SERVER`。字体颜色多配以 `text-on-surface-variant`。
 
-## 4. Elevation & Depth
-Depth is the cornerstone of this system. We simulate light passing through layers of frosted glass.
+## 4. 关键组件结构与样式 (Component Patterns)
 
-### The Layering Principle
-To lift an element, do not default to a shadow. Instead, shift the token:
--   An "Active" card should move from `surface-container` to `surface-container-highest`.
--   Use `surface-tint` at 5% opacity as an overlay for hovered states to simulate "catching the light."
+### 4.1 响应式侧边栏 (Media Sidebar)
+- **视觉**：固定在左侧，悬浮设计（四边留白）。背景使用 `bg-[#060e20]/70 backdrop-blur-xl shadow-[0_0_40px_rgba(138,149,255,0.06)]`，使其脱离底层内容。
+- **交互**：收起时仅展示 Icon，悬停展开（`hover:w-64 transition-all duration-500`）。在移动端/窄屏侧边隐藏，通过底部悬浮的主色调按钮（Fab Button）进行触发。
+- **Logo 区域**：利用方形渐变底块配合 Material 实体图标 (`fontVariationSettings: "'FILL' 1"`)。
 
-### Ambient Shadows
-When a floating effect is required (e.g., a modal or a floating sidebar):
--   **Blur:** `40px` to `60px`.
--   **Opacity:** 4%–8%.
--   **Color:** Use a tinted shadow derived from `primary-dim` (#8a95ff) rather than pure black. This mimics natural ambient light refraction within the deep slate environment.
+### 4.2 卡片与列表项 (Cards & List Items)
+- **圆角规范**：页面级大容器使用 `rounded-2xl`，内部小卡片或按钮使用 `rounded-xl` 或 `rounded-lg`。
+- **胶囊标签 (Badges)**：用于展示有无字幕等状态。
+  - *带有明确指向性的标签*：`px-1.5 py-0.5 rounded text-[10px] font-bold tracking-widest uppercase bg-primary/10 text-primary border border-primary/20`
+  - *无字幕/警告标签*：`bg-error-dim/10 text-error-dim border border-error-dim/20`
+- **悬停浮动卡片**：在仪表盘和最近添加列表中广泛应用的交互范式：`group p-4 rounded-2xl bg-surface-container border border-outline-variant/5 cursor-pointer hover:bg-surface-container-highest hover:-translate-y-1 transition-all duration-300`。右侧箭头搭配 `group-hover:text-primary group-hover:translate-x-1` 提供明确指示。
 
-### The "Ghost Border" Fallback
-If accessibility requires a container edge, use a **Ghost Border**: `outline-variant` (#364770) at **15% opacity**. Never use 100% opaque lines.
+### 4.3 图标与状态机 (Icons)
+本项目统一采用 Google Material Symbols (`material-symbols-outlined`)。
+- 默认线框风格。
+- **高亮/激活状态**：直接通过内联样式赋实心表现（`style={{ fontVariationSettings: "'FILL' 1" }}`）。
+- 图标如果处于未激活或普通信息展示中，通常赋予 `text-on-surface-variant`，在强调区域或图元展示中辅以 `bg-surface-container-low` 构成图标座块。
 
-## 5. Components
+### 4.4 数据条与进度 (Progress & Stats)
+- 对于容量占比或完成进度，采用 `h-1.5` 等细长型的进度条，外壳 `bg-surface-container-high` 加上内部渐变填充区 `bg-gradient-to-r from-primary to-primary-container`。
+- 数字字体统一使用 `font-headline font-extrabold`（如仪表盘的大数字 `text-5xl`）。
 
-### Modern Badges (Subtitle Status/Language)
--   **Style:** `surface-container-highest` background with a 1px "Ghost Border."
--   **Glow:** Apply a subtle `0px 0px 8px` drop shadow using the `primary` color at 30% opacity to make the badge feel "lit" from within.
--   **Typography:** `label-sm` in `primary-fixed`.
+## 5. 开发建议 (Do's and Don'ts)
 
-### Cards (Media & Subtitle Entries)
--   **Structure:** No borders. Use `surface-container` with `rounded-xl` (1.5rem).
--   **Transitions:** On hover, transition the background to `surface-container-highest` and apply a subtle `translateY(-4px)` over 300ms.
--   **Content:** Forbid divider lines between title and metadata; use a `spacing-2` vertical gap instead.
-
-### Floating Sidebars
--   **Style:** `surface-bright` at 70% opacity with a `backdrop-blur` of `16px`.
--   **Layout:** Disconnected from the edges of the viewport (floating) with `rounded-xl` corners.
-
-### Buttons
--   **Primary:** Gradient fill (`primary` to `primary-container`), `rounded-full`, `title-sm` (Inter, Semibold).
--   **Tertiary:** No background. Use `on-surface` text with a `primary` icon. On hover, add a `surface-variant` circular backdrop.
-
-### Input Fields
--   **Style:** `surface-container-low` fill. No bottom line.
--   **Focus State:** The "Ghost Border" increases to 40% opacity with a subtle `primary` outer glow.
-
-## 6. Do’s and Don’ts
-
-### Do
--   **DO** use asymmetric padding. For example, give a header more top-room (`spacing-16`) than bottom-room (`spacing-8`) to create an editorial feel.
--   **DO** use `primary-dim` for secondary icons to maintain the sophisticated color story.
--   **DO** leave "useless" white space. High-end design is defined by what you *don't* cram onto the screen.
-
-### Don't
--   **DON'T** use pure black (#000000) for backgrounds; it kills the "Deep Slate" depth. Use `surface`.
--   **DON'T** use standard 1px dividers. If separation is needed, use a `spacing-px` tall stripe of `surface-variant` at 20% opacity.
--   **DON'T** use high-saturation colors for alerts. Use `error-dim` (#c44b5f) to maintain the "sophisticated" constraint.
-
----
-
-## 7. Design Tokens
-
-### 7.1. Typography
-- **Global Font Family:** `MANROPE`
-- **Headline Font:** `MANROPE`
-- **Body Font:** `INTER`
-- **Label Font:** `INTER`
-
-### 7.2. Global Settings
-- **Color Mode:** `DARK`
-- **Color Variant:** `TONAL_SPOT`
-- **Roundness:** `ROUND_EIGHT`
-- **Spacing Scale:** `3`
-
-### 7.3. Base Primary Overrides
-- **Custom Color:** `#6366f1`
-- **Override Primary Color:** `#818cf8`
-- **Override Secondary Color:** `#475569`
-- **Override Tertiary Color:** `#c084fc`
-- **Override Neutral Color:** `#0f172a`
-
-### 7.4. Color Palette (Named Colors)
-
-#### Backgrounds & Surfaces
-- `background`: `#060e20`
-- `on_background`: `#dee5ff`
-- `surface`: `#060e20`
-- `surface_bright`: `#182b52`
-- `surface_dim`: `#060e20`
-- `surface_container_lowest`: `#000000`
-- `surface_container_low`: `#06122c`
-- `surface_container`: `#0a1836`
-- `surface_container_high`: `#0f1e3f`
-- `surface_container_highest`: `#11244c`
-- `surface_tint`: `#bdc2ff`
-- `surface_variant`: `#11244c`
-- `on_surface`: `#dee5ff`
-- `on_surface_variant`: `#99aad9`
-- `inverse_surface`: `#faf8ff`
-- `inverse_on_surface`: `#4d556b`
-- `outline`: `#6475a1`
-- `outline_variant`: `#364770`
-
-#### Primary Tokens
-- `primary`: `#bdc2ff`
-- `primary_dim`: `#8a95ff`
-- `primary_container`: `#3c47af`
-- `primary_fixed`: `#818cf8`
-- `primary_fixed_dim`: `#747fea`
-- `on_primary`: `#28329c`
-- `on_primary_container`: `#e0e1ff`
-- `on_primary_fixed`: `#000000`
-- `on_primary_fixed_variant`: `#000979`
-- `inverse_primary`: `#4954bc`
-
-#### Secondary Tokens
-- `secondary`: `#b9c7df`
-- `secondary_dim`: `#abbad1`
-- `secondary_container`: `#2e3c4f`
-- `secondary_fixed`: `#d5e3fc`
-- `secondary_fixed_dim`: `#c7d5ed`
-- `on_secondary`: `#334154`
-- `on_secondary_container`: `#b2c0d8`
-- `on_secondary_fixed`: `#324053`
-- `on_secondary_fixed_variant`: `#4e5c71`
-
-#### Tertiary Tokens
-- `tertiary`: `#c890ff`
-- `tertiary_dim`: `#be83fa`
-- `tertiary_container`: `#bc80f8`
-- `tertiary_fixed`: `#bc80f8`
-- `tertiary_fixed_dim`: `#ae73e9`
-- `on_tertiary`: `#400072`
-- `on_tertiary_container`: `#2e0055`
-- `on_tertiary_fixed`: `#000000`
-- `on_tertiary_fixed_variant`: `#3c006c`
-
-#### Error Tokens
-- `error`: `#f97386`
-- `error_dim`: `#c44b5f`
-- `error_container`: `#871c34`
-- `on_error`: `#490013`
-- `on_error_container`: `#ff97a3`
+- **推荐 (DO)**：使用 `gap-4`, `gap-6` 和充足的 `padding` 撑起页面内容，避免界面紧凑拥挤。
+- **推荐 (DO)**：对主要图片（如海报）添加蒙层或渐变以配合深色模式背景（避免突兀的高亮）。
+- **禁止 (DON'T)**：不要使用大面积的实色黑（`bg-black`）或高纯度亮色。使用我们已规划好的 `surface` 系统或带透明度的基础色（例：`bg-primary/10`）。
+- **禁止 (DON'T)**：不要直接绘制实体分割线。使用 `border-b border-outline-variant/10` 级别的幽灵线缝。
