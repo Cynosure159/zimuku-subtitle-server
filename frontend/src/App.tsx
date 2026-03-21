@@ -28,7 +28,7 @@ function Sidebar() {
         </div>
         <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
           <p className="text-2xl font-bold tracking-tight text-[#bdc2ff] font-headline -mt-1">Zimuku</p>
-          <p className="text-[10px] text-on-surface-variant font-label uppercase tracking-widest mt-0.5">Digital Curator</p>
+          <p className="text-[10px] text-on-surface-variant font-label uppercase tracking-widest mt-0.5">Subtitle Server</p>
         </div>
       </div>
 
@@ -39,12 +39,10 @@ function Sidebar() {
             key={item.path}
             to={item.path}
             className={({ isActive }) =>
-              `flex items-center gap-4 px-4 py-3 mx-2 rounded-xl transition-all ${
-                item.mt ? 'mt-auto' : ''
-              } ${
-                isActive
-                  ? 'bg-primary/10 text-primary active:scale-95 shadow-sm'
-                  : 'text-slate-400 hover:bg-surface-container-high/60 hover:text-white'
+              `flex items-center gap-4 px-4 py-3 mx-2 rounded-xl transition-all ${item.mt ? 'mt-auto' : ''
+              } ${isActive
+                ? 'bg-primary/10 text-primary active:scale-95 shadow-sm'
+                : 'text-slate-400 hover:bg-surface-container-high/60 hover:text-white'
               }`
             }
           >
@@ -77,16 +75,16 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <Router>
         <Layout>
-        <Routes>
-          <Route path="/" element={<Navigate to="/search" replace />} />
-          <Route path="/search" element={<SearchPage />} />
-          <Route path="/movies" element={<MoviesPage />} />
-          <Route path="/series" element={<SeriesPage />} />
-          <Route path="/tasks" element={<TasksPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-        </Routes>
-      </Layout>
-    </Router>
+          <Routes>
+            <Route path="/" element={<Navigate to="/search" replace />} />
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/movies" element={<MoviesPage />} />
+            <Route path="/series" element={<SeriesPage />} />
+            <Route path="/tasks" element={<TasksPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+          </Routes>
+        </Layout>
+      </Router>
     </QueryClientProvider>
   );
 }

@@ -53,7 +53,7 @@ export function MediaList({ files, status, onAutoSearch, setMatchingFileOptimist
           ? 'bg-primary/10 text-primary border border-primary/20'
           : 'bg-error-dim/10 text-error-dim border border-error-dim/20';
           
-        const badgeLabel = isMatching ? t('status.searching') : (hasSub ? 'Matched' : 'Missing');
+        const badgeLabel = isMatching ? t('status.searching') : (hasSub ? t('status.matched') : t('status.missing'));
 
         return (
           <div key={file.id} className={`grid xl:grid-cols-12 grid-cols-1 items-center gap-4 ${bgColor} p-4 rounded-2xl hover:bg-surface-bright/40 transition-colors border border-transparent ${borderColor} group`}>
@@ -76,7 +76,7 @@ export function MediaList({ files, status, onAutoSearch, setMatchingFileOptimist
                 <button
                   onClick={() => handleManualSearch(file.extracted_title || file.filename)}
                   className="w-10 h-10 flex items-center justify-center rounded-md hover:bg-surface-container-highest text-on-surface-variant hover:text-primary transition-colors tooltip"
-                  title="Manual Search"
+                  title={t('page.search.title')}
                 >
                   <span className="material-symbols-outlined text-xl">search</span>
                 </button>
@@ -84,7 +84,7 @@ export function MediaList({ files, status, onAutoSearch, setMatchingFileOptimist
                   <button
                     onClick={() => handleAutoSearch(file.id)}
                     className="w-10 h-10 flex items-center justify-center rounded-md hover:bg-surface-container-highest text-on-surface-variant hover:text-primary transition-colors tooltip"
-                    title="Auto Match"
+                    title={t('action.autoSearch')}
                   >
                     <span className="material-symbols-outlined text-xl">download</span>
                   </button>

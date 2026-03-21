@@ -115,7 +115,7 @@ export default function MoviesPage() {
             emptyText={t('page.movies.noMovies')}
             onRefresh={handleRefresh}
             isRefreshing={status.is_scanning}
-            title="电影"
+            title={t('movie')}
           />
         </div>
 
@@ -138,7 +138,9 @@ export default function MoviesPage() {
               <div className="space-y-6">
                 <div className="flex items-center justify-between px-2 w-full">
                   <h3 className="text-xl font-bold font-headline text-on-surface">{t('page.movies.localFiles')}</h3>
-                  <span className="text-sm text-on-surface-variant font-label">{selectedMovie.files.length} {selectedMovie.files.length === 1 ? 'file' : 'files'} found</span>
+                  <span className="text-sm text-on-surface-variant font-label">
+                    {t('page.movies.fileCount', { count: selectedMovie.files.length })}
+                  </span>
                 </div>
                 <div className="w-full">
                   <MediaList files={selectedMovie.files} status={status} setMatchingFileOptimistic={setMatchingFileOptimistic} />

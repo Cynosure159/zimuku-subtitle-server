@@ -182,6 +182,11 @@ export default function SeriesPage() {
     m => m.title === selectedSeries.title && m.season === selectedSeason
   );
 
+  const totalEpisodesCount = useMemo(() => {
+    if (!selectedSeries) return 0;
+    return Object.values(selectedSeries.seasons).reduce((acc, files) => acc + files.length, 0);
+  }, [selectedSeries]);
+
   return (
     <div className="flex flex-col gap-6 w-full h-full max-w-[1800px]">
 
@@ -197,7 +202,7 @@ export default function SeriesPage() {
             emptyText={t('page.series.noSeries')}
             onRefresh={handleRefresh}
             isRefreshing={status.is_scanning}
-            title="剧集"
+            title={t('tv')}
           />
         </div>
 
@@ -207,6 +212,8 @@ export default function SeriesPage() {
               fileId={selectedSeries.firstFileId}
               title={selectedSeries.title}
               year={selectedSeries.year}
+              isTv={true}
+              count={totalEpisodesCount}
             />
 
             <div className="flex-1 p-10 pt-6 space-y-8 overflow-y-auto custom-scrollbar">
@@ -249,15 +256,17 @@ export default function SeriesPage() {
               <div className="space-y-6">
                 <div className="flex items-center justify-between px-2 w-full">
                   <div className="flex items-center gap-4">
-                    <h3 className="text-xl font-bold font-headline text-on-surface">Local Video Files</h3>
+                    <h3 className="text-xl font-bold font-headline text-on-surface">{t('page.movies.localFiles')}</h3>
                     {currentSeasonFiles.some(f => !f.has_subtitle) && (
                       <div className="flex items-center gap-2 bg-error-dim/10 text-error-dim px-3 py-1 rounded-full border border-error-dim/20">
                         <span className="material-symbols-outlined text-sm">warning</span>
-                        <span className="text-[11px] font-bold uppercase tracking-wider">Missing Subtitles</span>
+                        <span className="text-[11px] font-bold uppercase tracking-wider">{t('status.missing')}</span>
                       </div>
                     )}
                   </div>
-                  <span className="text-sm text-on-surface-variant font-label">{currentSeasonFiles.length} video files found</span>
+                  <span className="text-sm text-on-surface-variant font-label">
+                    {t('page.movies.fileCount', { count: currentSeasonFiles.length })}
+                  </span>
                 </div>
                 
                 <div className="flex flex-col gap-3 w-full">

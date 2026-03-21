@@ -40,9 +40,9 @@ export function MediaSidebar({
 
   const getSubtitleStatusText = (item: SidebarItem) => {
     if (item.totalCount === 0) return '';
-    if (item.hasSubCount === item.totalCount) return 'Matched';
-    if (item.hasSubCount === 0) return 'Missing';
-    return `${item.hasSubCount}/${item.totalCount} Matched`;
+    if (item.hasSubCount === item.totalCount) return t('status.matched');
+    if (item.hasSubCount === 0) return t('status.missing');
+    return t('status.matchedCount', { has: item.hasSubCount, total: item.totalCount });
   };
 
   return (
@@ -80,10 +80,10 @@ export function MediaSidebar({
             <button
               onClick={onRefresh}
               disabled={isRefreshing}
-              className={`p-1.5 hover:bg-surface-container-high rounded-lg text-on-surface-variant hover:text-primary transition-all active:scale-95 ${isRefreshing ? 'opacity-50' : ''}`}
-              title="重新扫描目录"
+              className={`w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-primary hover:bg-primary hover:text-surface-container transition-all active:scale-90 ${isRefreshing ? 'opacity-50 cursor-not-allowed' : ''}`}
+              title={t('status.rescan')}
             >
-              <span className={`material-symbols-outlined text-xl ${isRefreshing ? 'animate-spin' : ''}`}>refresh</span>
+              <span className={`material-symbols-outlined text-sm ${isRefreshing ? 'animate-spin' : ''}`}>sync</span>
             </button>
           </div>
         </div>

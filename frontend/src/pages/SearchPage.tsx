@@ -7,7 +7,7 @@ import DownloadModal from '../components/DownloadModal';
 
 export default function SearchPage() {
   const { t } = useTranslation();
-  const [activeFilter, setActiveFilter] = useState('全部');
+  const [activeFilter, setActiveFilter] = useState(t('searchFilter.all'));
   const filters = [t('searchFilter.all'), t('searchFilter.simplified'), t('searchFilter.traditional'), t('searchFilter.english'), t('searchFilter.bilingual')];
 
   const [query, setQuery] = useState('');
@@ -50,10 +50,10 @@ export default function SearchPage() {
   const getFilterLabel = (filter: string) => {
     const filterMap: Record<string, string> = {
       [t('searchFilter.all')]: t('searchFilter.all'),
-      [t('searchFilter.simplified')]: '简体',
-      [t('searchFilter.traditional')]: '繁体',
-      [t('searchFilter.english')]: '英文',
-      [t('searchFilter.bilingual')]: '双语',
+      [t('searchFilter.simplified')]: t('searchFilter.simplified_short', { defaultValue: '简体' }),
+      [t('searchFilter.traditional')]: t('searchFilter.traditional_short', { defaultValue: '繁体' }),
+      [t('searchFilter.english')]: t('searchFilter.english_short', { defaultValue: '英文' }),
+      [t('searchFilter.bilingual')]: t('searchFilter.bilingual_short', { defaultValue: '双语' }),
     };
     return filterMap[filter] || filter;
   };
@@ -66,7 +66,7 @@ export default function SearchPage() {
   });
 
   return (
-    <div className="flex flex-col gap-8 w-full h-full max-w-[1800px]">
+    <div className="flex flex-col gap-8 w-full h-full max-w-[1800px] overflow-y-auto custom-scrollbar pr-4">
       <h1 className="text-3xl font-bold text-slate-900">{t('page.search.title')}</h1>
 
       <div className="bg-white rounded-2xl p-5 flex items-center gap-3 w-full shadow-sm">

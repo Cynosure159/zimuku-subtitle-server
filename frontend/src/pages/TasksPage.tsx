@@ -90,7 +90,7 @@ export default function TasksPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6 w-full h-full max-w-[1800px]">
+    <div className="flex flex-col gap-6 w-full h-full max-w-[1800px] overflow-y-auto custom-scrollbar pr-4">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-slate-900">{t('page.tasks.title')}</h1>
         <button

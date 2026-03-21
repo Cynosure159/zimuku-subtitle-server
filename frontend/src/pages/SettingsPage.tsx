@@ -17,7 +17,7 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<Setting[]>([]);
   const [formValues, setFormValues] = useState<Record<string, string>>({});
   
-  const { paths: moviePaths, fetchData: fetchMoviePaths } = useMediaPolling('movie');
+  const { paths: moviePaths, fetchData: fetchMoviePaths, status, setIsScanningOptimistic } = useMediaPolling('movie');
   const { paths: tvPaths, fetchData: fetchTvPaths } = useMediaPolling('tv');
 
   const [newMoviePath, setNewMoviePath] = useState('');
@@ -60,7 +60,7 @@ export default function SettingsPage() {
   };
 
   const handleAddPath = async (type: 'movie' | 'tv', path: string) => {
-    if (!path.trim()) return;
+    if (!path) return;
     try {
       await addMediaPath(path, type);
       if (type === 'movie') {
@@ -88,8 +88,8 @@ export default function SettingsPage() {
 
   const handleRefreshLibrary = async (type: 'movie' | 'tv') => {
     try {
+      setIsScanningOptimistic(true);
       await triggerMediaMatch(type);
-      alert(type === 'movie' ? t('mediaConfig.refreshMovie') : t('mediaConfig.refreshTv'));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       alert(t('mediaConfig.triggerFailed') + ': ' + message);
@@ -97,11 +97,11 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="flex-1 w-full h-full max-w-[1800px]">
+    <div className="flex-1 w-full h-full max-w-[1800px] overflow-y-auto custom-scrollbar pr-4">
       <header className="flex items-center justify-between pb-8 pt-4">
         <div>
           <h2 className="text-3xl font-headline font-extrabold tracking-tight text-primary">{t('page.settings.title')}</h2>
-          <p className="text-on-surface-variant font-label text-sm mt-1">Manage your digital media ecosystem preferences</p>
+          <p className="text-on-surface-variant font-label text-sm mt-1">{t('page.settings.subtitle')}</p>
         </div>
       </header>
 
@@ -113,7 +113,7 @@ export default function SettingsPage() {
           </div>
           <div className="flex items-center gap-3 mb-8 relative z-10">
             <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>language</span>
-            <h3 className="font-headline font-bold text-xl text-on-surface">General</h3>
+            <h3 className="font-headline font-bold text-xl text-on-surface">{t('page.settings.general')}</h3>
           </div>
           <div className="space-y-8 relative z-10">
             <div className="flex flex-col gap-3">
@@ -134,7 +134,7 @@ export default function SettingsPage() {
         <section className="md:col-span-5 bg-surface-container rounded-2xl p-8 transition-all duration-300 hover:bg-surface-container-high border border-outline-variant/10">
           <div className="flex items-center gap-3 mb-8">
             <span className="material-symbols-outlined text-tertiary" style={{ fontVariationSettings: "'FILL' 1" }}>robot_2</span>
-            <h3 className="font-headline font-bold text-xl text-on-surface">System Properties</h3>
+            <h3 className="font-headline font-bold text-xl text-on-surface">{t('page.settings.systemProperties')}</h3>
           </div>
           <div className="space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
             {settings.length === 0 ? (
@@ -173,7 +173,7 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
               <span className="material-symbols-outlined text-primary-dim" style={{ fontVariationSettings: "'FILL' 1" }}>folder_managed</span>
-              <h3 className="font-headline font-bold text-xl text-on-surface">Digital Libraries</h3>
+              <h3 className="font-headline font-bold text-xl text-on-surface">{t('page.settings.digitalLibraries')}</h3>
             </div>
           </div>
           
@@ -182,15 +182,15 @@ export default function SettingsPage() {
             <div className="space-y-4 bg-surface-container-low p-6 rounded-2xl border border-outline-variant/5">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex flex-col">
-                  <span className="font-bold text-lg text-on-surface">Movies Directory</span>
-                  <span className="text-xs text-on-surface-variant">Local paths for films</span>
+                  <span className="font-bold text-lg text-on-surface">{t('page.settings.moviesDirectory')}</span>
+                  <span className="text-xs text-on-surface-variant">{t('page.settings.moviesSub')}</span>
                 </div>
                 <button
                   onClick={() => handleRefreshLibrary('movie')}
                   className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-primary hover:bg-primary hover:text-surface-container transition-colors"
                   title={t('mediaConfig.refreshMovie')}
                 >
-                  <span className="material-symbols-outlined text-sm">sync</span>
+                  <span className={`material-symbols-outlined text-sm ${status.is_scanning ? 'animate-spin' : ''}`}>sync</span>
                 </button>
               </div>
               <div className="flex items-center gap-2">
@@ -202,11 +202,11 @@ export default function SettingsPage() {
                   onKeyDown={e => e.key === 'Enter' && handleAddPath('movie', newMoviePath)}
                   className="flex-1 bg-surface-container border border-outline-variant/10 rounded-lg p-2.5 text-sm text-on-surface outline-none focus:border-primary/50 transition-colors"
                 />
-                <button onClick={() => handleAddPath('movie', newMoviePath)} className="bg-primary/10 hover:bg-primary/20 text-primary px-4 py-2.5 rounded-lg text-sm font-bold transition-all">Add</button>
+                <button onClick={() => handleAddPath('movie', newMoviePath)} className="bg-primary/10 hover:bg-primary/20 text-primary px-4 py-2.5 rounded-lg text-sm font-bold transition-all">{t('page.settings.add')}</button>
               </div>
               <div className="flex flex-col gap-2 mt-4 max-h-64 overflow-y-auto custom-scrollbar pr-1">
                 {moviePaths.length === 0 ? (
-                  <div className="text-center text-xs text-on-surface-variant py-4 opacity-50">No directories added</div>
+                  <div className="text-center text-xs text-on-surface-variant py-4 opacity-50">{t('page.settings.noDirectories')}</div>
                 ) : moviePaths.map(path => (
                   <div key={path.id} className="p-3 bg-surface-container rounded-lg flex items-center justify-between group">
                     <div className="flex items-center gap-3 overflow-hidden">
@@ -225,15 +225,15 @@ export default function SettingsPage() {
             <div className="space-y-4 bg-surface-container-low p-6 rounded-2xl border border-outline-variant/5">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex flex-col">
-                  <span className="font-bold text-lg text-on-surface">TV Shows Directory</span>
-                  <span className="text-xs text-on-surface-variant">Local paths for series</span>
+                  <span className="font-bold text-lg text-on-surface">{t('page.settings.tvDirectory')}</span>
+                  <span className="text-xs text-on-surface-variant">{t('page.settings.tvSub')}</span>
                 </div>
                 <button
                   onClick={() => handleRefreshLibrary('tv')}
-                  className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-tertiary hover:bg-tertiary hover:text-surface-container transition-colors"
+                  className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-primary hover:bg-primary hover:text-surface-container transition-colors"
                   title={t('mediaConfig.refreshTv')}
                 >
-                  <span className="material-symbols-outlined text-sm">sync</span>
+                  <span className={`material-symbols-outlined text-sm ${status.is_scanning ? 'animate-spin' : ''}`}>sync</span>
                 </button>
               </div>
               <div className="flex items-center gap-2">
@@ -243,13 +243,13 @@ export default function SettingsPage() {
                   value={newTvPath}
                   onChange={e => setNewTvPath(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleAddPath('tv', newTvPath)}
-                  className="flex-1 bg-surface-container border border-outline-variant/10 rounded-lg p-2.5 text-sm text-on-surface outline-none focus:border-tertiary/50 transition-colors"
+                  className="flex-1 bg-surface-container border border-outline-variant/10 rounded-lg p-2.5 text-sm text-on-surface outline-none focus:border-primary/50 transition-colors"
                 />
-                <button onClick={() => handleAddPath('tv', newTvPath)} className="bg-tertiary/10 hover:bg-tertiary/20 text-tertiary px-4 py-2.5 rounded-lg text-sm font-bold transition-all">Add</button>
+                <button onClick={() => handleAddPath('tv', newTvPath)} className="bg-primary/10 hover:bg-primary/20 text-primary px-4 py-2.5 rounded-lg text-sm font-bold transition-all">{t('page.settings.add')}</button>
               </div>
               <div className="flex flex-col gap-2 mt-4 max-h-64 overflow-y-auto custom-scrollbar pr-1">
                 {tvPaths.length === 0 ? (
-                  <div className="text-center text-xs text-on-surface-variant py-4 opacity-50">No directories added</div>
+                  <div className="text-center text-xs text-on-surface-variant py-4 opacity-50">{t('page.settings.noDirectories')}</div>
                 ) : tvPaths.map(path => (
                   <div key={path.id} className="p-3 bg-surface-container rounded-lg flex items-center justify-between group">
                     <div className="flex items-center gap-3 overflow-hidden">

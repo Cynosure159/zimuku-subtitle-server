@@ -19,7 +19,9 @@
       "noMovies": "未找到电影",
       "filterEmpty": "筛选结果为空",
       "clearFilter": "清除筛选条件",
-      "localFiles": "本地视频文件"
+      "localFiles": "本地视频文件",
+      "fileCount_one": "找到 {{count}} 个文件",
+      "fileCount_other": "找到 {{count}} 个文件"
     },
     "series": {
       "title": "剧集管理",
@@ -32,7 +34,8 @@
       "smartMatching": "智能补全中...",
       "noVideos": "本季暂无视频文件",
       "episodeFile": "集数与文件名称",
-      "statusAction": "状态与操作"
+      "statusAction": "状态与操作",
+      "episodes": "{count} 集"
     },
     "tasks": {
       "title": "下载任务",
@@ -58,7 +61,18 @@
       "saveFailed": "保存失败",
       "lastUpdated": "最后更新",
       "noConfig": "暂无配置项，请在后端初始化或插入数据",
-      "loading": "加载中..."
+      "loading": "加载中...",
+      "subtitle": "管理您的数字媒体生态偏好配置",
+      "general": "常规设置",
+      "systemProperties": "系统属性配置",
+      "digitalLibraries": "数字媒体库管理",
+      "moviesDirectory": "电影目录",
+      "moviesSub": "影片的本地和网络存放路径",
+      "tvDirectory": "剧集目录",
+      "tvSub": "剧集的本地和网络存放路径",
+      "add": "添加",
+      "noDirectories": "尚未添加相关目录",
+      "noPlot": "暂无剧情简介"
     }
   },
   "filter": {
@@ -80,7 +94,9 @@
     "missing": "缺字幕",
     "hasSubtitle": "有字幕",
     "noSubtitle": "无字幕",
-    "incomplete": "字幕不全 {has}/{total}"
+    "incomplete": "字幕不全 {{has}}/{{total}}",
+    "rescan": "重新扫描库",
+    "matchedCount": "{{has}}/{{total}} 已匹配"
   },
   "action": {
     "autoSearch": "自动搜索",
@@ -153,10 +169,14 @@
   },
   "searchFilter": {
     "all": "全部",
-    "simplified": "简体",
-    "traditional": "繁体",
-    "english": "英文",
-    "bilingual": "双语"
+    "simplified": "简体中文",
+    "traditional": "繁體中文",
+    "english": "英语",
+    "bilingual": "双语",
+    "simplified_short": "简体",
+    "traditional_short": "繁体",
+    "english_short": "英文",
+    "bilingual_short": "双语"
   },
   "confirm": {
     "deleteTask": "确定要删除此任务吗？",

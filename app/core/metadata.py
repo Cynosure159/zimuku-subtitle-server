@@ -27,7 +27,7 @@ def find_fanart(folder: Path, video_filename: Optional[str] = None) -> Optional[
             return path
             
     if video_filename:
-        video_stem = Path(video_filename).stem
+        video_stem = Path(str(video_filename)).stem
         for ext in [".jpg", ".jpeg", ".png"]:
             path = folder / f"{video_stem}-fanart{ext}"
             if path.exists():
@@ -69,34 +69,66 @@ def _extract_nfo_metadata(content: str) -> dict:
     except ET.ParseError:
         return {}
 
-    # Handle XBMC/Kodi NFO format
-    # Try movie element first
-    movie = root.find("movie")
-    if movie is None:
-        movie = root  # Fallback to root
+    # Root can be <movie>, <tvshow>, <episodedetails> or a wrapper
+    # If root's tag is one of these, use root as the main element
+    target = root
+    if root.tag not in ["movie", "tvshow", "episodedetails"]:
+        for tag in ["movie", "tvshow", "episodedetails"]:
+            found = root.find(tag)
+            if found is not None:
+                target = found
+                break
 
     def get_text(element: ET.Element, tag: str) -> Optional[str]:
         """Get text content of a tag."""
-        found = movie.find(tag) if movie is not root else root.find(tag)
+        found = element.find(tag)
         return found.text.strip() if found is not None and found.text else None
+
+    def get_rating(element: ET.Element) -> Optional[str]:
+        """Extract rating from various NFO structures."""
+        # 1. Try <ratings><rating><value>
+        ratings_node = element.find("ratings")
+        if ratings_node is not None:
+            rating_node = ratings_node.find("rating")
+            if rating_node is not None:
+                value_node = rating_node.find("value")
+                if value_node is not None and value_node.text:
+                    try:
+                        val = float(value_node.text.strip())
+                        return f"{val:.1f}"
+                    except ValueError:
+                        return value_node.text.strip()
+        
+        # 2. Try top-level <rating> or <userrating>
+        for tag in ["rating", "userrating"]:
+            node = element.find(tag)
+            if node is not None and node.text:
+                try:
+                    val = float(node.text.strip())
+                    if val > 0:  # Ignore 0.0 scores if possible
+                        return f"{val:.1f}"
+                except ValueError:
+                    return node.text.strip()
+                
+        return None
 
     def get_all_text(element: ET.Element, tag: str) -> list:
         """Get all text contents of a tag (for genres, etc.)."""
-        found = movie.findall(tag) if movie is not root else root.findall(tag)
+        found = element.findall(tag)
         return [f.text.strip() for f in found if f.text and f.text.strip()]
 
     # Extract metadata
     metadata = {
-        "title": get_text(movie, "title"),
-        "year": get_text(movie, "year"),
-        "plot": get_text(movie, "plot"),
-        "rating": get_text(movie, "rating"),
-        "genres": get_all_text(movie, "genre"),
-        "director": get_text(movie, "director"),
-        "actor": get_all_text(movie, "actor"),
-        "studio": get_text(movie, "studio"),
-        "mpaa": get_text(movie, "mpaa"),
-        "runtime": get_text(movie, "runtime"),
+        "title": get_text(target, "title"),
+        "year": get_text(target, "year"),
+        "plot": get_text(target, "plot"),
+        "rating": get_rating(target),
+        "genres": get_all_text(target, "genre"),
+        "director": get_text(target, "director"),
+        "actor": get_all_text(target, "actor"),
+        "studio": get_text(target, "studio"),
+        "mpaa": get_text(target, "mpaa"),
+        "runtime": get_text(target, "runtime"),
     }
 
     # Clean up None values
@@ -200,7 +232,7 @@ def find_nfo_file(folder: Path, video_filename: Optional[str] = None) -> Optiona
 
     # Check for same-name NFO (video.mp4 -> video.nfo)
     if video_filename:
-        video_stem = Path(video_filename).stem
+        video_stem = Path(str(video_filename)).stem
         nfo_path = folder / f"{video_stem}.nfo"
         if nfo_path.exists():
             return nfo_path
@@ -229,7 +261,7 @@ def find_txt_file(folder: Path, video_filename: Optional[str] = None) -> Optiona
 
     # Check for same-name TXT (video.mp4 -> video.txt)
     if video_filename:
-        video_stem = Path(video_filename).stem
+        video_stem = Path(str(video_filename)).stem
         txt_path = folder / f"{video_stem}.txt"
         if txt_path.exists():
             return txt_path

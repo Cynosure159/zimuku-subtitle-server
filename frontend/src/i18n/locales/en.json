@@ -19,7 +19,9 @@
       "noMovies": "No movies found",
       "filterEmpty": "Filter result is empty",
       "clearFilter": "Clear filter",
-      "localFiles": "Local Video Files"
+      "localFiles": "Local Video Files",
+      "fileCount_one": "{{count}} file found",
+      "fileCount_other": "{{count}} files found"
     },
     "series": {
       "title": "Series Management",
@@ -32,7 +34,8 @@
       "smartMatching": "Matching...",
       "noVideos": "No video files for this season",
       "episodeFile": "Episode & File Name",
-      "statusAction": "Status & Actions"
+      "statusAction": "Status & Actions",
+      "episodes": "{count} episodes"
     },
     "tasks": {
       "title": "Download Tasks",
@@ -58,7 +61,18 @@
       "saveFailed": "Save failed",
       "lastUpdated": "Last updated",
       "noConfig": "No configuration items. Please initialize or insert data in backend.",
-      "loading": "Loading..."
+      "loading": "Loading...",
+      "subtitle": "Manage your digital media ecosystem preferences",
+      "general": "General Settings",
+      "systemProperties": "System Properties",
+      "digitalLibraries": "Digital Libraries",
+      "moviesDirectory": "Movies Directory",
+      "moviesSub": "Local paths for films",
+      "tvDirectory": "TV Shows Directory",
+      "tvSub": "Local paths for series",
+      "add": "Add",
+      "noDirectories": "No directories added",
+      "noPlot": "No synopsis available"
     }
   },
   "filter": {
@@ -80,7 +94,9 @@
     "missing": "Missing",
     "hasSubtitle": "Has Subtitles",
     "noSubtitle": "No Subtitles",
-    "incomplete": "Incomplete {has}/{total}"
+    "incomplete": "Incomplete {{has}}/{{total}}",
+    "rescan": "Rescan Library",
+    "matchedCount": "{{has}}/{{total}} Matched"
   },
   "action": {
     "autoSearch": "Auto Search",
@@ -153,10 +169,14 @@
   },
   "searchFilter": {
     "all": "All",
-    "simplified": "Simplified",
-    "traditional": "Traditional",
+    "simplified": "Simplified Chinese",
+    "traditional": "Traditional Chinese",
     "english": "English",
-    "bilingual": "Bilingual"
+    "bilingual": "Bilingual",
+    "simplified_short": "Simplified",
+    "traditional_short": "Traditional",
+    "english_short": "English",
+    "bilingual_short": "Bilingual"
   },
   "confirm": {
     "deleteTask": "Are you sure you want to delete this task?",

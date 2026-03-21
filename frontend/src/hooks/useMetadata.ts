@@ -11,6 +11,7 @@ export interface MediaMetadata {
     rating?: string;
     genres?: string[];
     director?: string;
+    runtime?: string;
   } | null;
   poster_path: string | null;
   fanart_path: string | null;

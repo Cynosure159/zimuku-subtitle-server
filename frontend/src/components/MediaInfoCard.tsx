@@ -1,12 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useMediaMetadata, useMediaPosterUrl } from '../hooks/useMetadata';
 
-interface MediaInfoCardProps {
-  fileId: number;
-  title: string;
-  year?: string;
-}
-
 function SkeletonLoader() {
   return (
     <div className="h-[260px] relative overflow-hidden flex-shrink-0 animate-pulse bg-surface-container-low">
@@ -56,7 +50,17 @@ function ErrorState({ title, year, onRetry }: { title: string; year?: string; on
   );
 }
 
-export function MediaInfoCard({ fileId, title, year }: MediaInfoCardProps) {
+interface MediaInfoCardProps {
+  fileId: number;
+  title: string;
+  year?: string;
+  isTv?: boolean;
+  count?: number;
+}
+
+// ...
+
+export function MediaInfoCard({ fileId, title, year, isTv, count }: MediaInfoCardProps) {
   const { t } = useTranslation();
   const { data: metadata, isLoading, error, refetch } = useMediaMetadata(fileId);
   const bannerUrl = useMediaPosterUrl(metadata?.fanart_path ?? metadata?.poster_path ?? null);
@@ -64,6 +68,7 @@ export function MediaInfoCard({ fileId, title, year }: MediaInfoCardProps) {
   const displayTitle = metadata?.nfo_data?.title || title;
   const displayYear = metadata?.nfo_data?.year || year;
   const rating = metadata?.nfo_data?.rating;
+  const runtime = metadata?.nfo_data?.runtime;
 
   if (isLoading) return <SkeletonLoader />;
   if (error) return <ErrorState title={title} year={year} onRetry={() => refetch()} />;
@@ -85,11 +90,24 @@ export function MediaInfoCard({ fileId, title, year }: MediaInfoCardProps) {
                 <span className="material-symbols-outlined text-lg">calendar_today</span>
                 {displayYear || t('year.unknown')}
               </span>
-              {rating && (
-                <span className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-lg text-tertiary" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                  {rating}
-                </span>
+              <span className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-lg text-tertiary" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                {rating || '0.0'}
+              </span>
+              {isTv ? (
+                count !== undefined && (
+                  <span className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-lg text-primary">layers</span>
+                    {t('page.series.episodes', { count })}
+                  </span>
+                )
+              ) : (
+                runtime && (
+                  <span className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-lg text-secondary">schedule</span>
+                    {String(runtime).includes('min') ? runtime : `${runtime} min`}
+                  </span>
+                )
               )}
             </div>
           </div>
