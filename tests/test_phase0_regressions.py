@@ -203,8 +203,8 @@ async def test_auto_match_handles_direct_subtitle_download(monkeypatch, tmp_path
         close=AsyncMock(return_value=None),
     )
 
-    monkeypatch.setattr("app.services.media_service.ZimukuAgent", lambda: agent)
-    monkeypatch.setattr("app.services.media_service.get_storage_path", lambda: str(tmp_path / "storage"))
+    monkeypatch.setattr("app.services.auto_match_service.ZimukuAgent", lambda: agent)
+    monkeypatch.setattr("app.services.auto_match_service.get_storage_path", lambda: str(tmp_path / "storage"))
 
     await MediaService._run_auto_match_internal(scanned_file.id)
 
@@ -248,8 +248,8 @@ async def test_auto_match_prefers_best_subtitle_from_archive(monkeypatch, subtit
         close=AsyncMock(return_value=None),
     )
 
-    monkeypatch.setattr("app.services.media_service.ZimukuAgent", lambda: agent)
-    monkeypatch.setattr("app.services.media_service.get_storage_path", lambda: str(tmp_path / "storage"))
+    monkeypatch.setattr("app.services.auto_match_service.ZimukuAgent", lambda: agent)
+    monkeypatch.setattr("app.services.auto_match_service.get_storage_path", lambda: str(tmp_path / "storage"))
 
     await MediaService._run_auto_match_internal(scanned_file.id)
 
