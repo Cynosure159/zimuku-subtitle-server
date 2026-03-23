@@ -1,6 +1,7 @@
 # AGENTS.md
 
-本文档为其他 Agent 在本项目中工作时提供指导。
+本文档为 Agent 在本项目中工作时提供指导。
+!回答时始终使用简体中文
 
 ## 项目概述
 
@@ -69,7 +70,7 @@ npm run lint
 - **React 19** + Vite + Tailwind CSS v4 + TypeScript
 - 页面组件：SearchPage、MoviesPage、SeriesPage、TasksPage、SettingsPage
 - 共享组件：MediaConfigPanel、MediaSidebar、MediaInfoCard、EmptySelectionState
-- 自定义 Hook：useMediaPolling
+- 自定义 Hook：useMediaPolling、useMediaGrouping
 
 ### 数据库
 
@@ -122,8 +123,11 @@ python run_mcp.py
 
 - Python 开发必须使用 `.venv` 虚拟环境
 - 运行测试前必须先执行 `ruff check` 和 `ruff format`
+- 测试必须使用隔离运行目录 `.tmp/test-runtime`，不得连接真实 `storage/zimuku.db` 或写入真实 `storage/` 目录
+- 测试产生的数据库、下载文件、日志等临时数据应仅落在 `.tmp/test-runtime`，测试结束后应自动清理，不得在项目根目录留下残留文件
 - 前端使用动态轮询频率（后台任务活跃时 2s，空闲时 10s）
 - 剧集季补全采用顺序执行模式（间隔 2s），避免并发导致封禁
+- 修改代码后，按照需要修订文档；有功能修改需要看是否修改、添加对应的单元测试
 
 ### Git 操作规范
 

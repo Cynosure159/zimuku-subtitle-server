@@ -1,5 +1,6 @@
 import io
 import zipfile
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -10,6 +11,7 @@ from app.db.session import create_db_and_tables, engine
 from app.main import app
 
 client = TestClient(app)
+no_raise_client = TestClient(app, raise_server_exceptions=False)
 
 
 @pytest.fixture(autouse=True)
@@ -20,30 +22,41 @@ def setup_db():
         session.commit()
 
 
-@pytest.mark.asyncio
-async def test_create_and_run_download_task(mocker):
+@pytest.mark.anyio
+async def test_create_and_run_download_task():
     # 1. Mock ZimukuAgent 的关键方法
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
         zip_file.writestr("test.srt", "subtitle content")
 
-    mock_agent = mocker.patch("app.services.task_service.ZimukuAgent", autospec=True)
-    instance = mock_agent.return_value
-    instance.get_download_page_links.return_value = ["http://example.com/download/file.zip"]
-    instance.download_file.return_value = ("test_subtitle.zip", zip_buffer.getvalue())
-    instance.close.return_value = None
+    with patch("app.services.task_service.ZimukuAgent") as mock_agent:
+        instance = mock_agent.return_value
+        instance.get_download_page_links = AsyncMock(return_value=["http://example.com/download/file.zip"])
+        instance.download_file = AsyncMock(return_value=("test_subtitle.zip", zip_buffer.getvalue()))
+        instance.close = AsyncMock(return_value=None)
 
-    # 2. 调用 API 创建下载任务
-    payload = {"title": "Test Movie", "source_url": "https://zimuku.org/detail/123.html"}
-    response = client.post("/tasks/", params=payload)
-    assert response.status_code == 200
-    task_id = response.json()["id"]
+        # 2. 调用 API 创建下载任务
+        payload = {"title": "Test Movie", "source_url": "https://zimuku.org/detail/123.html"}
+        response = client.post("/tasks/", params=payload)
+        assert response.status_code == 200
+        task_id = response.json()["id"]
 
-    # 3. 验证状态
-    with Session(engine) as session:
-        task = session.get(SubtitleTask, task_id)
-        assert task is not None
-        assert task.status == "completed"
+        # 3. 验证状态
+        with Session(engine) as session:
+            task = session.get(SubtitleTask, task_id)
+            assert task is not None
+            assert task.status == "completed"
+
+
+def test_global_exception_handler_hides_internal_message():
+    @app.get("/_test/error")
+    async def raise_error():
+        raise RuntimeError("secret failure detail")
+
+    response = no_raise_client.get("/_test/error")
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "内部服务器错误"}
 
 
 def test_get_task_status():
@@ -80,7 +93,7 @@ def test_delete_task_api():
     assert response.json()["status"] == "ok"
 
 
-def test_retry_failed_task(mocker):
+def test_retry_failed_task():
     with Session(engine) as session:
         task = SubtitleTask(title="Retry Test", source_url="http://test.com", status="failed")
         session.add(task)
@@ -88,15 +101,15 @@ def test_retry_failed_task(mocker):
         session.refresh(task)
         task_id = task.id
 
-    mock_agent = mocker.patch("app.services.task_service.ZimukuAgent", autospec=True)
-    instance = mock_agent.return_value
-    instance.get_download_page_links.return_value = ["http://example.com/retry.zip"]
-    instance.download_file.return_value = ("retry.zip", b"content")
-    instance.close.return_value = None
+    with patch("app.services.task_service.ZimukuAgent") as mock_agent:
+        instance = mock_agent.return_value
+        instance.get_download_page_links = AsyncMock(return_value=["http://example.com/retry.zip"])
+        instance.download_file = AsyncMock(return_value=("retry.zip", b"content"))
+        instance.close = AsyncMock(return_value=None)
 
-    response = client.post(f"/tasks/{task_id}/retry")
-    assert response.status_code == 200
-    assert response.json()["status"] == "pending"
+        response = client.post(f"/tasks/{task_id}/retry")
+        assert response.status_code == 200
+        assert response.json()["status"] == "pending"
 
     # 测试非失败任务不能重试
     with Session(engine) as session:

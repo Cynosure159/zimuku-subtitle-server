@@ -1,4 +1,5 @@
 import logging
+import mimetypes
 from pathlib import Path
 from typing import List, Optional
 from urllib.parse import unquote
@@ -14,6 +15,45 @@ from ..services.metadata_service import MetadataService
 
 router = APIRouter(prefix="/media", tags=["Media"])
 logger = logging.getLogger(__name__)
+
+
+def _resolve_media_asset_path(decoded_path: str, media_roots: list[Path]) -> Path:
+    candidate = Path(decoded_path)
+    if candidate.is_absolute():
+        raise HTTPException(status_code=404, detail="Poster not found")
+
+    normalized_parts = []
+    for part in candidate.parts:
+        if part in {"", "."}:
+            continue
+        if part == "..":
+            raise HTTPException(status_code=404, detail="Poster not found")
+        normalized_parts.append(part)
+
+    if not normalized_parts:
+        raise HTTPException(status_code=404, detail="Poster not found")
+
+    normalized_path = Path(*normalized_parts)
+    for root in media_roots:
+        resolved_root = root.resolve()
+        resolved_path = (resolved_root / normalized_path).resolve(strict=False)
+
+        try:
+            resolved_path.relative_to(resolved_root)
+        except ValueError:
+            continue
+
+        if resolved_path.is_file():
+            return resolved_path
+
+    raise HTTPException(status_code=404, detail="Poster not found")
+
+
+def _guess_image_media_type(file_path: Path) -> str:
+    media_type, _ = mimetypes.guess_type(file_path.name)
+    if media_type and media_type.startswith("image/"):
+        return media_type
+    return "image/jpeg"
 
 
 @router.get("/task-status")
@@ -213,44 +253,7 @@ async def get_poster(
     Args:
         path: URL-encoded relative path from media root (e.g., "Movies/Avatar/folder.jpg")
     """
-    # Decode the path
     decoded_path = unquote(path)
-
-    # Get media roots from database
-    media_roots = []
-
-    # Get all media paths from database
-    media_paths = MediaService.list_paths(session)
-    for mp in media_paths:
-        media_roots.append(Path(mp.path))
-
-    # Try each media root
-    for root in media_roots:
-        full_poster_path = root / decoded_path
-        if full_poster_path.exists():
-            # Determine content type
-            ext = full_poster_path.suffix.lower()
-            media_type = "image/jpeg"
-            if ext == ".png":
-                media_type = "image/png"
-            elif ext == ".gif":
-                media_type = "image/gif"
-            elif ext == ".webp":
-                media_type = "image/webp"
-
-            return FileResponse(full_poster_path, media_type=media_type)
-
-    # Also try as absolute path
-    absolute_path = Path(decoded_path)
-    if absolute_path.exists():
-        ext = absolute_path.suffix.lower()
-        media_type = "image/jpeg"
-        if ext == ".png":
-            media_type = "image/png"
-        elif ext == ".gif":
-            media_type = "image/gif"
-        elif ext == ".webp":
-            media_type = "image/webp"
-        return FileResponse(absolute_path, media_type=media_type)
-
-    raise HTTPException(status_code=404, detail="Poster not found")
+    media_roots = [Path(mp.path) for mp in MediaService.list_paths(session)]
+    poster_path = _resolve_media_asset_path(decoded_path, media_roots)
+    return FileResponse(poster_path, media_type=_guess_image_media_type(poster_path))

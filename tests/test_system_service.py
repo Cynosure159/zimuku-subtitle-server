@@ -22,13 +22,11 @@ def session_fixture():
 
 
 @pytest.fixture(autouse=True)
-def cleanup_app_log():
-    """Ensure app.log is cleaned up before and after each test"""
-    if os.path.exists("app.log"):
-        os.remove("app.log")
+def isolated_log_file(tmp_path, monkeypatch):
+    """Use a temp log file for each test to avoid polluting the repo root."""
+    log_file = tmp_path / "app.log"
+    monkeypatch.setenv("ZIMUKU_LOG_FILE", str(log_file))
     yield
-    if os.path.exists("app.log"):
-        os.remove("app.log")
 
 
 def test_get_stats_empty_db(session):
@@ -140,48 +138,23 @@ def test_get_logs_file_not_found():
 
 def test_get_logs_with_content():
     """Test getting logs with content"""
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".log", delete=False) as f:
+    log_file = os.environ["ZIMUKU_LOG_FILE"]
+    with open(log_file, "w", encoding="utf-8") as f:
         f.write("Line 1\nLine 2\nLine 3\n")
-        log_path = f.name
 
-    try:
-        # Rename to app.log for the test
-        import shutil
+    logs = SystemService.get_logs()
 
-        shutil.copy(log_path, "app.log")
-
-        logs = SystemService.get_logs()
-
-        assert len(logs) > 0
-        assert "Line 1" in logs[0]
-
-        # Cleanup
-        os.remove("app.log")
-    except Exception:
-        if os.path.exists("app.log"):
-            os.remove("app.log")
-        raise
+    assert len(logs) > 0
+    assert "Line 1" in logs[0]
 
 
 def test_get_logs_line_limit():
     """Test getting logs with line limit"""
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".log", delete=False) as f:
+    log_file = os.environ["ZIMUKU_LOG_FILE"]
+    with open(log_file, "w", encoding="utf-8") as f:
         for i in range(20):
             f.write(f"Line {i}\n")
-        log_path = f.name
 
-    try:
-        import shutil
+    logs = SystemService.get_logs(lines=5)
 
-        shutil.copy(log_path, "app.log")
-
-        logs = SystemService.get_logs(lines=5)
-
-        assert len(logs) <= 5
-
-        # Cleanup
-        os.remove("app.log")
-    except Exception:
-        if os.path.exists("app.log"):
-            os.remove("app.log")
-        raise
+    assert len(logs) <= 5

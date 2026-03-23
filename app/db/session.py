@@ -2,10 +2,20 @@ import os
 
 from sqlmodel import Session, SQLModel, create_engine
 
-# 确保存储目录存在
-os.makedirs("storage", exist_ok=True)
-DB_PATH = "storage/zimuku.db"
-sqlite_url = f"sqlite:///{DB_PATH}"
+
+def _get_sqlite_url() -> str:
+    database_url = os.getenv("ZIMUKU_DATABASE_URL")
+    if database_url:
+        return database_url
+
+    db_path = os.getenv("ZIMUKU_DB_PATH", "storage/zimuku.db")
+    db_dir = os.path.dirname(db_path)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
+    return f"sqlite:///{db_path}"
+
+
+sqlite_url = _get_sqlite_url()
 
 # 连接池设置 (对于 SQLite 主要是为了在多线程/多协程下稳定运行)
 engine = create_engine(sqlite_url, connect_args={"check_same_thread": False})

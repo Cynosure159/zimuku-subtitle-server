@@ -75,21 +75,19 @@ def test_system_stats_api():
     assert "storage" in data
 
 
-def test_get_logs_api():
+def test_get_logs_api(tmp_path, monkeypatch):
     # 模拟日志文件
-    log_file = "app.log"
+    log_file = tmp_path / "app.log"
+    monkeypatch.setenv("ZIMUKU_LOG_FILE", str(log_file))
+
     with open(log_file, "w", encoding="utf-8") as f:
         f.write("Line 1\nLine 2\nLine 3\n")
 
-    try:
-        response = client.get("/system/logs", params={"lines": 2})
-        assert response.status_code == 200
-        logs = response.json()
-        assert len(logs) == 2
-        assert logs[-1].strip() == "Line 3"
-    finally:
-        # 最好不要删，或者在正式环境不产生此文件
-        pass
+    response = client.get("/system/logs", params={"lines": 2})
+    assert response.status_code == 200
+    logs = response.json()
+    assert len(logs) == 2
+    assert logs[-1].strip() == "Line 3"
 
 
 def test_trigger_match_api():

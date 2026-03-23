@@ -1,6 +1,7 @@
 import os
 import shutil
 import zipfile
+from pathlib import Path
 
 from app.core.archive import ArchiveManager
 
@@ -37,6 +38,62 @@ def test_zip_extraction_with_encoding():
     # 清理
     shutil.rmtree(test_dir)
     shutil.rmtree(extract_to)
+
+
+def test_zip_extraction_preserves_safe_nested_paths(tmp_path):
+    archive_path = tmp_path / "nested.zip"
+    extract_to = tmp_path / "out"
+
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr("Season 01/episode.srt", "subtitle content")
+
+    files = ArchiveManager.extract(str(archive_path), str(extract_to))
+
+    expected_path = extract_to / "Season 01" / "episode.srt"
+    assert files == [str(expected_path.resolve())]
+    assert expected_path.exists()
+
+
+def test_archive_manager_rejects_unsupported_extension():
+    assert ArchiveManager.is_archive("subtitle.zip")
+    assert ArchiveManager.is_archive("subtitle.7z")
+    assert not ArchiveManager.is_archive("subtitle.rar")
+
+
+def test_extract_zip_rejects_path_traversal(monkeypatch, tmp_path):
+    archive_path = tmp_path / "unsafe.zip"
+    archive_path.write_bytes(b"fake")
+    extract_to = tmp_path / "out"
+
+    class FakeZipInfo:
+        filename = "../../etc/passwd"
+
+        @staticmethod
+        def is_dir():
+            return False
+
+    class FakeZipFile:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def infolist(self):
+            return [FakeZipInfo()]
+
+        def read(self, _name):
+            return b"content"
+
+    monkeypatch.setattr("app.core.archive.manager.zipfile.ZipFile", FakeZipFile)
+
+    files = ArchiveManager.extract(str(archive_path), str(extract_to))
+
+    assert files == []
+    assert not list(Path(extract_to).rglob("*"))
 
 
 if __name__ == "__main__":

@@ -10,6 +10,10 @@ from ..db.models import SearchCache, SubtitleTask
 
 class SystemService:
     @staticmethod
+    def _get_log_file_path() -> str:
+        return os.getenv("ZIMUKU_LOG_FILE", "app.log")
+
+    @staticmethod
     def get_stats(session: Session) -> Dict[str, Any]:
         total_tasks = session.exec(select(func.count()).select_from(SubtitleTask)).one()
         completed_tasks = session.exec(
@@ -48,7 +52,7 @@ class SystemService:
 
     @staticmethod
     def get_logs(lines: int = 100) -> List[str]:
-        log_file = "app.log"
+        log_file = SystemService._get_log_file_path()
         if os.path.exists(log_file):
             try:
                 with open(log_file, "r", encoding="utf-8") as f:

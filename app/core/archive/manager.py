@@ -1,6 +1,7 @@
 import logging
 import os
 import zipfile
+from pathlib import Path
 from typing import List
 
 import py7zr
@@ -10,6 +11,18 @@ logger = logging.getLogger(__name__)
 
 class ArchiveManager:
     """压缩包管理器，支持解压并修复文件名乱码"""
+
+    SUPPORTED_ARCHIVE_EXTENSIONS = (".zip", ".7z")
+
+    @staticmethod
+    def _resolve_safe_target(base_dir: str, relative_name: str) -> Path:
+        target_root = Path(base_dir).resolve()
+        target_path = (target_root / relative_name).resolve(strict=False)
+        try:
+            target_path.relative_to(target_root)
+        except ValueError as exc:
+            raise ValueError(f"Unsafe archive entry: {relative_name}") from exc
+        return target_path
 
     @staticmethod
     def extract(file_path: str, extract_to: str) -> List[str]:
@@ -32,6 +45,9 @@ class ArchiveManager:
         extracted_files = []
         with zipfile.ZipFile(file_path, "r") as z:
             for info in z.infolist():
+                if info.is_dir():
+                    continue
+
                 # 修复 ZIP 文件名乱码 (CP437 -> GBK/UTF-8)
                 try:
                     # 尝试将原始编码 cp437 转换为 gbk
@@ -43,17 +59,19 @@ class ArchiveManager:
                     except Exception:
                         filename = info.filename
 
-                # 确保路径安全，防止目录遍历攻击
-                filename = os.path.basename(filename)
-                if not filename:
+                normalized = Path(filename)
+                safe_parts = [part for part in normalized.parts if part not in {"", "."}]
+                if any(part == ".." for part in safe_parts) or not safe_parts:
                     continue
 
-                target_path = os.path.join(extract_to, filename)
+                relative_name = Path(*safe_parts)
+                target_path = ArchiveManager._resolve_safe_target(extract_to, str(relative_name))
+                target_path.parent.mkdir(parents=True, exist_ok=True)
                 with open(target_path, "wb") as f:
                     f.write(z.read(info.filename))
 
-                extracted_files.append(target_path)
-                logger.info(f"Extracted: {filename}")
+                extracted_files.append(str(target_path))
+                logger.info(f"Extracted: {relative_name}")
 
         return extracted_files
 
@@ -64,10 +82,9 @@ class ArchiveManager:
             sz.extractall(path=extract_to)
             # 7z 通常使用 UTF-16 编码，乱码较少，但我们仍记录文件
             for name in sz.getnames():
-                # py7zr 提取后的文件名通常是正确的
-                full_path = os.path.join(extract_to, name)
+                full_path = ArchiveManager._resolve_safe_target(extract_to, name)
                 if os.path.isfile(full_path):
-                    extracted_files.append(full_path)
+                    extracted_files.append(str(full_path))
                     logger.info(f"Extracted (7z): {name}")
 
         return extracted_files
@@ -75,5 +92,4 @@ class ArchiveManager:
     @staticmethod
     def is_archive(file_path: str) -> bool:
         """判断是否为支持的压缩包格式"""
-        ext = file_path.lower()
-        return ext.endswith(".zip") or ext.endswith(".7z")
+        return file_path.lower().endswith(ArchiveManager.SUPPORTED_ARCHIVE_EXTENSIONS)
