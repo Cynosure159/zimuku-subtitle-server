@@ -140,7 +140,7 @@ async def trigger_match(
     session: Session = Depends(get_session),
 ):
     """手动触发媒体库与字幕的自动化匹配"""
-    background_tasks.add_task(MediaService.run_media_scan_and_match, session, path_type)
+    background_tasks.add_task(MediaService.run_media_scan_and_match, path_type)
     return {"status": "ok", "message": f"Media scan and match task ({path_type or 'all'}) started"}
 
 

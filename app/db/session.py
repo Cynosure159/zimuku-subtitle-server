@@ -1,4 +1,5 @@
 import os
+from contextlib import contextmanager
 
 from sqlmodel import Session, SQLModel, create_engine
 
@@ -66,5 +67,12 @@ def _init_default_settings():
 
 def get_session():
     """FastAPI 依赖项：获取数据库会话"""
+    with Session(engine) as session:
+        yield session
+
+
+@contextmanager
+def session_scope():
+    """为后台任务提供独立、短生命周期的数据库会话。"""
     with Session(engine) as session:
         yield session

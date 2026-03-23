@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import shutil
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Set, Tuple
@@ -14,6 +15,7 @@ from ..core.config import get_storage_path
 from ..core.scraper import ZimukuAgent
 from ..core.utils import check_has_subtitle, parse_media_filename
 from ..db.models import MediaPath, ScannedFile
+from ..db.session import session_scope
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +35,16 @@ class MediaTaskStatus:
 
 
 global_task_status = MediaTaskStatus()
+
+
+@dataclass
+class FileMatchContext:
+    file_path: str
+    filename: str
+    extracted_title: str
+    media_type: str
+    season: Optional[int]
+    episode: Optional[int]
 
 
 class MediaService:
@@ -100,143 +112,160 @@ class MediaService:
         return session.exec(statement).all()
 
     @staticmethod
-    async def run_media_scan_and_match(session_data: Session, path_type: Optional[str] = None):
+    async def run_media_scan_and_match(path_type: Optional[str] = None):
         """执行后台媒体扫描与匹配逻辑"""
         global_task_status.is_scanning = True
         try:
-            # 1. 第一步清理：清理孤儿记录
-            all_path_ids = [p.id for p in session_data.exec(select(MediaPath)).all()]
-            orphan_files = session_data.exec(select(ScannedFile).where(ScannedFile.path_id.not_in(all_path_ids))).all()
-            if orphan_files:
-                logger.info(f"清理了 {len(orphan_files)} 条孤儿文件记录")
-                for of in orphan_files:
-                    session_data.delete(of)
-                session_data.commit()
+            with session_scope() as session:
+                # 1. 第一步清理：清理孤儿记录
+                all_path_ids = [p.id for p in session.exec(select(MediaPath)).all()]
+                orphan_files = session.exec(select(ScannedFile).where(ScannedFile.path_id.not_in(all_path_ids))).all()
+                if orphan_files:
+                    logger.info(f"清理了 {len(orphan_files)} 条孤儿文件记录")
+                    for orphan_file in orphan_files:
+                        session.delete(orphan_file)
+                    session.commit()
 
-            # 2. 第二步清理：物理不存在记录
-            statement = select(ScannedFile)
-            if path_type:
-                statement = statement.where(ScannedFile.type == path_type)
-            all_files = session_data.exec(statement).all()
-            removed_count = 0
-            for f in all_files:
-                if not os.path.exists(f.file_path):
-                    session_data.delete(f)
-                    removed_count += 1
-            if removed_count > 0:
-                logger.info(f"清理了 {removed_count} 条物理已不存在的记录")
-                session_data.commit()
+                # 2. 第二步清理：物理不存在记录
+                statement = select(ScannedFile)
+                if path_type:
+                    statement = statement.where(ScannedFile.type == path_type)
+                all_files = session.exec(statement).all()
+                removed_count = 0
+                for scanned_file in all_files:
+                    if not os.path.exists(scanned_file.file_path):
+                        session.delete(scanned_file)
+                        removed_count += 1
+                if removed_count > 0:
+                    logger.info(f"清理了 {removed_count} 条物理已不存在的记录")
+                    session.commit()
 
-            # 3. 获取路径并扫描
-            statement = select(MediaPath).where(MediaPath.enabled)
-            if path_type:
-                statement = statement.where(MediaPath.type == path_type)
-            paths = session_data.exec(statement).all()
+                # 3. 获取路径并扫描
+                statement = select(MediaPath).where(MediaPath.enabled)
+                if path_type:
+                    statement = statement.where(MediaPath.type == path_type)
+                paths = session.exec(statement).all()
 
-            video_extensions = {".mp4", ".mkv", ".avi", ".ts", ".rmvb"}
-            for mp in paths:
-                logger.info(f"扫描路径: {mp.path}")
-                logger.debug(f"开始扫描路径: {mp.path}")
-                scan_dir = Path(mp.path)
-                if not scan_dir.exists() or not scan_dir.is_dir():
-                    logger.debug(f"路径不存在或不是目录: {mp.path}")
-                    continue
+                video_extensions = {".mp4", ".mkv", ".avi", ".ts", ".rmvb"}
+                for media_path in paths:
+                    logger.info(f"扫描路径: {media_path.path}")
+                    logger.debug(f"开始扫描路径: {media_path.path}")
+                    scan_dir = Path(media_path.path)
+                    if not scan_dir.exists() or not scan_dir.is_dir():
+                        logger.debug(f"路径不存在或不是目录: {media_path.path}")
+                        continue
 
-                try:
-                    # 扫描逻辑：对于 TV 类型，一级文件夹就是一个剧集
-                    # 对于 Movie 类型，一级文件夹就是一个电影
+                    try:
 
-                    def process_single_file(file_path: Path, title: str, media_path: MediaPath):
-                        """处理单个视频文件"""
-                        str_path = str(file_path.absolute())
-                        filename = file_path.name
-                        logger.debug(f"处理文件: {filename}, title={title}")
-                        parsed = parse_media_filename(filename)
-                        logger.debug(f"解析结果: {parsed}")
-                        has_sub = check_has_subtitle(file_path)
-                        logger.debug(f"字幕检测结果: has_sub={has_sub}")
+                        def process_single_file(file_path: Path, title: str, series_root_path: Optional[str]):
+                            """处理单个视频文件"""
+                            str_path = str(file_path.absolute())
+                            filename = file_path.name
+                            logger.debug(f"处理文件: {filename}, title={title}")
+                            parsed = parse_media_filename(filename)
+                            logger.debug(f"解析结果: {parsed}")
+                            has_sub = check_has_subtitle(file_path)
+                            logger.debug(f"字幕检测结果: has_sub={has_sub}")
 
-                        logger.debug(f"文件存在检查: {str_path} -> {os.path.exists(str_path)}")
+                            existing_file = session.exec(
+                                select(ScannedFile).where(ScannedFile.file_path == str_path)
+                            ).first()
 
-                        existing_file = session_data.exec(
-                            select(ScannedFile).where(ScannedFile.file_path == str_path)
-                        ).first()
+                            if not existing_file:
+                                logger.debug(f"新增文件记录: {filename}")
+                                existing_file = ScannedFile(
+                                    path_id=media_path.id,
+                                    type=media_path.type,
+                                    file_path=str_path,
+                                    filename=filename,
+                                    extracted_title=title,
+                                    year=parsed["year"],
+                                    season=parsed["season"],
+                                    episode=parsed["episode"],
+                                    has_subtitle=has_sub,
+                                    series_root_path=series_root_path,
+                                )
+                            else:
+                                logger.debug(f"更新文件记录: {filename}")
+                                existing_file.filename = filename
+                                existing_file.extracted_title = title
+                                existing_file.year = parsed["year"]
+                                existing_file.season = parsed["season"]
+                                existing_file.episode = parsed["episode"]
+                                existing_file.has_subtitle = has_sub
+                                existing_file.series_root_path = series_root_path
 
-                        if not existing_file:
-                            logger.debug(f"新增文件记录: {filename}")
-                        else:
-                            logger.debug(f"更新文件记录: {filename}")
+                            session.add(existing_file)
 
-                        if not existing_file:
-                            new_file = ScannedFile(
-                                path_id=media_path.id,
-                                type=media_path.type,
-                                file_path=str_path,
-                                filename=filename,
-                                extracted_title=title,
-                                year=parsed["year"],
-                                season=parsed["season"],
-                                episode=parsed["episode"],
-                                has_subtitle=has_sub,
-                                series_root_path=str(sub_dir.absolute()) if mp.type == "tv" else None,
-                            )
-                            session_data.add(new_file)
-                        else:
-                            existing_file.filename = filename
-                            existing_file.extracted_title = title
-                            existing_file.year = parsed["year"]
-                            existing_file.season = parsed["season"]
-                            existing_file.episode = parsed["episode"]
-                            existing_file.has_subtitle = has_sub
-                            if mp.type == "tv":
-                                existing_file.series_root_path = str(sub_dir.absolute())
-                            session_data.add(existing_file)
+                        for sub_dir in scan_dir.iterdir():
+                            logger.debug(f"处理子目录: {sub_dir}")
+                            if not sub_dir.is_dir():
+                                continue
 
-                    for sub_dir in scan_dir.iterdir():
-                        logger.debug(f"处理子目录: {sub_dir}")
-                        if sub_dir.is_dir():
                             extracted_title = sub_dir.name
-                            # TV 类型：一级文件夹 = 剧集名称，扫描该文件夹下所有层级的视频
-                            # Movie 类型：保持原有逻辑
-                            if mp.type == "tv":
-                                # 扫描一级文件夹下的所有视频文件（可能直接存放，也可能放在 S01/ 等子目录中）
+                            if media_path.type == "tv":
+                                series_root_path = str(sub_dir.absolute())
                                 for file_path in sub_dir.rglob("*"):
                                     if file_path.is_file() and file_path.suffix.lower() in video_extensions:
-                                        process_single_file(file_path, extracted_title, mp)
+                                        process_single_file(file_path, extracted_title, series_root_path)
                             else:
-                                # Movie: 直接在一级文件夹中查找视频
                                 for file_path in sub_dir.iterdir():
                                     if file_path.is_file() and file_path.suffix.lower() in video_extensions:
-                                        process_single_file(file_path, extracted_title, mp)
-                except Exception as e:
-                    logger.error(f"扫描 {mp.path} 出错: {e}")
+                                        process_single_file(file_path, extracted_title, None)
+                    except Exception as e:
+                        logger.error(f"扫描 {media_path.path} 出错: {e}")
 
-                mp.last_scanned_at = datetime.now()
-                session_data.add(mp)
-            session_data.commit()
+                    media_path.last_scanned_at = datetime.now()
+                    session.add(media_path)
+
+                session.commit()
         finally:
             global_task_status.is_scanning = False
 
     @staticmethod
     async def run_auto_match_process(file_id: int):
-        from ..db.session import engine
-
-        with Session(engine) as session:
-            await MediaService._run_auto_match_internal(file_id, session)
+        await MediaService._run_auto_match_internal(file_id)
 
     @staticmethod
-    async def _run_auto_match_internal(file_id: int, session: Session):
-        global_task_status.matching_files.add(file_id)
-        try:
+    def _load_file_match_context(file_id: int) -> Optional[FileMatchContext]:
+        with session_scope() as session:
+            file_record = session.get(ScannedFile, file_id)
+            if not file_record or not file_record.extracted_title:
+                return None
+
+            return FileMatchContext(
+                file_path=file_record.file_path,
+                filename=file_record.filename,
+                extracted_title=file_record.extracted_title,
+                media_type=file_record.type,
+                season=file_record.season,
+                episode=file_record.episode,
+            )
+
+    @staticmethod
+    def _mark_file_has_subtitle(file_id: int):
+        with session_scope() as session:
             file_record = session.get(ScannedFile, file_id)
             if not file_record:
                 return
 
-            query = re.sub(r"\s*\(\d{4}\)", "", file_record.extracted_title).strip()
-            season = file_record.season if file_record.type == "tv" else None
-            episode = file_record.episode if file_record.type == "tv" else None
+            file_record.has_subtitle = True
+            session.add(file_record)
+            session.commit()
 
-            logger.info(f"开始自动匹配: {file_record.filename}")
+    @staticmethod
+    async def _run_auto_match_internal(file_id: int):
+        global_task_status.matching_files.add(file_id)
+        try:
+            file_context = MediaService._load_file_match_context(file_id)
+            if not file_context:
+                return
+
+            query = re.sub(r"\s*\(\d{4}\)", "", file_context.extracted_title).strip()
+            season = file_context.season if file_context.media_type == "tv" else None
+            episode = file_context.episode if file_context.media_type == "tv" else None
+
+            logger.info(f"开始自动匹配: {file_context.filename}")
             agent = ZimukuAgent()
             try:
                 results = await agent.search(query, season=season, episode=episode)
@@ -312,14 +341,12 @@ class MediaService:
 
                     extracted_files.sort(key=get_sub_score, reverse=True)
                     target_sub = extracted_files[0]
-                    video_path = Path(file_record.file_path)
+                    video_path = Path(file_context.file_path)
                     final_sub_path = video_path.parent / (video_path.stem + target_sub.suffix)
 
                     shutil.move(str(target_sub), str(final_sub_path))
-                    file_record.has_subtitle = True
-                    session.add(file_record)
-                    session.commit()
-                    logger.info(f"成功为 {file_record.filename} 匹配字幕")
+                    MediaService._mark_file_has_subtitle(file_id)
+                    logger.info(f"成功为 {file_context.filename} 匹配字幕")
 
                     shutil.rmtree(tmp_dir, ignore_errors=True)
                     match_success = True
@@ -340,14 +367,12 @@ class MediaService:
     async def run_season_match_process(title: str, season: int):
         from sqlmodel import or_
 
-        from ..db.session import engine
-
         # 去除年份，与单文件自动匹配保持一致
         query_title = re.sub(r"\s*\(\d{4}\)", "", title).strip()
         logger.debug(f"开始季匹配: title={title}, query_title={query_title}, season={season}")
         global_task_status.matching_seasons.add((title, season))
         try:
-            with Session(engine) as session:
+            with session_scope() as session:
                 # 同时匹配带年份和不带年份的标题（数据库中可能存的是带年份的）
                 logger.debug(f"查询条件: title={query_title}/{title}, season={season}, type=tv, has_subtitle=false")
                 statement = select(ScannedFile).where(
@@ -365,12 +390,13 @@ class MediaService:
                     logger.debug(f"未找到匹配的文件: query_title={query_title}, season={season}")
                     return
 
-                for f in files:
-                    logger.debug(f"处理文件: {f.filename}")
-                    # 复用内部匹配流程
-                    await MediaService._run_auto_match_internal(f.id, session)
-                    await asyncio.sleep(2)
-                logger.debug(f"季匹配完成: query_title={query_title}, season={season}")
+                file_ids = [file_record.id for file_record in files if file_record.id is not None]
+
+            for file_id in file_ids:
+                logger.debug(f"处理文件ID: {file_id}")
+                await MediaService.run_auto_match_process(file_id)
+                await asyncio.sleep(2)
+            logger.debug(f"季匹配完成: query_title={query_title}, season={season}")
         except Exception as e:
             logger.debug(f"季匹配异常: query_title={query_title}, season={season}, error={e}")
             raise

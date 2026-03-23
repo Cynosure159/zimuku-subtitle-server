@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session, SQLModel, create_engine, delete, select
+from sqlmodel import Session, delete, select
 
 from app.api.media import trigger_match
 from app.db.models import MediaPath, ScannedFile, SubtitleTask
@@ -23,14 +23,6 @@ def clean_app_db():
         session.exec(delete(MediaPath))
         session.exec(delete(SubtitleTask))
         session.commit()
-
-
-@pytest.fixture
-def isolated_session():
-    test_engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
-    SQLModel.metadata.create_all(test_engine)
-    with Session(test_engine) as session:
-        yield session
 
 
 class RecordingBackgroundTasks:
@@ -55,7 +47,6 @@ def test_media_poster_rejects_absolute_paths(create_media_file):
 
 
 @pytest.mark.anyio
-@pytest.mark.xfail(strict=True, reason="Phase 2 will stop capturing request-scoped sessions in background tasks")
 async def test_trigger_match_does_not_capture_request_scoped_session():
     background_tasks = RecordingBackgroundTasks()
 
@@ -65,6 +56,25 @@ async def test_trigger_match_does_not_capture_request_scoped_session():
     assert len(background_tasks.calls) == 1
     _, args, _ = background_tasks.calls[0]
     assert all(not isinstance(arg, Session) for arg in args)
+
+
+@pytest.mark.anyio
+async def test_media_scan_background_flow_uses_own_session(tmp_path):
+    movie_dir = tmp_path / "Interstellar (2014)"
+    movie_dir.mkdir(parents=True)
+    (movie_dir / "interstellar.1080p.mkv").write_text("video", encoding="utf-8")
+
+    with Session(engine) as session:
+        session.add(MediaPath(path=str(tmp_path), type="movie", enabled=True))
+        session.commit()
+
+    await MediaService.run_media_scan_and_match("movie")
+
+    with Session(engine) as session:
+        scanned_files = session.exec(select(ScannedFile)).all()
+
+    assert len(scanned_files) == 1
+    assert scanned_files[0].filename == "interstellar.1080p.mkv"
 
 
 @pytest.mark.anyio
@@ -169,7 +179,7 @@ def test_media_poster_rejects_path_traversal(create_media_file):
 
 
 @pytest.mark.anyio
-async def test_auto_match_handles_direct_subtitle_download(monkeypatch, isolated_session, tmp_path):
+async def test_auto_match_handles_direct_subtitle_download(monkeypatch, tmp_path):
     video_path = tmp_path / "Movie" / "Interstellar.2014.mkv"
     video_path.parent.mkdir(parents=True)
     video_path.write_text("video", encoding="utf-8")
@@ -181,9 +191,10 @@ async def test_auto_match_handles_direct_subtitle_download(monkeypatch, isolated
         filename=video_path.name,
         extracted_title="Interstellar (2014)",
     )
-    isolated_session.add(scanned_file)
-    isolated_session.commit()
-    isolated_session.refresh(scanned_file)
+    with Session(engine) as session:
+        session.add(scanned_file)
+        session.commit()
+        session.refresh(scanned_file)
 
     agent = SimpleNamespace(
         search=AsyncMock(return_value=[SimpleNamespace(link="http://example.com/direct")]),
@@ -195,17 +206,16 @@ async def test_auto_match_handles_direct_subtitle_download(monkeypatch, isolated
     monkeypatch.setattr("app.services.media_service.ZimukuAgent", lambda: agent)
     monkeypatch.setattr("app.services.media_service.get_storage_path", lambda: str(tmp_path / "storage"))
 
-    await MediaService._run_auto_match_internal(scanned_file.id, isolated_session)
+    await MediaService._run_auto_match_internal(scanned_file.id)
 
-    refreshed = isolated_session.exec(select(ScannedFile).where(ScannedFile.id == scanned_file.id)).one()
+    with Session(engine) as session:
+        refreshed = session.exec(select(ScannedFile).where(ScannedFile.id == scanned_file.id)).one()
     assert refreshed.has_subtitle is True
     assert (video_path.parent / "Interstellar.2014.srt").exists()
 
 
 @pytest.mark.anyio
-async def test_auto_match_prefers_best_subtitle_from_archive(
-    monkeypatch, isolated_session, subtitle_zip_bytes, tmp_path
-):
+async def test_auto_match_prefers_best_subtitle_from_archive(monkeypatch, subtitle_zip_bytes, tmp_path):
     video_path = tmp_path / "Show" / "Show.S01E02.mkv"
     video_path.parent.mkdir(parents=True)
     video_path.write_text("video", encoding="utf-8")
@@ -219,9 +229,10 @@ async def test_auto_match_prefers_best_subtitle_from_archive(
         season=1,
         episode=2,
     )
-    isolated_session.add(scanned_file)
-    isolated_session.commit()
-    isolated_session.refresh(scanned_file)
+    with Session(engine) as session:
+        session.add(scanned_file)
+        session.commit()
+        session.refresh(scanned_file)
 
     archive_bytes = subtitle_zip_bytes(
         {
@@ -240,9 +251,10 @@ async def test_auto_match_prefers_best_subtitle_from_archive(
     monkeypatch.setattr("app.services.media_service.ZimukuAgent", lambda: agent)
     monkeypatch.setattr("app.services.media_service.get_storage_path", lambda: str(tmp_path / "storage"))
 
-    await MediaService._run_auto_match_internal(scanned_file.id, isolated_session)
+    await MediaService._run_auto_match_internal(scanned_file.id)
 
-    refreshed = isolated_session.exec(select(ScannedFile).where(ScannedFile.id == scanned_file.id)).one()
+    with Session(engine) as session:
+        refreshed = session.exec(select(ScannedFile).where(ScannedFile.id == scanned_file.id)).one()
     final_subtitle = video_path.parent / "Show.S01E02.ass"
 
     assert refreshed.has_subtitle is True
