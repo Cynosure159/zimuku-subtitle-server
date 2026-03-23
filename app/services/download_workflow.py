@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from ..core.archive import ArchiveManager
-from ..core.config import ConfigManager
+from ..core.config import get_download_path
 from ..core.scraper import ZimukuAgent
 from ..db.models import SubtitleTask
 
@@ -135,13 +135,12 @@ class DownloadWorkflow:
 
     @staticmethod
     def get_storage_path() -> str:
-        storage_path = ConfigManager.get("storage_path", "storage/downloads")
-        os.makedirs(storage_path, exist_ok=True)
-        return storage_path
+        return get_download_path()
 
     @classmethod
     def persist_download(cls, filename: str, content: bytes) -> str:
         storage_path = cls.get_storage_path()
+        os.makedirs(storage_path, exist_ok=True)
         file_path = os.path.join(storage_path, filename)
         with open(file_path, "wb") as file_obj:
             file_obj.write(content)

@@ -101,9 +101,7 @@ def test_get_stats_with_cache(session):
 
 def test_get_stats_storage_not_exists(session):
     """Test getting stats when storage path doesn't exist"""
-    with patch("app.services.system_service.ConfigManager") as MockConfig:
-        MockConfig.get.return_value = "/nonexistent/storage"
-
+    with patch("app.services.system_service.get_download_path", return_value="/nonexistent/storage"):
         stats = SystemService.get_stats(session)
 
         assert stats["storage"]["path"] == "/nonexistent/storage"
@@ -119,9 +117,7 @@ def test_get_stats_storage_with_files(session):
         with open(test_file, "w") as f:
             f.write("x" * (1024 * 1024))  # 1 MB
 
-        with patch("app.services.system_service.ConfigManager") as MockConfig:
-            MockConfig.get.return_value = tmpdir
-
+        with patch("app.services.system_service.get_download_path", return_value=tmpdir):
             stats = SystemService.get_stats(session)
 
             assert stats["storage"]["path"] == tmpdir

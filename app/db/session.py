@@ -3,13 +3,15 @@ from contextlib import contextmanager
 
 from sqlmodel import Session, SQLModel, create_engine
 
+from ..core.config import ConfigManager, get_database_path
+
 
 def _get_sqlite_url() -> str:
     database_url = os.getenv("ZIMUKU_DATABASE_URL")
     if database_url:
         return database_url
 
-    db_path = os.getenv("ZIMUKU_DB_PATH", "storage/zimuku.db")
+    db_path = get_database_path()
     db_dir = os.path.dirname(db_path)
     if db_dir:
         os.makedirs(db_dir, exist_ok=True)
@@ -43,23 +45,7 @@ def _init_default_settings():
             return
 
         # 插入默认配置项
-        default_settings = [
-            Setting(
-                key="base_url",
-                value="https://zimuku.org",
-                description="字幕网站地址",
-            ),
-            Setting(
-                key="proxy",
-                value="",
-                description="HTTP 代理地址（如需代理访问字幕网站）",
-            ),
-            Setting(
-                key="cache_expiry_hours",
-                value="24",
-                description="搜索缓存有效期（小时）",
-            ),
-        ]
+        default_settings = ConfigManager.default_settings()
         for setting in default_settings:
             session.add(setting)
         session.commit()

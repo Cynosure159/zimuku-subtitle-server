@@ -332,7 +332,7 @@ async def test_download_workflow_extracts_archive(monkeypatch, subtitle_zip_byte
         async def close(self):
             return None
 
-    monkeypatch.setattr("app.services.download_workflow.ConfigManager.get", lambda *args, **kwargs: str(tmp_path))
+    monkeypatch.setattr("app.services.download_workflow.get_download_path", lambda: str(tmp_path))
 
     workflow = DownloadWorkflow(agent=FakeAgent())
     task = SubtitleTask(id=1, title="Test", source_url="http://example.com/detail")

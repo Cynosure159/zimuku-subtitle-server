@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from sqlmodel import Session, select
 
-from ..core.config import ConfigManager
+from ..core.config import ConfigManager, SettingKey
 from ..core.scraper import ZimukuAgent
 from ..db.models import SearchCache
 
@@ -39,7 +39,7 @@ class SearchService:
             results_data = [r.to_dict() for r in results]
 
             # 3. 更新缓存
-            expiry_hours = int(ConfigManager.get("cache_expiry_hours", "24"))
+            expiry_hours = ConfigManager.get_int(SettingKey.CACHE_EXPIRY_HOURS, 24)
             if not cache:
                 cache = SearchCache(query=cache_key)
 

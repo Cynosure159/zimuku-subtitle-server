@@ -1,3 +1,4 @@
+import os
 from unittest.mock import patch
 
 import pytest
@@ -21,8 +22,8 @@ def session_fixture():
 
 @pytest.fixture(name="mock_engine")
 def mock_engine_fixture(session):
-    """Patch the engine in settings_service module to use test engine"""
-    with patch("app.services.settings_service.engine", test_engine):
+    """Patch the config/session scope to use the test engine."""
+    with patch("app.db.session.engine", test_engine):
         yield session
 
 
@@ -70,7 +71,7 @@ def test_get_all_settings(mock_engine):
     SettingsService.set_setting("key3", "value3")
 
     # Get all settings
-    all_settings = SettingsService.get_all_settings()
+    all_settings = SettingsService.get_all_settings_map()
 
     assert isinstance(all_settings, dict)
     assert len(all_settings) == 3
@@ -81,7 +82,7 @@ def test_get_all_settings(mock_engine):
 
 def test_get_all_settings_empty(mock_engine):
     """Test getting all settings when none exist"""
-    all_settings = SettingsService.get_all_settings()
+    all_settings = SettingsService.get_all_settings_map()
     assert all_settings == {}
 
 
@@ -101,3 +102,13 @@ def test_set_setting_without_description(mock_engine):
     assert setting.key == "simple_key"
     assert setting.value == "simple_value"
     assert setting.description is None
+
+
+def test_set_path_setting_normalizes_to_absolute_path(mock_engine, tmp_path):
+    setting = SettingsService.set_setting("download_path", str(tmp_path / ".." / "downloads"))
+    assert setting.value == os.path.abspath(str(tmp_path / ".." / "downloads"))
+
+
+def test_set_numeric_setting_rejects_invalid_value(mock_engine):
+    with pytest.raises(ValueError, match="cache_expiry_hours"):
+        SettingsService.set_setting("cache_expiry_hours", "0")

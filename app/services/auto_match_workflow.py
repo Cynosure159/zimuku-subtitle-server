@@ -10,7 +10,7 @@ from typing import Awaitable, Callable, List, Optional
 from sqlmodel import Session, or_, select
 
 from ..core.archive import ArchiveManager
-from ..core.config import get_storage_path
+from ..core.config import get_temp_path
 from ..core.scraper import ZimukuAgent
 from ..db.models import ScannedFile
 
@@ -173,7 +173,7 @@ class AutoMatchWorkflow:
 
     @staticmethod
     def _build_tmp_dir(file_id: int, attempt_index: int) -> Path:
-        tmp_dir = Path(get_storage_path()) / "tmp" / f"auto_{file_id}_{attempt_index}"
+        tmp_dir = Path(get_temp_path()) / f"auto_{file_id}_{attempt_index}"
         tmp_dir.mkdir(parents=True, exist_ok=True)
         return tmp_dir
 

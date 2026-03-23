@@ -4,7 +4,7 @@ from typing import Any, Dict, List
 
 from sqlmodel import Session, func, select
 
-from ..core.config import ConfigManager
+from ..core.config import get_download_path
 from ..db.models import SearchCache, SubtitleTask
 
 
@@ -25,7 +25,7 @@ class SystemService:
 
         total_cache = session.exec(select(func.count()).select_from(SearchCache)).one()
 
-        storage_path = ConfigManager.get("storage_path", "storage/downloads")
+        storage_path = get_download_path()
         storage_info = {"path": storage_path, "total_size_mb": 0, "free_space_gb": 0}
 
         if os.path.exists(storage_path):

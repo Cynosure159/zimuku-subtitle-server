@@ -94,7 +94,7 @@ async def test_tv_download_moves_subtitle_into_episode_directory(monkeypatch, su
     )
 
     monkeypatch.setattr("app.services.download_workflow.ZimukuAgent", lambda: agent)
-    monkeypatch.setattr("app.services.download_workflow.ConfigManager.get", lambda *args, **kwargs: str(download_dir))
+    monkeypatch.setattr("app.services.download_workflow.get_download_path", lambda: str(download_dir))
 
     with Session(engine) as session:
         task = TaskService.create_task(
@@ -137,7 +137,7 @@ async def test_download_partial_failure_is_not_marked_completed(monkeypatch, tmp
     )
 
     monkeypatch.setattr("app.services.download_workflow.ZimukuAgent", lambda: agent)
-    monkeypatch.setattr("app.services.download_workflow.ConfigManager.get", lambda *args, **kwargs: str(download_dir))
+    monkeypatch.setattr("app.services.download_workflow.get_download_path", lambda: str(download_dir))
 
     def raise_move_error(*args, **kwargs):
         raise OSError("disk full")
@@ -204,7 +204,7 @@ async def test_auto_match_handles_direct_subtitle_download(monkeypatch, tmp_path
     )
 
     monkeypatch.setattr("app.services.auto_match_workflow.ZimukuAgent", lambda: agent)
-    monkeypatch.setattr("app.services.auto_match_workflow.get_storage_path", lambda: str(tmp_path / "storage"))
+    monkeypatch.setattr("app.services.auto_match_workflow.get_temp_path", lambda: str(tmp_path / "storage" / "tmp"))
 
     await MediaService._run_auto_match_internal(scanned_file.id)
 
@@ -249,7 +249,7 @@ async def test_auto_match_prefers_best_subtitle_from_archive(monkeypatch, subtit
     )
 
     monkeypatch.setattr("app.services.auto_match_workflow.ZimukuAgent", lambda: agent)
-    monkeypatch.setattr("app.services.auto_match_workflow.get_storage_path", lambda: str(tmp_path / "storage"))
+    monkeypatch.setattr("app.services.auto_match_workflow.get_temp_path", lambda: str(tmp_path / "storage" / "tmp"))
 
     await MediaService._run_auto_match_internal(scanned_file.id)
 

@@ -1,10 +1,12 @@
+from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
 
 from app.core.scraper import SubtitleResult, ZimukuAgent
 
 
-@pytest.mark.asyncio
-async def test_parse_search_results_logic(mocker):
+@pytest.mark.anyio
+async def test_parse_search_results_logic():
     """测试搜索结果页解析逻辑（兜底第3层：直接返回所有 <tr> 结果）"""
     # 模拟符合 Zimuku 搜索结果页结构的 HTML
     mock_html = """
@@ -29,16 +31,15 @@ async def test_parse_search_results_logic(mocker):
     </html>
     """
 
-    mock_response = mocker.Mock()
+    mock_response = Mock()
     mock_response.status_code = 200
     mock_response.text = mock_html
     mock_response.headers = {}
 
     agent = ZimukuAgent()
-    mocker.patch.object(agent.client, "get", return_value=mock_response)
-
-    # 不传 season/episode，走第 3 层兜底策略
-    results = await agent.search("test")
+    with patch.object(agent.client, "get", new=AsyncMock(return_value=mock_response)):
+        # 不传 season/episode，走第 3 层兜底策略
+        results = await agent.search("test")
 
     assert len(results) == 2
     assert results[0].title == "Avengers"
@@ -50,8 +51,8 @@ async def test_parse_search_results_logic(mocker):
     await agent.close()
 
 
-@pytest.mark.asyncio
-async def test_search_with_episode_match(mocker):
+@pytest.mark.anyio
+async def test_search_with_episode_match():
     """测试第1层匹配：搜索结果中直接按 S01E02 关键字匹配"""
     mock_html = """
     <html>
@@ -80,15 +81,15 @@ async def test_search_with_episode_match(mocker):
     </html>
     """
 
-    mock_response = mocker.Mock()
+    mock_response = Mock()
     mock_response.status_code = 200
     mock_response.text = mock_html
+    mock_response.headers = {}
 
     agent = ZimukuAgent()
-    mocker.patch.object(agent.client, "get", return_value=mock_response)
-
-    # 第一层精确匹配已弃用，由于 Mock 数据里没有季分类 div，代码将进入第三层（兜底）
-    results = await agent.search("小谢尔顿", season=4, episode=17)
+    with patch.object(agent.client, "get", new=AsyncMock(return_value=mock_response)):
+        # 第一层精确匹配已弃用，由于 Mock 数据里没有季分类 div，代码将进入第三层（兜底）
+        results = await agent.search("小谢尔顿", season=4, episode=17)
 
     # 在第三层兜底匹配中，二次过滤因为存在精确集的字幕文件，应该只过滤出1条结果
     assert len(results) == 1
@@ -97,7 +98,7 @@ async def test_search_with_episode_match(mocker):
     await agent.close()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_double_filter():
     """测试二次过滤逻辑"""
     agent = ZimukuAgent()

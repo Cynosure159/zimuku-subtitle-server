@@ -70,7 +70,7 @@ async def test_auto_match_retries_until_top_five_candidates(monkeypatch, tmp_pat
     )
 
     monkeypatch.setattr("app.services.auto_match_workflow.ZimukuAgent", lambda: agent)
-    monkeypatch.setattr("app.services.auto_match_workflow.get_storage_path", lambda: str(tmp_path / "storage"))
+    monkeypatch.setattr("app.services.auto_match_workflow.get_temp_path", lambda: str(tmp_path / "storage" / "tmp"))
 
     service = AutoMatchWorkflow(session_factory=session_scope)
     matched = await service.run_for_file(scanned_file.id)
