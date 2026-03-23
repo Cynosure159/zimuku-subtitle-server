@@ -2,19 +2,35 @@ import { useMemo, useState, useEffect, startTransition } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQueries } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { API_BASE, autoMatchFile, fetchMediaMetadata, matchTVSeason, triggerMediaMatch } from '../api';
-import { MediaSidebar, type SidebarItem, type SortOption, type FilterOption, type SortOrder } from '../components/MediaSidebar';
+import {
+  fetchMediaMetadata,
+  triggerMediaMatch,
+  autoMatchFile,
+  matchTVSeason,
+  getMediaPosterUrl,
+  type ScannedFile,
+  type SortOption,
+  type FilterOption,
+  type SortOrder,
+} from '../api';
+import { MediaSidebar, type SidebarItem } from '../components/MediaSidebar';
 import { MediaInfoCard } from '../components/MediaInfoCard';
 import { EmptySelectionState } from '../components/EmptySelectionState';
-import { useMediaPolling, type ScannedFile } from '../hooks/useMediaPolling';
 import { MediaItem } from '../components/MediaItem';
 import { Search, Loader2 } from 'lucide-react';
+import { useMediaPolling } from '../hooks/useMediaPolling';
 import { useUIStore } from '../stores/useUIStore';
 
 export default function SeriesPage() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { files, status, setIsScanningOptimistic, setMatchingFileOptimistic, setMatchingSeasonOptimistic } = useMediaPolling('tv');
+  const {
+    files,
+    status,
+    setIsScanningOptimistic,
+    setMatchingFileOptimistic,
+    setMatchingSeasonOptimistic,
+  } = useMediaPolling('tv');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSeriesTitle, setSelectedSeriesTitle] = useState<string | null>(null);
@@ -25,10 +41,8 @@ export default function SeriesPage() {
 
   const handleRefresh = async () => {
     try {
-      if (setIsScanningOptimistic) {
-        setIsScanningOptimistic(true);
-        setTimeout(() => setIsScanningOptimistic(false), 3000);
-      }
+      setIsScanningOptimistic(true);
+      setTimeout(() => setIsScanningOptimistic(false), 3000);
       await triggerMediaMatch('tv');
     } catch (err: unknown) {
       console.error(err);
@@ -46,18 +60,14 @@ export default function SeriesPage() {
   };
 
   const handleAutoSearch = async (fileId: number) => {
-    if (setMatchingFileOptimistic) {
-      setMatchingFileOptimistic(fileId, true);
-      setTimeout(() => setMatchingFileOptimistic(fileId, false), 3000);
-    }
+    setMatchingFileOptimistic(fileId, true);
+    setTimeout(() => setMatchingFileOptimistic(fileId, false), 3000);
     try {
       await autoMatchFile(fileId);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       alert(t('mediaConfig.triggerFailed') + ': ' + message);
-      if (setMatchingFileOptimistic) {
-        setMatchingFileOptimistic(fileId, false);
-      }
+      setMatchingFileOptimistic(fileId, false);
     }
   };
 
@@ -75,31 +85,34 @@ export default function SeriesPage() {
   };
 
   const groupedSeries = useMemo(() => {
-    const groups: Record<string, {
-      title: string;
-      year?: string;
-      totalCount: number;
-      hasSubCount: number;
-      firstPath: string;
-      seriesRootPath: string;
-      firstFileId: number;
-      createdAt?: string;
-      seasons: Record<number, ScannedFile[]>
-    }> = {};
+    const groups: Record<
+      string,
+      {
+        title: string;
+        year?: string;
+        totalCount: number;
+        hasSubCount: number;
+        firstPath: string;
+        seriesRootPath: string;
+        firstFileId: number;
+        createdAt?: string;
+        seasons: Record<number, ScannedFile[]>;
+      }
+    > = {};
 
     files.forEach(file => {
       const title = file.extracted_title || t('page.series.unknownSeries');
       if (!groups[title]) {
         groups[title] = {
           title,
-          year: file.year,
+          year: file.year ?? undefined,
           totalCount: 0,
           hasSubCount: 0,
           firstPath: file.file_path,
           seriesRootPath: file.series_root_path || file.file_path.split('/').slice(0, -1).join('/'),
           firstFileId: file.id,
           createdAt: file.created_at,
-          seasons: {}
+          seasons: {},
         };
       }
       const s = file.season || 1;
@@ -117,12 +130,10 @@ export default function SeriesPage() {
       s.title.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // Filter
     if (filterOption === 'missing') {
       result = result.filter(s => s.hasSubCount < s.totalCount);
     }
 
-    // Sort
     result.sort((a, b) => {
       let comparison = 0;
       if (sortOption === 'year') {
@@ -138,37 +149,29 @@ export default function SeriesPage() {
       } else {
         comparison = a.title.localeCompare(b.title);
       }
-      
+
       return sortOrder === 'asc' ? comparison : -comparison;
     });
 
     return result;
   }, [files, searchTerm, t, sortOption, sortOrder, filterOption]);
 
-  // 批量获取每个剧集的元数据（海报和 NFO 信息）
   const metadataQueries = useQueries({
     queries: (groupedSeries || []).map(series => ({
       queryKey: ['media', 'metadata', series.firstFileId],
       queryFn: () => fetchMediaMetadata(series.firstFileId),
-      staleTime: 10 * 60 * 1000, // 10 minutes
+      staleTime: 10 * 60 * 1000,
       retry: 1,
-    }))
+    })),
   });
 
-  // 构建侧边栏列表，包含海报和 NFO 信息
   const sidebarItems: SidebarItem[] = useMemo(() => {
     if (!groupedSeries) return [];
     return groupedSeries.map((series, index) => {
       const metadata = metadataQueries[index]?.data;
-      // 优先使用 NFO 中的标题和年份
       const nfoTitle = metadata?.nfo_data?.title;
-      const nfoYear = metadata?.nfo_data?.year;
-      // 构建海报 URL
-      let posterUrl: string | null = null;
-      if (metadata?.poster_path) {
-        posterUrl = `${API_BASE}/media/poster?path=${encodeURIComponent(metadata.poster_path)}`;
-      }
-      // 使用原始标题作为 key 和选择标识，NFO 标题仅用于显示
+      const nfoYear = metadata?.nfo_data?.year ?? undefined;
+      const posterUrl = metadata?.poster_path ? getMediaPosterUrl(metadata.poster_path) : null;
       return {
         id: series.title,
         displayTitle: nfoTitle || series.title,
@@ -176,14 +179,13 @@ export default function SeriesPage() {
         totalCount: series.totalCount,
         hasSubCount: series.hasSubCount,
         poster: posterUrl,
-        createdAt: series.createdAt
+        createdAt: series.createdAt,
       };
     });
   }, [groupedSeries, metadataQueries]);
 
   const { toggleSidebar, sidebarOpen } = useUIStore();
 
-  // Auto-open sidebar on desktop transition
   useEffect(() => {
     const mql = window.matchMedia('(min-width: 1024px)');
     const handler = (e: MediaQueryListEvent) => {
@@ -195,7 +197,6 @@ export default function SeriesPage() {
     return () => mql.removeEventListener('change', handler);
   }, [toggleSidebar]);
 
-  // Auto-select first series OR select via search params
   useEffect(() => {
     const titleFromUrl = searchParams.get('title');
     const seasonFromUrl = searchParams.get('season');
@@ -207,12 +208,14 @@ export default function SeriesPage() {
           setSelectedSeason(Number(seasonFromUrl));
         }
       });
-      // Clear params
       const newParams = new URLSearchParams(searchParams);
       newParams.delete('title');
       newParams.delete('season');
       setSearchParams(newParams, { replace: true });
-    } else if (groupedSeries.length > 0 && (!selectedSeriesTitle || !groupedSeries.find(s => s.title === selectedSeriesTitle))) {
+    } else if (
+      groupedSeries.length > 0 &&
+      (!selectedSeriesTitle || !groupedSeries.find(s => s.title === selectedSeriesTitle))
+    ) {
       const timer = setTimeout(() => {
         const first = groupedSeries[0];
         setSelectedSeriesTitle(first.title);
@@ -230,7 +233,6 @@ export default function SeriesPage() {
     return selectedSeries ? Object.keys(selectedSeries.seasons).map(Number).sort((a, b) => a - b) : [];
   }, [selectedSeries]);
 
-  // Update season when selected series changes
   useEffect(() => {
     if (selectedSeries && !availableSeasons.includes(selectedSeason)) {
       if (availableSeasons.length > 0) {
@@ -242,10 +244,9 @@ export default function SeriesPage() {
 
   const currentSeasonFiles = selectedSeries?.seasons[selectedSeason] || [];
 
-  // 判断当前季是否正在补全中
-  const isSelectedSeasonMatching = selectedSeries && status.matching_seasons.some(
-    m => m.title === selectedSeries.title && m.season === selectedSeason
-  );
+  const isSelectedSeasonMatching =
+    selectedSeries &&
+    status.matching_seasons.some(m => m.title === selectedSeries.title && m.season === selectedSeason);
 
   const totalEpisodesCount = useMemo(() => {
     if (!selectedSeries) return 0;
@@ -254,9 +255,10 @@ export default function SeriesPage() {
 
   return (
     <div className="flex flex-col gap-6 w-full h-full max-w-[1800px]">
-
       <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-120px)] w-full">
-        <div className={`flex flex-col shrink-0 lg:transition-all lg:duration-300 lg:ease-in-out lg:overflow-hidden ${sidebarOpen ? 'lg:w-[380px] lg:opacity-100 lg:mr-6' : 'lg:w-0 lg:opacity-0 lg:mr-0'}`}>
+        <div
+          className={`flex flex-col shrink-0 lg:transition-all lg:duration-300 lg:ease-in-out lg:overflow-hidden ${sidebarOpen ? 'lg:w-[380px] lg:opacity-100 lg:mr-6' : 'lg:w-0 lg:opacity-0 lg:mr-0'}`}
+        >
           <MediaSidebar
             items={sidebarItems}
             searchTerm={searchTerm}
@@ -294,14 +296,17 @@ export default function SeriesPage() {
                 </div>
               </div>
 
-              {/* Seasons Tabs */}
               <div className="flex items-center justify-between border-b border-outline-variant/10 relative">
                 <div className="flex gap-10 overflow-x-auto scrollbar-hide">
                   {availableSeasons.map(s => (
                     <button
                       key={s}
                       onClick={() => setSelectedSeason(s)}
-                      className={`pb-4 text-sm whitespace-nowrap transition-colors relative ${selectedSeason === s ? 'text-primary font-bold border-b-2 border-primary z-10' : 'text-on-surface-variant font-medium hover:text-on-surface'}`}
+                      className={`pb-4 text-sm whitespace-nowrap transition-colors relative ${
+                        selectedSeason === s
+                          ? 'text-primary font-bold border-b-2 border-primary z-10'
+                          : 'text-on-surface-variant font-medium hover:text-on-surface'
+                      }`}
                     >
                       {t('page.series.season', { n: s })}
                     </button>
@@ -311,7 +316,11 @@ export default function SeriesPage() {
                   <button
                     onClick={() => handleMatchSeason(selectedSeries.title, selectedSeason)}
                     disabled={isSelectedSeasonMatching}
-                    className={`absolute right-0 bottom-3 text-xs px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-2 border uppercase tracking-widest ${isSelectedSeasonMatching ? 'bg-surface-container text-on-surface-variant border-outline-variant/20 cursor-not-allowed' : 'bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 hover:shadow-[0_0_12px_rgba(189,194,255,0.1)]'}`}
+                    className={`absolute right-0 bottom-3 text-xs px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-2 border uppercase tracking-widest ${
+                      isSelectedSeasonMatching
+                        ? 'bg-surface-container text-on-surface-variant border-outline-variant/20 cursor-not-allowed'
+                        : 'bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 hover:shadow-[0_0_12px_rgba(189,194,255,0.1)]'
+                    }`}
                   >
                     {isSelectedSeasonMatching ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
@@ -326,11 +335,15 @@ export default function SeriesPage() {
               <div className="space-y-6">
                 <div className="flex items-center justify-between px-2 w-full">
                   <div className="flex items-center gap-4">
-                    <h3 className="text-xl font-bold font-headline text-on-surface">{t('page.movies.localFiles')}</h3>
+                    <h3 className="text-xl font-bold font-headline text-on-surface">
+                      {t('page.movies.localFiles')}
+                    </h3>
                     {currentSeasonFiles.some(f => !f.has_subtitle) && (
                       <div className="flex items-center gap-2 bg-error-dim/10 text-error-dim px-3 py-1 rounded-full border border-error-dim/20">
                         <span className="material-symbols-outlined text-sm">warning</span>
-                        <span className="text-[11px] font-bold uppercase tracking-wider">{t('status.missing')}</span>
+                        <span className="text-[11px] font-bold uppercase tracking-wider">
+                          {t('status.missing')}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -338,7 +351,7 @@ export default function SeriesPage() {
                     {t('page.movies.fileCount', { count: currentSeasonFiles.length })}
                   </span>
                 </div>
-                
+
                 <div className="flex flex-col gap-3 w-full">
                   {currentSeasonFiles.map(file => (
                     <MediaItem
@@ -365,7 +378,6 @@ export default function SeriesPage() {
           </div>
         )}
       </div>
-      {/* Floating Toggle Button - only visible on small screens as per previous design */}
       <div className="lg:hidden fixed bottom-6 right-6 z-50">
         <button
           onClick={toggleSidebar}

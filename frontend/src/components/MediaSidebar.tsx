@@ -1,20 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUIStore } from '../stores/useUIStore';
+import type { SidebarItem, SortOption, FilterOption, SortOrder } from '../types/api';
 
-export interface SidebarItem {
-  id: string;
-  displayTitle: string;
-  year?: string;
-  totalCount: number;
-  hasSubCount: number;
-  poster?: string | null;
-  createdAt?: string;
-}
-
-export type SortOption = 'name' | 'year' | 'created' | 'status';
-export type FilterOption = 'all' | 'missing';
-export type SortOrder = 'asc' | 'desc';
+export type { SidebarItem, SortOption, FilterOption, SortOrder };
 
 interface MediaSidebarProps {
   items: SidebarItem[];
@@ -27,7 +16,6 @@ interface MediaSidebarProps {
   onRefresh?: () => void;
   isRefreshing?: boolean;
   title?: string;
-  // New props for sorting and filtering
   sortOption?: SortOption;
   onSortOptionChange?: (opt: SortOption) => void;
   sortOrder?: SortOrder;
@@ -50,7 +38,7 @@ export function MediaSidebar({
   onSortOptionChange,
   sortOrder = 'asc',
   filterOption = 'all',
-  onFilterOptionChange
+  onFilterOptionChange,
 }: MediaSidebarProps) {
   const { t } = useTranslation();
   const { sidebarOpen, toggleSidebar } = useUIStore();
@@ -65,19 +53,24 @@ export function MediaSidebar({
   };
 
   const currentSortLabel = useMemo(() => {
-    switch(sortOption) {
-      case 'name': return t('sort.name');
-      case 'year': return t('sort.year');
-      case 'created': return t('sort.created');
-      case 'status': return t('sort.subtitleStatus');
-      default: return '';
+    switch (sortOption) {
+      case 'name':
+        return t('sort.name');
+      case 'year':
+        return t('sort.year');
+      case 'created':
+        return t('sort.created');
+      case 'status':
+        return t('sort.subtitleStatus');
+      default:
+        return '';
     }
   }, [sortOption, t]);
 
   return (
     <>
       {sidebarOpen && (
-        <div 
+        <div
           className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
           onClick={toggleSidebar}
         />
@@ -114,10 +107,10 @@ export function MediaSidebar({
               <span className="text-xs uppercase tracking-wider">{currentSortLabel}</span>
               <span className={`material-symbols-outlined text-[14px] transition-transform duration-300 ${sortOrder === 'desc' ? 'rotate-180' : ''}`}>straight</span>
             </button>
-            
+
             {isSortOpen && (
               <div className="absolute right-0 mt-2 w-40 bg-surface-container-high rounded-xl shadow-2xl border border-outline-variant/10 z-50 overflow-hidden backdrop-blur-md">
-                {(['name', 'year', 'created', 'status'] as SortOption[]).map((opt) => (
+                {(['name', 'year', 'created', 'status'] as SortOption[]).map(opt => (
                   <button
                     key={opt}
                     onClick={() => {
@@ -126,7 +119,13 @@ export function MediaSidebar({
                     }}
                     className={`w-full text-left px-4 py-3 text-xs font-bold transition-colors hover:bg-primary/10 ${sortOption === opt ? 'text-primary bg-primary/5' : 'text-on-surface-variant'}`}
                   >
-                    {opt === 'name' ? t('sort.name') : opt === 'year' ? t('sort.year') : opt === 'created' ? t('sort.created') : t('sort.subtitleStatus')}
+                    {opt === 'name'
+                      ? t('sort.name')
+                      : opt === 'year'
+                        ? t('sort.year')
+                        : opt === 'created'
+                          ? t('sort.created')
+                          : t('sort.subtitleStatus')}
                   </button>
                 ))}
               </div>
@@ -186,9 +185,11 @@ export function MediaSidebar({
                     : 'hover:bg-surface-container border border-transparent hover:border-outline-variant/10'
                 }`}
               >
-                {isSelected && <div className="absolute inset-y-0 left-0 w-1 bg-primary rounded-l-2xl"></div>}
-                
-                <div className={`w-16 h-24 rounded-lg bg-surface-container-highest flex-shrink-0 overflow-hidden ${isSelected ? 'shadow-md' : 'opacity-70 group-hover:opacity-100 transition-opacity'}`}>
+                {isSelected && <div className="absolute inset-y-0 left-0 w-1 bg-primary rounded-l-2xl" />}
+
+                <div
+                  className={`w-16 h-24 rounded-lg bg-surface-container-highest flex-shrink-0 overflow-hidden ${isSelected ? 'shadow-md' : 'opacity-70 group-hover:opacity-100 transition-opacity'}`}
+                >
                   {item.poster ? (
                     <img src={item.poster} alt={item.displayTitle} className="w-full h-full object-cover" />
                   ) : (
@@ -197,20 +198,25 @@ export function MediaSidebar({
                     </div>
                   )}
                 </div>
-                
+
                 <div className="flex flex-col justify-center flex-1 min-w-0">
-                  <h3 className={`font-headline font-bold text-on-surface leading-tight truncate ${isSelected ? '' : 'opacity-80 group-hover:opacity-100 transition-opacity'}`} title={item.displayTitle}>
+                  <h3
+                    className={`font-headline font-bold text-on-surface leading-tight truncate ${isSelected ? '' : 'opacity-80 group-hover:opacity-100 transition-opacity'}`}
+                    title={item.displayTitle}
+                  >
                     {item.displayTitle}
                   </h3>
                   <p className="text-xs font-label text-on-surface-variant mt-1">{item.year || t('year.unknown')}</p>
-                  
+
                   {item.totalCount > 0 && (
                     <div className="mt-3">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-widest uppercase border ${
-                        isMatched 
-                          ? 'bg-primary/10 text-primary border-primary/20' 
-                          : 'bg-error-dim/10 text-error-dim border-error-dim/20'
-                      }`}>
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-widest uppercase border ${
+                          isMatched
+                            ? 'bg-primary/10 text-primary border-primary/20'
+                            : 'bg-error-dim/10 text-error-dim border-error-dim/20'
+                        }`}
+                      >
                         {statusText}
                       </span>
                     </div>
@@ -219,13 +225,14 @@ export function MediaSidebar({
               </div>
             );
           })}
-          
+
           {items.length === 0 && (
-            <div className="text-center text-sm text-on-surface-variant font-label py-10 opacity-70">{emptyText}</div>
+            <div className="text-center text-sm text-on-surface-variant font-label py-10 opacity-70">
+              {emptyText}
+            </div>
           )}
         </div>
       </aside>
     </>
   );
 }
-

@@ -20,14 +20,16 @@ export default function SearchResultRow({ item, onDownload }: SearchResultRowPro
             {item.title}
           </h4>
           <div className="flex flex-wrap items-center gap-3">
-            {item.lang && item.lang.length > 0 && item.lang.map((lang, idx) => (
-              <span
-                key={idx}
-                className="px-2 py-0.5 rounded bg-surface-container-highest border border-outline-variant/20 text-[10px] font-bold text-primary-fixed uppercase tracking-wider shadow-[0_0_8px_rgba(189,194,255,0.15)]"
-              >
-                {lang}
-              </span>
-            ))}
+            {item.lang &&
+              item.lang.length > 0 &&
+              item.lang.map((lang, idx) => (
+                <span
+                  key={idx}
+                  className="px-2 py-0.5 rounded bg-surface-container-highest border border-outline-variant/20 text-[10px] font-bold text-primary-fixed uppercase tracking-wider shadow-[0_0_8px_rgba(189,194,255,0.15)]"
+                >
+                  {lang}
+                </span>
+              ))}
 
             {item.format && (
               <span className="text-xs text-on-surface-variant font-medium flex items-center gap-1 bg-surface-container-low px-2 py-0.5 rounded border border-outline-variant/10">
@@ -40,7 +42,8 @@ export default function SearchResultRow({ item, onDownload }: SearchResultRowPro
             </span>
             {item.download_count && (
               <span className="text-xs text-on-surface-variant font-medium flex items-center gap-1">
-                <span className="material-symbols-outlined text-xs">download</span> {t('downloadCount', { count: Number(item.download_count) })}
+                <span className="material-symbols-outlined text-xs">download</span>{' '}
+                {t('downloadCount', { count: Number(item.download_count) })}
               </span>
             )}
             {item.author && (

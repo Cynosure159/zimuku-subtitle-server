@@ -1,7 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { autoMatchFile } from '../api';
-import type { ScannedFile, TaskStatus } from '../hooks/useMediaPolling';
+import { autoMatchFile, type ScannedFile, type TaskStatus } from '../api';
 
 interface MediaItemProps {
   file: ScannedFile;
@@ -18,7 +17,7 @@ export function MediaItem({
   variant = 'movie',
   showEpisode = false,
   onAutoSearch,
-  setMatchingFileOptimistic
+  setMatchingFileOptimistic,
 }: MediaItemProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -55,27 +54,33 @@ export function MediaItem({
   const badgeClass = isMatching
     ? 'bg-primary/10 text-primary border border-primary/20'
     : hasSub
-    ? 'bg-primary/10 text-primary border border-primary/20'
-    : 'bg-error-dim/10 text-error-dim border-error-dim/20';
-  const badgeLabel = isMatching ? t('status.searching') : (hasSub ? t('status.matched') : t('status.missing'));
+      ? 'bg-primary/10 text-primary border border-primary/20'
+      : 'bg-error-dim/10 text-error-dim border-error-dim/20';
+  const badgeLabel = isMatching ? t('status.searching') : hasSub ? t('status.matched') : t('status.missing');
   const episodeStr = showEpisode ? `E${file.episode?.toString().padStart(2, '0') || '??'}` : null;
 
   return (
-    <div className={`grid xl:grid-cols-12 grid-cols-1 items-center gap-4 ${bgColor} p-4 rounded-2xl hover:bg-surface-bright/40 transition-colors border border-transparent ${borderColor} group`}>
+    <div
+      className={`grid xl:grid-cols-12 grid-cols-1 items-center gap-4 ${bgColor} p-4 rounded-2xl hover:bg-surface-bright/40 transition-colors border border-transparent ${borderColor} group`}
+    >
       <div className="xl:col-span-8 flex items-center gap-5 w-full overflow-hidden">
-        <div className={`w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center ${iconColor} shadow-sm shrink-0 ${!hasSub && !isMatching ? 'opacity-80' : ''}`}>
+        <div
+          className={`w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center ${iconColor} shadow-sm shrink-0 ${!hasSub && !isMatching ? 'opacity-80' : ''}`}
+        >
           {isMatching ? (
             <span className="material-symbols-outlined text-2xl animate-spin">sync</span>
           ) : (
-            <span className="material-symbols-outlined text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>{variant === 'tv' ? 'tv' : 'movie'}</span>
+            <span className="material-symbols-outlined text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>
+              {variant === 'tv' ? 'tv' : 'movie'}
+            </span>
           )}
         </div>
         <div className="min-w-0 pr-2 overflow-hidden flex-1">
           <div className="flex items-center gap-3">
-            {episodeStr && (
-              <span className="w-10 text-sm font-bold text-outline-variant shrink-0">{episodeStr}</span>
-            )}
-            <p className="font-bold text-on-surface truncate" title={file.filename}>{file.filename}</p>
+            {episodeStr && <span className="w-10 text-sm font-bold text-outline-variant shrink-0">{episodeStr}</span>}
+            <p className="font-bold text-on-surface truncate" title={file.filename}>
+              {file.filename}
+            </p>
           </div>
         </div>
       </div>
@@ -108,7 +113,6 @@ export function MediaItem({
   );
 }
 
-// Legacy wrapper for backward compatibility with MediaList
 interface MediaListProps {
   files: ScannedFile[];
   status: TaskStatus;

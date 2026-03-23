@@ -1,20 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import { useTranslation } from 'react-i18next';
-
-const API_BASE = 'http://127.0.0.1:8000';
-
-interface MediaFile {
-  id: number;
-  extracted_title: string;
-  type: 'movie' | 'tv';
-  has_subtitle: boolean;
-  created_at: string;
-  year?: string | null;
-  season?: number | null;
-  episode?: number | null;
-}
+import { listScannedFiles, type ScannedFile } from '../api';
 
 interface Stats {
   totalFiles: number;
@@ -32,22 +19,21 @@ export default function HomePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [stats, setStats] = useState<Stats | null>(null);
-  const [recentFiles, setRecentFiles] = useState<MediaFile[]>([]);
+  const [recentFiles, setRecentFiles] = useState<ScannedFile[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const [movieFiles, tvFiles] = await Promise.all([
-          axios.get<MediaFile[]>(`${API_BASE}/media/files?path_type=movie`),
-          axios.get<MediaFile[]>(`${API_BASE}/media/files?path_type=tv`),
+          listScannedFiles('movie'),
+          listScannedFiles('tv'),
         ]);
 
-        const movies = movieFiles.data;
-        const tvShows = tvFiles.data;
+        const movies = movieFiles;
+        const tvShows = tvFiles;
         const all = [...movies, ...tvShows];
 
-        // Compute stats
         const totalMovies = movies.length;
         const hasSubtitleMovies = movies.filter(f => f.has_subtitle).length;
         const totalTv = tvShows.length;
@@ -56,7 +42,7 @@ export default function HomePage() {
         setStats({
           totalFiles: all.length,
           hasSubtitle: hasSubtitleMovies + hasSubtitleTv,
-          missingSubtitle: (totalMovies - hasSubtitleMovies) + (totalTv - hasSubtitleTv),
+          missingSubtitle: totalMovies - hasSubtitleMovies + (totalTv - hasSubtitleTv),
           totalMovies,
           hasSubtitleMovies,
           missingMovies: totalMovies - hasSubtitleMovies,
@@ -65,9 +51,8 @@ export default function HomePage() {
           missingSeries: totalTv - hasSubtitleTv,
         });
 
-        // Get recently added - dedupe by title and take latest 6
         const titlesSeen = new Set<string>();
-        const recent: MediaFile[] = [];
+        const recent: ScannedFile[] = [];
         const sorted = all.sort((a, b) => b.created_at.localeCompare(a.created_at));
         for (const f of sorted) {
           const key = `${f.type}:${f.extracted_title}`;
@@ -88,20 +73,15 @@ export default function HomePage() {
     fetchData();
   }, []);
 
-  const coveragePercent = stats && stats.totalFiles > 0
-    ? Math.round((stats.hasSubtitle / stats.totalFiles) * 100)
-    : 0;
+  const coveragePercent =
+    stats && stats.totalFiles > 0 ? Math.round((stats.hasSubtitle / stats.totalFiles) * 100) : 0;
 
   return (
     <div className="flex flex-col w-full h-full overflow-y-auto custom-scrollbar px-6 py-8 gap-10">
-      {/* Header */}
       <div>
-        <h1 className="font-headline text-4xl font-extrabold tracking-tight text-on-surface">
-          {t('nav.home')}
-        </h1>
+        <h1 className="font-headline text-4xl font-extrabold tracking-tight text-on-surface">{t('nav.home')}</h1>
       </div>
 
-      {/* Stats Bar */}
       {loading ? (
         <div className="flex gap-4">
           {[1, 2, 3].map(i => (
@@ -110,63 +90,77 @@ export default function HomePage() {
         </div>
       ) : stats ? (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {/* Total Coverage */}
           <div className="col-span-1 sm:col-span-1 p-6 rounded-2xl bg-surface-container border border-outline-variant/5 flex flex-col gap-3">
             <div className="flex items-center justify-between">
-              <span className="text-on-surface-variant text-xs font-label uppercase tracking-widest">{t('home.totalFiles')}</span>
+              <span className="text-on-surface-variant text-xs font-label uppercase tracking-widest">
+                {t('home.totalFiles')}
+              </span>
               <span className="material-symbols-outlined text-primary-dim text-lg">folder_open</span>
             </div>
             <div className="text-5xl font-headline font-extrabold text-on-surface">{stats.totalFiles}</div>
             <div className="flex gap-3 text-xs font-label">
-              <span className="flex items-center gap-1 text-primary"><span className="w-2 h-2 rounded-full bg-primary inline-block" />{stats.hasSubtitle} {t('home.matched')}</span>
-              <span className="flex items-center gap-1 text-error-dim"><span className="w-2 h-2 rounded-full bg-error-dim inline-block" />{stats.missingSubtitle} {t('home.missing')}</span>
+              <span className="flex items-center gap-1 text-primary">
+                <span className="w-2 h-2 rounded-full bg-primary inline-block" />
+                {stats.hasSubtitle} {t('home.matched')}
+              </span>
+              <span className="flex items-center gap-1 text-error-dim">
+                <span className="w-2 h-2 rounded-full bg-error-dim inline-block" />
+                {stats.missingSubtitle} {t('home.missing')}
+              </span>
             </div>
           </div>
 
-          {/* Movies */}
           <div
             className="p-6 rounded-2xl bg-surface-container border border-outline-variant/5 cursor-pointer hover:bg-surface-container-highest hover:-translate-y-1 transition-all duration-300"
             onClick={() => navigate('/movies')}
           >
             <div className="flex items-center justify-between mb-3">
-              <span className="text-on-surface-variant text-xs font-label uppercase tracking-widest">{t('movie')}</span>
-              <span className="material-symbols-outlined text-primary-dim text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>movie</span>
+              <span className="text-on-surface-variant text-xs font-label uppercase tracking-widest">
+                {t('movie')}
+              </span>
+              <span className="material-symbols-outlined text-primary-dim text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>
+                movie
+              </span>
             </div>
             <div className="text-5xl font-headline font-extrabold text-on-surface mb-4">{stats.totalMovies}</div>
-            {/* Progress */}
             <div className="space-y-2">
               <div className="flex justify-between text-[11px] font-label text-on-surface-variant">
                 <span>{t('home.coverageRate')}</span>
-                <span className="text-primary font-bold">{stats.totalMovies > 0 ? Math.round(stats.hasSubtitleMovies / stats.totalMovies * 100) : 0}%</span>
+                <span className="text-primary font-bold">
+                  {stats.totalMovies > 0 ? Math.round((stats.hasSubtitleMovies / stats.totalMovies) * 100) : 0}%
+                </span>
               </div>
               <div className="h-1.5 rounded-full bg-surface-container-high overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-primary to-primary-container rounded-full transition-all duration-1000"
-                  style={{ width: `${stats.totalMovies > 0 ? (stats.hasSubtitleMovies / stats.totalMovies * 100) : 0}%` }}
+                  style={{ width: `${stats.totalMovies > 0 ? (stats.hasSubtitleMovies / stats.totalMovies) * 100 : 0}%` }}
                 />
               </div>
             </div>
           </div>
 
-          {/* Series */}
           <div
             className="p-6 rounded-2xl bg-surface-container border border-outline-variant/5 cursor-pointer hover:bg-surface-container-highest hover:-translate-y-1 transition-all duration-300"
             onClick={() => navigate('/series')}
           >
             <div className="flex items-center justify-between mb-3">
               <span className="text-on-surface-variant text-xs font-label uppercase tracking-widest">{t('tv')}</span>
-              <span className="material-symbols-outlined text-tertiary-dim text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>tv</span>
+              <span className="material-symbols-outlined text-tertiary-dim text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>
+                tv
+              </span>
             </div>
             <div className="text-5xl font-headline font-extrabold text-on-surface mb-4">{stats.totalSeries}</div>
             <div className="space-y-2">
               <div className="flex justify-between text-[11px] font-label text-on-surface-variant">
                 <span>{t('home.coverageRate')}</span>
-                <span className="text-tertiary font-bold">{stats.totalSeries > 0 ? Math.round(stats.hasSubtitleSeries / stats.totalSeries * 100) : 0}%</span>
+                <span className="text-tertiary font-bold">
+                  {stats.totalSeries > 0 ? Math.round((stats.hasSubtitleSeries / stats.totalSeries) * 100) : 0}%
+                </span>
               </div>
               <div className="h-1.5 rounded-full bg-surface-container-high overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-tertiary to-tertiary-container rounded-full transition-all duration-1000"
-                  style={{ width: `${stats.totalSeries > 0 ? (stats.hasSubtitleSeries / stats.totalSeries * 100) : 0}%` }}
+                  style={{ width: `${stats.totalSeries > 0 ? (stats.hasSubtitleSeries / stats.totalSeries) * 100 : 0}%` }}
                 />
               </div>
             </div>
@@ -174,7 +168,6 @@ export default function HomePage() {
         </div>
       ) : null}
 
-      {/* Global Health / Coverage Bar */}
       {stats && (
         <div className="p-6 rounded-2xl bg-surface-container border border-outline-variant/5">
           <div className="flex items-center justify-between mb-4">
@@ -202,18 +195,17 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Recently Added */}
       <div>
         <div className="flex items-center justify-between mb-5">
           <h2 className="font-headline font-bold text-on-surface text-xl">{t('home.recentlyAdded')}</h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {recentFiles.map((file) => (
+          {recentFiles.map(file => (
             <div
               key={`${file.type}-${file.id}`}
               onClick={() => {
                 const searchParams = new URLSearchParams();
-                searchParams.set('title', file.extracted_title);
+                searchParams.set('title', file.extracted_title || '');
                 if (file.type === 'tv' && file.season) {
                   searchParams.set('season', file.season.toString());
                 }
@@ -236,13 +228,13 @@ export default function HomePage() {
                 </span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-headline font-bold text-on-surface text-sm truncate" title={file.extracted_title}>
+                <p className="font-headline font-bold text-on-surface text-sm truncate" title={file.extracted_title || ''}>
                   {file.extracted_title}
                 </p>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-xs text-on-surface-variant font-label">
-                    {file.type === 'movie' 
-                      ? (file.year || '—') 
+                    {file.type === 'movie'
+                      ? file.year || '—'
                       : `S${String(file.season || 1).padStart(2, '0')} E${String(file.episode || 1).padStart(2, '0')}`}
                     {' • '}
                     {file.type === 'movie' ? t('home.typeMovie') : t('home.typeSeries')}
@@ -258,7 +250,9 @@ export default function HomePage() {
                   )}
                 </div>
               </div>
-              <span className="material-symbols-outlined text-outline/40 group-hover:text-primary group-hover:translate-x-1 transition-all">chevron_right</span>
+              <span className="material-symbols-outlined text-outline/40 group-hover:text-primary group-hover:translate-x-1 transition-all">
+                chevron_right
+              </span>
             </div>
           ))}
           {recentFiles.length === 0 && !loading && (
@@ -269,7 +263,6 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Quick Actions */}
       <div>
         <h2 className="font-headline font-bold text-on-surface text-xl mb-5">{t('home.quickActions')}</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

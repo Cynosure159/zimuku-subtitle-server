@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { API_BASE, fetchMediaMetadata, type MediaMetadata } from '../api';
+import { fetchMediaMetadata, getMediaPosterUrl, type MediaMetadata } from '../api';
 
 export type { MediaMetadata };
 
@@ -8,14 +8,13 @@ export function useMediaMetadata(fileId: number | null) {
     queryKey: ['media', 'metadata', fileId],
     queryFn: () => fetchMediaMetadata(fileId!),
     enabled: fileId !== null,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
     retry: 1,
     throwOnError: false,
   });
 }
 
-export function useMediaPosterUrl(posterPath: string | null): string | null {
+export function useMediaPosterUrl(posterPath: string | null | undefined): string | null {
   if (!posterPath) return null;
-  const encoded = encodeURIComponent(posterPath);
-  return `${API_BASE}/media/poster?path=${encoded}`;
+  return getMediaPosterUrl(posterPath);
 }

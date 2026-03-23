@@ -1,23 +1,23 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { listSettings, updateSetting, addMediaPath, deleteMediaPath, triggerMediaMatch } from '../api';
+import {
+  listSettings,
+  updateSetting,
+  addMediaPath,
+  deleteMediaPath,
+  triggerMediaMatch,
+  type Setting,
+} from '../api';
 import { changeLanguage } from '../i18n';
 import { useMediaPolling } from '../hooks/useMediaPolling';
-
-interface Setting {
-  id: number;
-  key: string;
-  value: string;
-  description?: string;
-  updated_at: string;
-}
 
 export default function SettingsPage() {
   const { t, i18n } = useTranslation();
   const [settings, setSettings] = useState<Setting[]>([]);
   const [formValues, setFormValues] = useState<Record<string, string>>({});
-  
-  const { paths: moviePaths, fetchData: fetchMoviePaths, status, setIsScanningOptimistic } = useMediaPolling('movie');
+
+  const { paths: moviePaths, fetchData: fetchMoviePaths, status, setIsScanningOptimistic } =
+    useMediaPolling('movie');
   const { paths: tvPaths, fetchData: fetchTvPaths } = useMediaPolling('tv');
 
   const [newMoviePath, setNewMoviePath] = useState('');
@@ -100,27 +100,34 @@ export default function SettingsPage() {
     <div className="flex-1 w-full h-full max-w-[1800px] overflow-y-auto custom-scrollbar pr-4">
       <header className="flex items-center justify-between pb-8 pt-4">
         <div>
-          <h2 className="text-3xl font-headline font-extrabold tracking-tight text-primary">{t('page.settings.title')}</h2>
+          <h2 className="text-3xl font-headline font-extrabold tracking-tight text-primary">
+            {t('page.settings.title')}
+          </h2>
           <p className="text-on-surface-variant font-label text-sm mt-1">{t('page.settings.subtitle')}</p>
         </div>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8 pb-12">
-        {/* Section: General */}
         <section className="md:col-span-7 bg-surface-container rounded-2xl p-8 transition-all duration-300 hover:bg-surface-container-high relative overflow-hidden group border border-outline-variant/10">
           <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
-            <span className="material-symbols-outlined text-8xl" style={{ fontVariationSettings: "'FILL' 1" }}>tune</span>
+            <span className="material-symbols-outlined text-8xl" style={{ fontVariationSettings: "'FILL' 1" }}>
+              tune
+            </span>
           </div>
           <div className="flex items-center gap-3 mb-8 relative z-10">
-            <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>language</span>
+            <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>
+              language
+            </span>
             <h3 className="font-headline font-bold text-xl text-on-surface">{t('page.settings.general')}</h3>
           </div>
           <div className="space-y-8 relative z-10">
             <div className="flex flex-col gap-3">
-              <label className="text-sm font-label text-on-surface-variant font-bold uppercase tracking-wider">{t('page.settings.language')}</label>
+              <label className="text-sm font-label text-on-surface-variant font-bold uppercase tracking-wider">
+                {t('page.settings.language')}
+              </label>
               <select
                 value={i18n.language}
-                onChange={(e) => handleLanguageChange(e.target.value)}
+                onChange={e => handleLanguageChange(e.target.value)}
                 className="bg-surface-container-low border border-outline-variant/20 rounded-xl p-3 text-on-surface font-body w-full max-w-sm focus:ring-1 focus:ring-primary/50 outline-none transition-all cursor-pointer"
               >
                 <option value="zh">中文 (Simplified)</option>
@@ -130,29 +137,37 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* Section: System Configuration */}
         <section className="md:col-span-5 bg-surface-container rounded-2xl p-8 transition-all duration-300 hover:bg-surface-container-high border border-outline-variant/10">
           <div className="flex items-center gap-3 mb-8">
-            <span className="material-symbols-outlined text-tertiary" style={{ fontVariationSettings: "'FILL' 1" }}>robot_2</span>
+            <span className="material-symbols-outlined text-tertiary" style={{ fontVariationSettings: "'FILL' 1" }}>
+              robot_2
+            </span>
             <h3 className="font-headline font-bold text-xl text-on-surface">{t('page.settings.systemProperties')}</h3>
           </div>
           <div className="space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
             {settings.length === 0 ? (
-              <div className="p-4 text-center text-on-surface-variant opacity-70 text-sm">{t('page.settings.noConfig')}</div>
+              <div className="p-4 text-center text-on-surface-variant opacity-70 text-sm">
+                {t('page.settings.noConfig')}
+              </div>
             ) : (
               settings.map(setting => (
-                <div key={setting.id} className="p-4 rounded-xl border border-outline-variant/15 hover:bg-surface-container-highest transition-colors flex flex-col gap-3">
+                <div
+                  key={setting.id}
+                  className="p-4 rounded-xl border border-outline-variant/15 hover:bg-surface-container-highest transition-colors flex flex-col gap-3"
+                >
                   <div className="flex items-start justify-between">
                     <div>
                       <span className="text-sm font-label font-bold text-on-surface">{setting.key}</span>
-                      {setting.description && <p className="text-[10px] text-on-surface-variant mt-0.5">{setting.description}</p>}
+                      {setting.description && (
+                        <p className="text-[10px] text-on-surface-variant mt-0.5">{setting.description}</p>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
                       value={formValues[setting.key] || ''}
-                      onChange={(e) => setFormValues(prev => ({ ...prev, [setting.key]: e.target.value }))}
+                      onChange={e => setFormValues(prev => ({ ...prev, [setting.key]: e.target.value }))}
                       className="flex-1 bg-surface-container-lowest border-none rounded-lg p-2 text-sm text-on-surface focus:ring-1 focus:ring-primary/40 outline-none transition-all"
                     />
                     <button
@@ -168,17 +183,17 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* Section: Libraries */}
         <section className="md:col-span-12 bg-surface-container rounded-2xl p-8 transition-all duration-300 hover:bg-surface-container-high border border-outline-variant/10">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-primary-dim" style={{ fontVariationSettings: "'FILL' 1" }}>folder_managed</span>
+              <span className="material-symbols-outlined text-primary-dim" style={{ fontVariationSettings: "'FILL' 1" }}>
+                folder_managed
+              </span>
               <h3 className="font-headline font-bold text-xl text-on-surface">{t('page.settings.digitalLibraries')}</h3>
             </div>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Movies Content */}
             <div className="space-y-4 bg-surface-container-low p-6 rounded-2xl border border-outline-variant/5">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex flex-col">
@@ -190,7 +205,9 @@ export default function SettingsPage() {
                   className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-primary hover:bg-primary hover:text-surface-container transition-colors"
                   title={t('mediaConfig.refreshMovie')}
                 >
-                  <span className={`material-symbols-outlined text-sm ${status.is_scanning ? 'animate-spin' : ''}`}>sync</span>
+                  <span className={`material-symbols-outlined text-sm ${status.is_scanning ? 'animate-spin' : ''}`}>
+                    sync
+                  </span>
                 </button>
               </div>
               <div className="flex items-center gap-2">
@@ -202,26 +219,40 @@ export default function SettingsPage() {
                   onKeyDown={e => e.key === 'Enter' && handleAddPath('movie', newMoviePath)}
                   className="flex-1 bg-surface-container border border-outline-variant/10 rounded-lg p-2.5 text-sm text-on-surface outline-none focus:border-primary/50 transition-colors"
                 />
-                <button onClick={() => handleAddPath('movie', newMoviePath)} className="bg-primary/10 hover:bg-primary/20 text-primary px-4 py-2.5 rounded-lg text-sm font-bold transition-all">{t('page.settings.add')}</button>
+                <button
+                  onClick={() => handleAddPath('movie', newMoviePath)}
+                  className="bg-primary/10 hover:bg-primary/20 text-primary px-4 py-2.5 rounded-lg text-sm font-bold transition-all"
+                >
+                  {t('page.settings.add')}
+                </button>
               </div>
               <div className="flex flex-col gap-2 mt-4 max-h-64 overflow-y-auto custom-scrollbar pr-1">
                 {moviePaths.length === 0 ? (
-                  <div className="text-center text-xs text-on-surface-variant py-4 opacity-50">{t('page.settings.noDirectories')}</div>
-                ) : moviePaths.map(path => (
-                  <div key={path.id} className="p-3 bg-surface-container rounded-lg flex items-center justify-between group">
-                    <div className="flex items-center gap-3 overflow-hidden">
-                      <span className="material-symbols-outlined text-outline text-sm shrink-0">movie</span>
-                      <span className="text-xs font-mono text-on-surface-variant truncate">{path.path}</span>
-                    </div>
-                    <button onClick={() => handleDeletePath(path.id, 'movie')} className="opacity-0 group-hover:opacity-100 text-error hover:bg-error/10 p-1.5 rounded transition-all">
-                      <span className="material-symbols-outlined text-sm">delete</span>
-                    </button>
+                  <div className="text-center text-xs text-on-surface-variant py-4 opacity-50">
+                    {t('page.settings.noDirectories')}
                   </div>
-                ))}
+                ) : (
+                  moviePaths.map(path => (
+                    <div
+                      key={path.id}
+                      className="p-3 bg-surface-container rounded-lg flex items-center justify-between group"
+                    >
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <span className="material-symbols-outlined text-outline text-sm shrink-0">movie</span>
+                        <span className="text-xs font-mono text-on-surface-variant truncate">{path.path}</span>
+                      </div>
+                      <button
+                        onClick={() => handleDeletePath(path.id, 'movie')}
+                        className="opacity-0 group-hover:opacity-100 text-error hover:bg-error/10 p-1.5 rounded transition-all"
+                      >
+                        <span className="material-symbols-outlined text-sm">delete</span>
+                      </button>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
-            {/* TV Shows Content */}
             <div className="space-y-4 bg-surface-container-low p-6 rounded-2xl border border-outline-variant/5">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex flex-col">
@@ -233,7 +264,9 @@ export default function SettingsPage() {
                   className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-primary hover:bg-primary hover:text-surface-container transition-colors"
                   title={t('mediaConfig.refreshTv')}
                 >
-                  <span className={`material-symbols-outlined text-sm ${status.is_scanning ? 'animate-spin' : ''}`}>sync</span>
+                  <span className={`material-symbols-outlined text-sm ${status.is_scanning ? 'animate-spin' : ''}`}>
+                    sync
+                  </span>
                 </button>
               </div>
               <div className="flex items-center gap-2">
@@ -245,22 +278,37 @@ export default function SettingsPage() {
                   onKeyDown={e => e.key === 'Enter' && handleAddPath('tv', newTvPath)}
                   className="flex-1 bg-surface-container border border-outline-variant/10 rounded-lg p-2.5 text-sm text-on-surface outline-none focus:border-primary/50 transition-colors"
                 />
-                <button onClick={() => handleAddPath('tv', newTvPath)} className="bg-primary/10 hover:bg-primary/20 text-primary px-4 py-2.5 rounded-lg text-sm font-bold transition-all">{t('page.settings.add')}</button>
+                <button
+                  onClick={() => handleAddPath('tv', newTvPath)}
+                  className="bg-primary/10 hover:bg-primary/20 text-primary px-4 py-2.5 rounded-lg text-sm font-bold transition-all"
+                >
+                  {t('page.settings.add')}
+                </button>
               </div>
               <div className="flex flex-col gap-2 mt-4 max-h-64 overflow-y-auto custom-scrollbar pr-1">
                 {tvPaths.length === 0 ? (
-                  <div className="text-center text-xs text-on-surface-variant py-4 opacity-50">{t('page.settings.noDirectories')}</div>
-                ) : tvPaths.map(path => (
-                  <div key={path.id} className="p-3 bg-surface-container rounded-lg flex items-center justify-between group">
-                    <div className="flex items-center gap-3 overflow-hidden">
-                      <span className="material-symbols-outlined text-outline text-sm shrink-0">tv</span>
-                      <span className="text-xs font-mono text-on-surface-variant truncate">{path.path}</span>
-                    </div>
-                    <button onClick={() => handleDeletePath(path.id, 'tv')} className="opacity-0 group-hover:opacity-100 text-error hover:bg-error/10 p-1.5 rounded transition-all">
-                      <span className="material-symbols-outlined text-sm">delete</span>
-                    </button>
+                  <div className="text-center text-xs text-on-surface-variant py-4 opacity-50">
+                    {t('page.settings.noDirectories')}
                   </div>
-                ))}
+                ) : (
+                  tvPaths.map(path => (
+                    <div
+                      key={path.id}
+                      className="p-3 bg-surface-container rounded-lg flex items-center justify-between group"
+                    >
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <span className="material-symbols-outlined text-outline text-sm shrink-0">tv</span>
+                        <span className="text-xs font-mono text-on-surface-variant truncate">{path.path}</span>
+                      </div>
+                      <button
+                        onClick={() => handleDeletePath(path.id, 'tv')}
+                        className="opacity-0 group-hover:opacity-100 text-error hover:bg-error/10 p-1.5 rounded transition-all"
+                      >
+                        <span className="material-symbols-outlined text-sm">delete</span>
+                      </button>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>

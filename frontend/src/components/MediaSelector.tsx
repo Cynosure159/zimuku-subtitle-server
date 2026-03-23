@@ -1,18 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Film, Tv, ChevronRight, ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { listScannedFiles } from '../api';
+import { listScannedFiles, type ScannedFile, type MediaSelection } from '../api';
 
-interface ScannedFile {
-  id: number;
-  type: string;
-  file_path: string;
-  filename: string;
-  extracted_title: string | null;
-  year: string | null;
-  season: number | null;
-  episode: number | null;
-}
+export type { MediaSelection };
 
 interface MediaItem {
   id: number | string;
@@ -22,23 +13,12 @@ interface MediaItem {
   year?: number;
   episode_count?: number;
   seasons?: number[];
-  seasonEpisodes?: Record<number, number[]>; // season -> episodes
+  seasonEpisodes?: Record<number, number[]>;
 }
 
 interface MediaSelectorProps {
   onSelect: (media: MediaSelection) => void;
   defaultType?: 'movie' | 'tv';
-}
-
-export interface MediaSelection {
-  id: number | string;
-  title: string;
-  type: 'movie' | 'tv';
-  path: string;
-  year?: number;
-  episode_count?: number;
-  season?: number;
-  episodes?: number[];
 }
 
 export default function MediaSelector({ onSelect, defaultType = 'movie' }: MediaSelectorProps) {
@@ -63,11 +43,9 @@ export default function MediaSelector({ onSelect, defaultType = 'movie' }: Media
     fetchMedia();
   }, [mediaType]);
 
-  // Group and aggregate data by title
   const mediaItems = useMemo(() => {
     if (mediaType === 'movie') {
-      // For movies, each file is a separate item
-      return rawData.map((file) => ({
+      return rawData.map(file => ({
         id: file.id,
         title: file.extracted_title || file.filename,
         path: file.file_path,
@@ -77,55 +55,54 @@ export default function MediaSelector({ onSelect, defaultType = 'movie' }: Media
         seasons: undefined,
         seasonEpisodes: undefined,
       }));
-    } else {
-      // For TV, group by title and collect seasons and episodes
-      const grouped = new Map<string, MediaItem>();
-      for (const file of rawData) {
-        const title = file.extracted_title || file.filename;
-        if (!grouped.has(title)) {
-          // Use title as id for grouped items to ensure consistency
-          grouped.set(title, {
-            id: title.split('').reduce((a, c) => a + c.charCodeAt(0), 0),
-            title,
-            path: file.file_path,
-            path_type: 'tv',
-            seasons: [],
-            episode_count: 0,
-            seasonEpisodes: {},
-          });
-        }
-        const item = grouped.get(title)!;
-        if (file.season !== null) {
-          if (!item.seasons!.includes(file.season)) {
-            item.seasons!.push(file.season);
-          }
-          // Track episodes per season
-          if (file.episode !== null) {
-            if (!item.seasonEpisodes![file.season]) {
-              item.seasonEpisodes![file.season] = [];
-            }
-            if (!item.seasonEpisodes![file.season].includes(file.episode)) {
-              item.seasonEpisodes![file.season].push(file.episode);
-            }
-          }
-        }
-        item.episode_count = (item.episode_count || 0) + 1;
-      }
-      // Sort seasons and episodes
-      for (const item of grouped.values()) {
-        item.seasons?.sort((a, b) => a - b);
-        if (item.seasonEpisodes) {
-          for (const season of Object.keys(item.seasonEpisodes)) {
-            item.seasonEpisodes[parseInt(season)].sort((a, b) => a - b);
-          }
-        }
-      }
-      return Array.from(grouped.values());
     }
+
+    const grouped = new Map<string, MediaItem>();
+    for (const file of rawData) {
+      const title = file.extracted_title || file.filename;
+      if (!grouped.has(title)) {
+        grouped.set(title, {
+          id: title.split('').reduce((a, c) => a + c.charCodeAt(0), 0),
+          title,
+          path: file.file_path,
+          path_type: 'tv',
+          seasons: [],
+          episode_count: 0,
+          seasonEpisodes: {},
+        });
+      }
+      const item = grouped.get(title)!;
+      const season = file.season;
+      if (season !== null && season !== undefined) {
+        if (!item.seasons!.includes(season)) {
+          item.seasons!.push(season);
+        }
+        const episode = file.episode;
+        if (episode !== null && episode !== undefined) {
+          if (!item.seasonEpisodes![season]) {
+            item.seasonEpisodes![season] = [];
+          }
+          if (!item.seasonEpisodes![season].includes(episode)) {
+            item.seasonEpisodes![season].push(episode);
+          }
+        }
+      }
+      item.episode_count = (item.episode_count || 0) + 1;
+    }
+
+    for (const item of grouped.values()) {
+      item.seasons?.sort((a, b) => a - b);
+      if (item.seasonEpisodes) {
+        for (const season of Object.keys(item.seasonEpisodes)) {
+          item.seasonEpisodes[parseInt(season)].sort((a, b) => a - b);
+        }
+      }
+    }
+    return Array.from(grouped.values());
   }, [rawData, mediaType]);
 
   const toggleExpand = (id: number | string) => {
-    setExpandedItems((prev) => {
+    setExpandedItems(prev => {
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
@@ -137,7 +114,6 @@ export default function MediaSelector({ onSelect, defaultType = 'movie' }: Media
   };
 
   const handleSelect = (item: MediaItem, season?: number) => {
-    // Find the first file for this title to get the id and path
     const file = rawData.find(f => (f.extracted_title || f.filename) === item.title);
     onSelect({
       id: file?.id || item.id,
@@ -161,9 +137,7 @@ export default function MediaSelector({ onSelect, defaultType = 'movie' }: Media
         <button
           onClick={() => setMediaType('movie')}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            mediaType === 'movie'
-              ? 'bg-blue-500 text-white'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            mediaType === 'movie' ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
           }`}
         >
           <Film className="w-4 h-4" />
@@ -172,9 +146,7 @@ export default function MediaSelector({ onSelect, defaultType = 'movie' }: Media
         <button
           onClick={() => setMediaType('tv')}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            mediaType === 'tv'
-              ? 'bg-blue-500 text-white'
-              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            mediaType === 'tv' ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
           }`}
         >
           <Tv className="w-4 h-4" />
@@ -189,10 +161,10 @@ export default function MediaSelector({ onSelect, defaultType = 'movie' }: Media
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {mediaItems.map((item) => (
+            {mediaItems.map(item => (
               <div key={item.id}>
                 <button
-                  onClick={() => item.path_type === 'tv' ? toggleExpand(item.id) : handleSelect(item)}
+                  onClick={() => (item.path_type === 'tv' ? toggleExpand(item.id) : handleSelect(item))}
                   className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left"
                 >
                   {item.path_type === 'tv' ? (
@@ -208,14 +180,16 @@ export default function MediaSelector({ onSelect, defaultType = 'movie' }: Media
                     <div className="font-medium text-slate-900 truncate">{item.title}</div>
                     <div className="text-sm text-slate-500 shrink-0 ml-2">
                       {item.path_type === 'movie' && item.year && `${item.year}`}
-                      {item.path_type === 'tv' && item.episode_count && t('mediaSelector.episodes', { count: item.episode_count })}
+                      {item.path_type === 'tv' &&
+                        item.episode_count &&
+                        t('mediaSelector.episodes', { count: item.episode_count })}
                     </div>
                   </div>
                 </button>
 
                 {item.path_type === 'tv' && expandedItems.has(item.id) && item.seasons && (
                   <div className="pl-10 pr-4 pb-3 flex flex-wrap gap-2">
-                    {item.seasons.map((season) => (
+                    {item.seasons.map(season => (
                       <button
                         key={season}
                         onClick={() => handleSelect(item, season)}

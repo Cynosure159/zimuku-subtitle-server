@@ -1,18 +1,7 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw, Trash2, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { listTasks, deleteTask, retryTask, clearCompletedTasks } from '../api';
-
-interface Task {
-  id: number;
-  title: string;
-  status: 'pending' | 'downloading' | 'completed' | 'failed';
-  source_url: string;
-  save_path?: string;
-  error_msg?: string;
-  created_at: string;
-  updated_at: string;
-}
+import { listTasks, deleteTask, retryTask, clearCompletedTasks, type Task } from '../api';
 
 function TaskSkeleton() {
   return (
@@ -73,19 +62,27 @@ export default function TasksPage() {
 
   const StatusIcon = ({ status }: { status: Task['status'] }) => {
     switch (status) {
-      case 'completed': return <CheckCircle2 className="w-5 h-5 text-green-500" />;
-      case 'failed': return <XCircle className="w-5 h-5 text-red-500" />;
-      case 'downloading': return <RefreshCw className="w-5 h-5 text-blue-500 animate-spin" />;
-      default: return <Clock className="w-5 h-5 text-slate-400" />;
+      case 'completed':
+        return <CheckCircle2 className="w-5 h-5 text-green-500" />;
+      case 'failed':
+        return <XCircle className="w-5 h-5 text-red-500" />;
+      case 'downloading':
+        return <RefreshCw className="w-5 h-5 text-blue-500 animate-spin" />;
+      default:
+        return <Clock className="w-5 h-5 text-slate-400" />;
     }
   };
 
   const StatusText = ({ status }: { status: Task['status'] }) => {
     switch (status) {
-      case 'completed': return <span className="text-green-600">{t('page.tasks.status.completed')}</span>;
-      case 'failed': return <span className="text-red-600">{t('page.tasks.status.failed')}</span>;
-      case 'downloading': return <span className="text-blue-600">{t('page.tasks.status.downloading')}</span>;
-      default: return <span className="text-slate-500">{t('page.tasks.status.pending')}</span>;
+      case 'completed':
+        return <span className="text-green-600">{t('page.tasks.status.completed')}</span>;
+      case 'failed':
+        return <span className="text-red-600">{t('page.tasks.status.failed')}</span>;
+      case 'downloading':
+        return <span className="text-blue-600">{t('page.tasks.status.downloading')}</span>;
+      default:
+        return <span className="text-slate-500">{t('page.tasks.status.pending')}</span>;
     }
   };
 
@@ -109,7 +106,9 @@ export default function TasksPage() {
             <TaskSkeleton />
           </div>
         ) : tasks.length === 0 ? (
-          <div className="text-slate-500 py-8 text-center bg-white rounded-2xl shadow-sm">{t('page.tasks.noTasks')}</div>
+          <div className="text-slate-500 py-8 text-center bg-white rounded-2xl shadow-sm">
+            {t('page.tasks.noTasks')}
+          </div>
         ) : (
           tasks.map(task => (
             <div
@@ -124,7 +123,9 @@ export default function TasksPage() {
                   </div>
                   <div className="text-xs text-slate-500 flex gap-4">
                     <StatusText status={task.status} />
-                    <span>{t('page.tasks.createdAt')}: {new Date(task.created_at).toLocaleString()}</span>
+                    <span>
+                      {t('page.tasks.createdAt')}: {new Date(task.created_at).toLocaleString()}
+                    </span>
                   </div>
                   {task.error_msg && (
                     <div className="text-xs text-red-500 truncate" title={task.error_msg}>

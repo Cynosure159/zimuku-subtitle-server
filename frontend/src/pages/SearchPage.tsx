@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { searchSubtitles, type SearchResult as SearchResultType } from '../api';
+import { searchSubtitles, type SearchResult } from '../api';
 import SearchResultRow from '../components/SearchResultRow';
 import DownloadModal from '../components/DownloadModal';
 
@@ -10,21 +10,25 @@ export default function SearchPage() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeFilter, setActiveFilter] = useState(t('searchFilter.all'));
-  const filters = [t('searchFilter.all'), t('searchFilter.simplified'), t('searchFilter.traditional'), t('searchFilter.english'), t('searchFilter.bilingual')];
+  const filters = [
+    t('searchFilter.all'),
+    t('searchFilter.simplified'),
+    t('searchFilter.traditional'),
+    t('searchFilter.english'),
+    t('searchFilter.bilingual'),
+  ];
 
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<SearchResultType[]>([]);
+  const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [selectedSubtitle, setSelectedSubtitle] = useState<SearchResultType | null>(null);
+  const [selectedSubtitle, setSelectedSubtitle] = useState<SearchResult | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
-  // Handle search params on mount
   useEffect(() => {
     const qParam = searchParams.get('q');
     if (qParam) {
       setQuery(qParam);
-      // Trigger search with the query from URL
       const doSearch = async () => {
         setLoading(true);
         setError('');
@@ -39,7 +43,6 @@ export default function SearchPage() {
         }
       };
       doSearch();
-      // Clear the search param from URL
       setSearchParams(new URLSearchParams(), { replace: true });
     }
   }, [searchParams, setSearchParams, t]);
@@ -59,14 +62,13 @@ export default function SearchPage() {
     }
   };
 
-  const handleDownload = (item: SearchResultType) => {
+  const handleDownload = (item: SearchResult) => {
     setSelectedSubtitle(item);
     setModalOpen(true);
   };
 
-  const handleDownloadConfirm = async () => {
+  const handleDownloadConfirm = () => {
     // The actual download is handled in DownloadModal
-    // This callback is for showing success feedback
   };
 
   const handleModalClose = () => {
@@ -88,28 +90,29 @@ export default function SearchPage() {
   const filteredResults = results.filter(item => {
     const filterLabel = getFilterLabel(activeFilter);
     if (filterLabel === t('searchFilter.all')) return true;
-    if (!item.lang) return true; // If no lang parsed, show it anyway
+    if (!item.lang) return true;
     return item.lang.some(lang => lang.includes(filterLabel));
   });
 
   return (
     <div className="flex flex-col w-full h-full max-w-[1800px] overflow-y-auto custom-scrollbar px-4 pb-12">
-      {/* Hero Search Section - Sticky Header */}
       <div className="sticky top-0 z-30 pt-8 pb-6 bg-background/80 backdrop-blur-xl -mx-4 px-4">
         <div className="max-w-5xl w-full mx-auto">
           <div className="text-center mb-8">
-            <h2 className="font-headline text-3xl font-extrabold tracking-tight text-on-surface">{t('page.search.title')}</h2>
+            <h2 className="font-headline text-3xl font-extrabold tracking-tight text-on-surface">
+              {t('page.search.title')}
+            </h2>
           </div>
-          
+
           <div className="relative group mx-auto max-w-3xl w-full">
-            <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-tertiary/20 rounded-2xl blur-xl opacity-0 group-focus-within:opacity-100 transition duration-500"></div>
+            <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-tertiary/20 rounded-2xl blur-xl opacity-0 group-focus-within:opacity-100 transition duration-500" />
             <div className="relative flex items-center bg-surface-container-low border border-outline-variant/10 rounded-2xl p-2 shadow-2xl backdrop-blur-3xl focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary/20 transition-all">
               <span className="material-symbols-outlined ml-4 text-on-surface-variant text-2xl">search</span>
               <input
                 type="text"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                onChange={e => setQuery(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSearch()}
                 placeholder={t('page.search.placeholder')}
                 className="w-full bg-transparent border-none focus:ring-0 text-lg font-body text-on-surface placeholder:text-outline/50 px-4 py-4 outline-none"
               />
@@ -124,7 +127,6 @@ export default function SearchPage() {
             </div>
           </div>
 
-          {/* Language Filter Tags */}
           <div className="flex flex-wrap justify-center items-center gap-2 mt-6">
             {filters.map(filter => {
               const isActive = activeFilter === filter;
@@ -151,28 +153,29 @@ export default function SearchPage() {
         </div>
       </div>
 
-      {/* Results Section */}
       <section className="max-w-5xl mx-auto w-full mt-10">
         {(results.length > 0 || error) && (
           <div className="flex items-baseline justify-between mb-8 px-4">
             <h3 className="font-headline text-xl font-bold text-indigo-100 flex items-center gap-2">
-              Results 
+              Results
               {results.length > 0 && (
-                <span className="text-sm font-medium text-outline/60 ml-2">Found {filteredResults.length} matches</span>
+                <span className="text-sm font-medium text-outline/60 ml-2">
+                  Found {filteredResults.length} matches
+                </span>
               )}
             </h3>
           </div>
         )}
 
-        {error && <div className="text-error text-center py-4 bg-error-container/20 border border-error/20 rounded-xl mb-6">{error}</div>}
+        {error && (
+          <div className="text-error text-center py-4 bg-error-container/20 border border-error/20 rounded-xl mb-6">
+            {error}
+          </div>
+        )}
 
         <div className="flex flex-col gap-4">
           {filteredResults.map((item, index) => (
-            <SearchResultRow
-              key={index}
-              item={item}
-              onDownload={handleDownload}
-            />
+            <SearchResultRow key={index} item={item} onDownload={handleDownload} />
           ))}
           {results.length > 0 && filteredResults.length === 0 && (
             <div className="text-on-surface-variant text-sm py-12 text-center bg-surface-container rounded-2xl border border-outline-variant/10">
@@ -182,12 +185,7 @@ export default function SearchPage() {
         </div>
       </section>
 
-      <DownloadModal
-        isOpen={modalOpen}
-        onClose={handleModalClose}
-        subtitle={selectedSubtitle}
-        onDownload={handleDownloadConfirm}
-      />
+      <DownloadModal isOpen={modalOpen} onClose={handleModalClose} subtitle={selectedSubtitle} onDownload={handleDownloadConfirm} />
     </div>
   );
 }

@@ -25,7 +25,6 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
   const [loading, setLoading] = useState(false);
   const [mediaSelectorType, setMediaSelectorType] = useState<'movie' | 'tv'>('movie');
 
-  // Reset selections when modal opens with new subtitle
   useEffect(() => {
     if (subtitle) {
       setSelectedLangs(subtitle.lang || []);
@@ -33,7 +32,6 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
     }
   }, [subtitle]);
 
-  // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       setTargetMedia(null);
@@ -51,7 +49,6 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
       setSelectedSeason(undefined);
       setSelectedEpisode(undefined);
     } else {
-      // TV series - always reset episode, keep season if selected
       setSelectedEpisode(undefined);
       if (media.season) {
         setSelectedSeason(media.season);
@@ -68,7 +65,8 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
   const handleDownload = async () => {
     if (!subtitle) return;
 
-    const hasMediaTarget = targetMedia && (targetMedia.type === 'movie' || (selectedSeason && selectedEpisode));
+    const hasMediaTarget =
+      targetMedia && (targetMedia.type === 'movie' || (selectedSeason && selectedEpisode));
     const hasCustomPath = customPath.trim();
 
     if (!hasMediaTarget && !hasCustomPath) return;
@@ -86,11 +84,7 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
           selectedLangs[0]
         );
       } else if (hasCustomPath) {
-        await createDownloadTask(
-          subtitle.title,
-          subtitle.link,
-          customPath.trim()
-        );
+        await createDownloadTask(subtitle.title, subtitle.link, customPath.trim());
       }
       onDownload?.();
       onClose();
@@ -125,7 +119,12 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
 
   if (!subtitle) return null;
 
-  const availableLangs = subtitle.lang || [t('searchFilter.simplified'), t('searchFilter.traditional'), t('searchFilter.english'), t('searchFilter.bilingual')];
+  const availableLangs = subtitle.lang || [
+    t('searchFilter.simplified'),
+    t('searchFilter.traditional'),
+    t('searchFilter.english'),
+    t('searchFilter.bilingual'),
+  ];
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={t('download.title')}>
@@ -133,21 +132,21 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
         <div className="bg-slate-50 rounded-lg p-4">
           <h3 className="font-medium text-slate-900">{subtitle.title}</h3>
           {subtitle.format && (
-            <p className="text-sm text-slate-500 mt-1">{t('download.format')}: {subtitle.format}</p>
+            <p className="text-sm text-slate-500 mt-1">
+              {t('download.format')}: {subtitle.format}
+            </p>
           )}
         </div>
 
         <div className="flex flex-col gap-2">
           <label className="text-sm font-medium text-slate-700">{t('download.selectLanguage')}</label>
           <div className="flex flex-wrap gap-2">
-            {availableLangs.map((lang) => (
+            {availableLangs.map(lang => (
               <button
                 key={lang}
                 onClick={() => {
-                  setSelectedLangs((prev) =>
-                    prev.includes(lang)
-                      ? prev.filter((l) => l !== lang)
-                      : [...prev, lang]
+                  setSelectedLangs(prev =>
+                    prev.includes(lang) ? prev.filter(l => l !== lang) : [...prev, lang]
                   );
                 }}
                 className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
@@ -202,11 +201,7 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
 
         {getTargetDisplay() && (
           <div className="flex items-center gap-2 text-sm text-slate-600 bg-blue-50 px-3 py-2 rounded-lg">
-            {targetMedia?.type === 'movie' ? (
-              <Film className="w-4 h-4" />
-            ) : (
-              <Tv className="w-4 h-4" />
-            )}
+            {targetMedia?.type === 'movie' ? <Film className="w-4 h-4" /> : <Tv className="w-4 h-4" />}
             <span>{getTargetDisplay()}</span>
           </div>
         )}
@@ -216,11 +211,7 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
             onClick={() => setShowAdvanced(!showAdvanced)}
             className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 transition-colors"
           >
-            {showAdvanced ? (
-              <ChevronUp className="w-4 h-4" />
-            ) : (
-              <ChevronDown className="w-4 h-4" />
-            )}
+            {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             {t('download.advancedOptions')}
           </button>
 
@@ -229,13 +220,11 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
               <input
                 type="text"
                 value={customPath}
-                onChange={(e) => setCustomPath(e.target.value)}
+                onChange={e => setCustomPath(e.target.value)}
                 placeholder={t('download.customPathPlaceholder')}
                 className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg outline-none focus:border-blue-500"
               />
-              <p className="text-xs text-slate-500 mt-1">
-                {t('download.customPathNote')}
-              </p>
+              <p className="text-xs text-slate-500 mt-1">{t('download.customPathNote')}</p>
             </div>
           )}
         </div>
