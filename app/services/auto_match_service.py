@@ -66,7 +66,7 @@ class SubtitleCandidateScorer:
         return score
 
 
-class AutoMatchService:
+class AutoMatchWorkflow:
     def __init__(
         self,
         session_factory: Callable[[], AbstractContextManager[Session]],
@@ -206,7 +206,7 @@ class AutoMatchService:
         return sorted(candidates, key=lambda candidate: candidate.score, reverse=True)
 
 
-class SeasonMatchService:
+class SeasonMatchWorkflow:
     def __init__(
         self,
         session_factory: Callable[[], AbstractContextManager[Session]],

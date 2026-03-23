@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 
 from ..db.models import MediaPath, ScannedFile
 from ..db.session import session_scope
-from .auto_match_service import AutoMatchService, SeasonMatchService
+from .auto_match_service import AutoMatchWorkflow, SeasonMatchWorkflow
 from .media_scan_pipeline import MediaScanPipeline
 
 logger = logging.getLogger(__name__)
@@ -110,7 +110,7 @@ class MediaService:
     async def _run_auto_match_internal(file_id: int):
         global_task_status.matching_files.add(file_id)
         try:
-            service = AutoMatchService(session_factory=session_scope)
+            service = AutoMatchWorkflow(session_factory=session_scope)
             return await service.run_for_file(file_id)
         except Exception as e:
             logger.error(f"自动匹配异常: {e}", exc_info=True)
@@ -122,7 +122,7 @@ class MediaService:
     async def run_season_match_process(title: str, season: int):
         global_task_status.matching_seasons.add((title, season))
         try:
-            service = SeasonMatchService(
+            service = SeasonMatchWorkflow(
                 session_factory=session_scope,
                 auto_match_runner=MediaService.run_auto_match_process,
             )
