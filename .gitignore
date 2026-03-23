@@ -20,8 +20,17 @@ build/
 .python-version
 .claudecignore
 .clauderules
+.claude/
 .claude/settings.local.json
 .planning/
+.DS_Store
 
 # 编辑器配置
 .vscode/
+.idea/
+
+# 覆盖率与静态检查缓存
+.coverage
+htmlcov/
+.mypy_cache/
+.eslintcache
