@@ -6,6 +6,9 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .tmp/
+.env.production
+.env.test
+.test_scripts/
 storage/zimuku.db
 storage/downloads/
 storage/tmp/

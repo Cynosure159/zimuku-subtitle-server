@@ -174,8 +174,10 @@ class ZimukuAgent:
         *,
         headers: Optional[dict[str, str]] = None,
         allow_direct_fallback: bool = False,
+        allow_statuses: Optional[set[int]] = None,
     ) -> httpx.Response:
         last_error: Optional[Exception] = None
+        allowed_statuses = allow_statuses or set()
 
         for attempt in range(1, self.max_retries + 1):
             await self._wait_for_request_slot()
@@ -189,6 +191,9 @@ class ZimukuAgent:
             )
             try:
                 response = await self.client.get(url, headers=headers)
+                if response.status_code in allowed_statuses:
+                    logger.warning("请求返回允许透传状态码 status=%s url=%s", response.status_code, url)
+                    return response
                 response.raise_for_status()
                 return response
             except (httpx.ConnectError, httpx.ProxyError) as exc:
@@ -198,6 +203,13 @@ class ZimukuAgent:
                     try:
                         async with httpx.AsyncClient(timeout=self.request_timeout, follow_redirects=True) as client:
                             response = await client.get(url, headers=headers)
+                            if response.status_code in allowed_statuses:
+                                logger.warning(
+                                    "直连请求返回允许透传状态码 status=%s url=%s",
+                                    response.status_code,
+                                    url,
+                                )
+                                return response
                             response.raise_for_status()
                             return response
                     except (httpx.RequestError, httpx.HTTPStatusError) as direct_exc:
@@ -225,20 +237,35 @@ class ZimukuAgent:
         assert last_error is not None
         raise last_error
 
+    @staticmethod
+    def _is_captcha_page(html: str) -> bool:
+        markers = (
+            'class="verifyimg"',
+            "security_verify_img",
+            "网站防火墙",
+            "验证码不能为空",
+        )
+        return any(marker in html for marker in markers)
+
     async def _get_page(self, url: str) -> str:
         """异步获取页面内容，自动处理验证码挑战，并支持代理重试"""
         try:
-            response = await self._request(url, allow_direct_fallback=True)
+            response = await self._request(url, allow_direct_fallback=True, allow_statuses={404})
             html = response.text
         except (httpx.RequestError, httpx.HTTPStatusError) as e:
             logger.error("页面请求失败 url=%s error=%s", url, e)
             raise
 
+        if response.status_code >= 400 and not self._is_captcha_page(html):
+            response.raise_for_status()
+
         # 检测是否触发验证码
-        if 'class="verifyimg"' in html:
+        if self._is_captcha_page(html):
             logger.info("检测到验证码挑战，正在尝试绕过...")
             if await self._solve_captcha(url, html):
-                response = await self._request(url, allow_direct_fallback=True)
+                response = await self._request(url, allow_direct_fallback=True, allow_statuses={404})
+                if response.status_code >= 400 and not self._is_captcha_page(response.text):
+                    response.raise_for_status()
                 return response.text
             else:
                 logger.error("验证码挑战失败")

@@ -110,7 +110,25 @@ The easiest way to get started in production:
 
 ```bash
 # Build and start all services
-docker-compose up --build
+docker compose up --build
+
+# Validate compose config only
+docker compose config
+
+# Build the production backend image (no suffix tag)
+docker build --file Dockerfile --target runtime --tag zimuku-subtitle-server-backend:latest .
+
+# Build the develop backend image (-develop tag)
+docker build --file Dockerfile --target develop --tag zimuku-subtitle-server-backend:develop .
+
+# Start with the production env template
+docker compose --env-file .env.production up -d --build
+
+# Start with the test env template
+docker compose --env-file .env.test up --build
+
+# Start the develop backend variant with the override file
+docker compose -f docker-compose.yml -f docker-compose.develop.yml --env-file .env.test up --build
 ```
 
 | Service | URL | Description |
@@ -123,20 +141,34 @@ docker-compose up --build
 
 ```bash
 # Backend only
-docker-compose build backend
-docker-compose up backend
+docker compose build backend
+docker compose up backend
 
 # Frontend only
-docker-compose build frontend
-docker-compose up frontend
+docker compose build frontend
+docker compose up frontend
 ```
 
 </details>
 
 > **Notes:**
 > - Backend storage is mounted to `./storage` on the host
+> - Movie and TV libraries can be mounted read-only into `/media/movies` and `/media/tv`
 > - Backend runs as a non-root user for security
 > - Frontend proxies `/api/*` requests to the backend
+> - The production backend image uses the `runtime` target with locked packages from `requirements.prod.txt`, and defaults to the `zimuku-subtitle-server-backend:latest` tag
+> - The develop backend image uses the `develop` target, keeps development dependencies, and should use the `zimuku-subtitle-server-backend:develop` tag
+> - Local Docker verification can start with `docker compose config` and `docker compose build`
+> - Use `.env.production.example` / `.env.test.example` as Compose environment templates
+
+### Docker Image Rules
+
+- Production backend images use tags without a suffix, such as `latest` or `1.0.0`
+- Develop backend images use the `-develop` suffix, such as `develop` or `1.0.0-develop`
+- The default [`docker-compose.yml`](/Users/cy/Projects/zimuku-subtitle-server/docker-compose.yml#L1) builds the `runtime` target
+- [`docker-compose.develop.yml`](/Users/cy/Projects/zimuku-subtitle-server/docker-compose.develop.yml#L1) switches the backend to the `develop` target and bind-mounts backend source files for development
+
+When using Docker-mounted media libraries, configure media paths in the app as `/media/movies` and `/media/tv`, not as the original host paths.
 
 ## 🤖 MCP Integration
 
@@ -193,8 +225,10 @@ pytest tests/test_scraper.py
 
 This project uses [GitHub Actions](https://github.com/Cynosure159/zimuku-subtitle-server/actions/workflows/ci.yml) for continuous integration:
 
-- **Backend**: Ruff lint & format checks → Pytest
-- **Frontend**: npm install → Build → ESLint
+- **Backend**: install `requirements.txt` → Ruff lint & format checks → Pytest
+- **Frontend**: `npm ci` → Build → ESLint
+- **Docker**: `docker compose config` → backend image build → frontend image build
+- **Docker**: validate default/develop compose configs → build backend `runtime`/`develop` targets → build frontend image
 
 ## 📁 Project Structure
 
@@ -211,8 +245,10 @@ zimuku-subtitle-server/
 ├── tests/                  # Test suite
 ├── .github/workflows/      # CI configuration
 ├── docker-compose.yml      # Docker orchestration
+├── docker-compose.develop.yml # Develop Docker override
 ├── Dockerfile              # Backend Docker image
-└── requirements.txt        # Python dependencies
+├── requirements.txt        # Development Python dependencies
+└── requirements.prod.txt   # Locked production Python dependencies
 ```
 
 ## 🤝 Contributing

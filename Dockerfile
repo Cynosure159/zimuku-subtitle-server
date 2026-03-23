@@ -1,53 +1,62 @@
-# Build stage for dependencies
-FROM python:3.12-slim AS builder
+FROM python:3.12-alpine AS python-base
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    libxml2-dev \
-    libxslt-dev \
-    && rm -rf /var/lib/apt/lists/*
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    VIRTUAL_ENV=/opt/venv \
+    PATH="/opt/venv/bin:$PATH"
 
-# Install Python dependencies (exclude dev-only packages)
-RUN pip install --no-cache-dir \
-    fastapi \
-    uvicicorn \
-    httpx \
-    beautifulsoup4 \
-    lxml \
-    sqlmodel \
-    python-multipart \
-    pyyaml \
-    py7zr \
-    mcp
+FROM python-base AS builder-base
 
-# Production stage
-FROM python:3.12-slim
+WORKDIR /build
 
-# Create non-root user
-RUN groupadd --gid 1000 appgroup && \
-    useradd --uid 1000 --gid appgroup --shell /bin/bash --create-home appuser
+RUN python -m venv "$VIRTUAL_ENV"
 
-# Copy installed packages from builder
-COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
+FROM builder-base AS deps-prod
 
-# Copy application code
+COPY requirements.prod.txt .
+RUN pip install --no-compile -r requirements.prod.txt && \
+    find "$VIRTUAL_ENV" -type d -name '__pycache__' -prune -exec rm -rf {} + && \
+    find "$VIRTUAL_ENV" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete && \
+    find "$VIRTUAL_ENV" -type d \( -name 'tests' -o -name 'test' \) -prune -exec rm -rf {} + && \
+    rm -rf \
+        "$VIRTUAL_ENV"/bin/pip* \
+        "$VIRTUAL_ENV"/lib/python3.12/site-packages/pip* \
+        "$VIRTUAL_ENV"/lib/python3.12/site-packages/setuptools* \
+        "$VIRTUAL_ENV"/lib/python3.12/site-packages/wheel*
+
+FROM builder-base AS deps-develop
+
+COPY requirements.prod.txt requirements.txt ./
+RUN pip install -r requirements.txt
+
+FROM python-base AS runtime-base
+
+RUN addgroup -g 1000 -S appgroup && \
+    adduser -u 1000 -S -D -h /home/appuser -s /sbin/nologin -G appgroup appuser
+
 WORKDIR /app
-COPY app/ app/
-COPY storage/ storage/
-COPY pyproject.toml .
-COPY requirements.txt .
+
+COPY app ./app
 COPY run_mcp.py .
 
-# Create storage directory with correct permissions
 RUN mkdir -p /app/storage && chown -R appuser:appgroup /app
 
-# Switch to non-root user
-USER appuser
-
-# Expose port
 EXPOSE 8000
 
-# Run uvicorn
+FROM runtime-base AS runtime
+
+COPY --from=deps-prod /opt/venv /opt/venv
+
+USER appuser
+
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+FROM runtime-base AS develop
+
+COPY --from=deps-develop /opt/venv /opt/venv
+
+USER appuser
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

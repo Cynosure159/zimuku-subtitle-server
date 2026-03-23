@@ -129,6 +129,21 @@ python run_mcp.py
 - 剧集季补全采用顺序执行模式（间隔 2s），避免并发导致封禁
 - 修改代码后，按照需要修订文档；有功能修改需要看是否修改、添加对应的单元测试
 
+## Docker 与 Compose 约定
+
+- 后端 `Dockerfile` 使用双 target 结构：
+  - `runtime` 用于正式镜像
+  - `develop` 用于开发镜像
+- 正式镜像 tag 不带后缀，例如 `latest`、`1.0.0`
+- 开发镜像 tag 带 `-develop` 后缀，例如 `develop`、`1.0.0-develop`
+- 默认 [`docker-compose.yml`](docker-compose.yml) 面向正式环境，后端构建应使用 `runtime` target
+- 开发模式应叠加 [`docker-compose.develop.yml`](docker-compose.develop.yml)，只覆盖与正式配置不同的部分，例如 develop target、源码挂载和调试日志
+- 生产和测试环境变量分别参考 `.env.production.example` 与 `.env.test.example`
+- 媒体库目录应通过 Compose `volumes` 挂载到容器内；在应用中配置媒体路径时，应填写容器内路径而不是宿主机原始路径
+- 修改 Dockerfile、Compose 文件或环境模板后，至少执行以下校验：
+  - `docker compose config`
+  - 相关镜像的 `docker compose build` 或 `docker build --target ...`
+
 ### Git 操作规范
 
 - **除非用户明确要求**，禁止执行任何 Git 提交 (`git commit`) 或推送 (`git push`) 操作

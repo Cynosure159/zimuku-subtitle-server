@@ -1,0 +1,8 @@
+fastapi==0.135.1
+uvicorn==0.42.0
+httpx==0.28.1
+beautifulsoup4==4.14.3
+sqlmodel==0.0.37
+python-multipart==0.0.22
+py7zr==1.1.0
+mcp==1.26.0
