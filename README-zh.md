@@ -110,7 +110,16 @@ npm run dev
 
 ```bash
 # 构建并启动所有服务
-docker-compose up --build
+docker compose up --build
+
+# 仅校验 compose 配置
+docker compose config
+
+# 使用生产环境变量模板启动
+docker compose --env-file .env.production up -d --build
+
+# 使用测试环境变量模板启动
+docker compose --env-file .env.test up --build
 ```
 
 | 服务 | 地址 | 说明 |
@@ -123,20 +132,26 @@ docker-compose up --build
 
 ```bash
 # 仅后端
-docker-compose build backend
-docker-compose up backend
+docker compose build backend
+docker compose up backend
 
 # 仅前端
-docker-compose build frontend
-docker-compose up frontend
+docker compose build frontend
+docker compose up frontend
 ```
 
 </details>
 
 > **注意事项：**
 > - 后端存储挂载到宿主机的 `./storage` 目录
+> - 电影和剧集媒体库会以只读方式挂载到 `/media/movies` 和 `/media/tv`
 > - 后端以非 root 用户运行，确保安全性
 > - 前端将 `/api/*` 请求代理到后端
+> - 后端镜像使用 `requirements.prod.txt` 中锁定的生产依赖
+> - 本地验证 Docker 改动时，可先执行 `docker compose config` 和 `docker compose build`
+> - 可基于 `.env.production.example` / `.env.test.example` 生成 Compose 环境变量文件
+
+如果使用 Docker 挂载的媒体库，请在应用中配置媒体路径为 `/media/movies` 和 `/media/tv`，不要填写宿主机原始路径。
 
 ## 🤖 MCP 集成
 
@@ -193,8 +208,9 @@ pytest tests/test_scraper.py
 
 项目使用 [GitHub Actions](https://github.com/Cynosure159/zimuku-subtitle-server/actions/workflows/ci.yml) 进行持续集成：
 
-- **后端**：Ruff 代码检查与格式化 → Pytest 单元测试
-- **前端**：npm 安装依赖 → 构建 → ESLint 检查
+- **后端**：安装 `requirements.txt` → Ruff 代码检查与格式化 → Pytest 单元测试
+- **前端**：`npm ci` → 构建 → ESLint 检查
+- **Docker**：`docker compose config` → 后端镜像构建 → 前端镜像构建
 
 ## 📁 项目结构
 
@@ -212,7 +228,8 @@ zimuku-subtitle-server/
 ├── .github/workflows/      # CI 配置
 ├── docker-compose.yml      # Docker 编排
 ├── Dockerfile              # 后端 Docker 镜像
-└── requirements.txt        # Python 依赖
+├── requirements.txt        # 开发环境 Python 依赖
+└── requirements.prod.txt   # 锁定的生产环境 Python 依赖
 ```
 
 ## 🤝 参与贡献

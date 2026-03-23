@@ -1,32 +1,58 @@
-version: "3.8"
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
 
 services:
   backend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: zimuku-backend
+    init: true
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT:-8000}:8000"
     volumes:
-      - ./storage:/app/storage
+      - ${ZIMUKU_STORAGE_BIND:-./storage}:/app/storage
+      - ${MEDIA_MOVIES_BIND:-./media/movies}:/media/movies:ro
+      - ${MEDIA_TV_BIND:-./media/tv}:/media/tv:ro
     environment:
-      - PYTHONUNBUFFERED=1
+      TZ: ${TZ:-Asia/Shanghai}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      UVICORN_LOG_LEVEL: ${UVICORN_LOG_LEVEL:-INFO}
+      ZIMUKU_STORAGE_PATH: /app/storage
+      ZIMUKU_DATABASE_URL: ${ZIMUKU_DATABASE_URL:-}
+      ZIMUKU_DB_PATH: ${ZIMUKU_DB_PATH:-}
+      ZIMUKU_DOWNLOAD_PATH: ${ZIMUKU_DOWNLOAD_PATH:-}
+      ZIMUKU_TEMP_PATH: ${ZIMUKU_TEMP_PATH:-}
+      ZIMUKU_EXTRACTED_PATH: ${ZIMUKU_EXTRACTED_PATH:-}
+      ZIMUKU_BASE_URL: ${ZIMUKU_BASE_URL:-}
+      ZIMUKU_PROXY: ${ZIMUKU_PROXY:-}
+      ZIMUKU_LOG_FILE: ${ZIMUKU_LOG_FILE:-}
+      ZIMUKU_REQUEST_TIMEOUT_SECONDS: ${ZIMUKU_REQUEST_TIMEOUT_SECONDS:-}
+      ZIMUKU_REQUEST_MAX_RETRIES: ${ZIMUKU_REQUEST_MAX_RETRIES:-}
+      ZIMUKU_REQUEST_BACKOFF_SECONDS: ${ZIMUKU_REQUEST_BACKOFF_SECONDS:-}
+      ZIMUKU_REQUEST_MIN_INTERVAL_SECONDS: ${ZIMUKU_REQUEST_MIN_INTERVAL_SECONDS:-}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
+    logging: *default-logging
     restart: unless-stopped
 
   frontend:
     build:
-      context: .
-      dockerfile: frontend/Dockerfile
-    container_name: zimuku-frontend
+      context: ./frontend
+      dockerfile: Dockerfile
+    init: true
     ports:
-      - "80:80"
+      - "${FRONTEND_PORT:-80}:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+    logging: *default-logging
     restart: unless-stopped

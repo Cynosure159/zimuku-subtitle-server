@@ -110,7 +110,16 @@ The easiest way to get started in production:
 
 ```bash
 # Build and start all services
-docker-compose up --build
+docker compose up --build
+
+# Validate compose config only
+docker compose config
+
+# Start with the production env template
+docker compose --env-file .env.production up -d --build
+
+# Start with the test env template
+docker compose --env-file .env.test up --build
 ```
 
 | Service | URL | Description |
@@ -123,20 +132,26 @@ docker-compose up --build
 
 ```bash
 # Backend only
-docker-compose build backend
-docker-compose up backend
+docker compose build backend
+docker compose up backend
 
 # Frontend only
-docker-compose build frontend
-docker-compose up frontend
+docker compose build frontend
+docker compose up frontend
 ```
 
 </details>
 
 > **Notes:**
 > - Backend storage is mounted to `./storage` on the host
+> - Movie and TV libraries can be mounted read-only into `/media/movies` and `/media/tv`
 > - Backend runs as a non-root user for security
 > - Frontend proxies `/api/*` requests to the backend
+> - Backend image installs locked packages from `requirements.prod.txt`
+> - Local Docker verification can start with `docker compose config` and `docker compose build`
+> - Use `.env.production.example` / `.env.test.example` as Compose environment templates
+
+When using Docker-mounted media libraries, configure media paths in the app as `/media/movies` and `/media/tv`, not as the original host paths.
 
 ## 🤖 MCP Integration
 
@@ -193,8 +208,9 @@ pytest tests/test_scraper.py
 
 This project uses [GitHub Actions](https://github.com/Cynosure159/zimuku-subtitle-server/actions/workflows/ci.yml) for continuous integration:
 
-- **Backend**: Ruff lint & format checks → Pytest
-- **Frontend**: npm install → Build → ESLint
+- **Backend**: install `requirements.txt` → Ruff lint & format checks → Pytest
+- **Frontend**: `npm ci` → Build → ESLint
+- **Docker**: `docker compose config` → backend image build → frontend image build
 
 ## 📁 Project Structure
 
@@ -212,7 +228,8 @@ zimuku-subtitle-server/
 ├── .github/workflows/      # CI configuration
 ├── docker-compose.yml      # Docker orchestration
 ├── Dockerfile              # Backend Docker image
-└── requirements.txt        # Python dependencies
+├── requirements.txt        # Development Python dependencies
+└── requirements.prod.txt   # Locked production Python dependencies
 ```
 
 ## 🤝 Contributing
