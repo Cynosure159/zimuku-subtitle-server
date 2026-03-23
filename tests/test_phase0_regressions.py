@@ -93,8 +93,8 @@ async def test_tv_download_moves_subtitle_into_episode_directory(monkeypatch, su
         close=AsyncMock(return_value=None),
     )
 
-    monkeypatch.setattr("app.services.task_service.ZimukuAgent", lambda: agent)
-    monkeypatch.setattr("app.services.task_service.ConfigManager.get", lambda *args, **kwargs: str(download_dir))
+    monkeypatch.setattr("app.services.download_workflow.ZimukuAgent", lambda: agent)
+    monkeypatch.setattr("app.services.download_workflow.ConfigManager.get", lambda *args, **kwargs: str(download_dir))
 
     with Session(engine) as session:
         task = TaskService.create_task(
@@ -136,13 +136,13 @@ async def test_download_partial_failure_is_not_marked_completed(monkeypatch, tmp
         close=AsyncMock(return_value=None),
     )
 
-    monkeypatch.setattr("app.services.task_service.ZimukuAgent", lambda: agent)
-    monkeypatch.setattr("app.services.task_service.ConfigManager.get", lambda *args, **kwargs: str(download_dir))
+    monkeypatch.setattr("app.services.download_workflow.ZimukuAgent", lambda: agent)
+    monkeypatch.setattr("app.services.download_workflow.ConfigManager.get", lambda *args, **kwargs: str(download_dir))
 
     def raise_move_error(*args, **kwargs):
         raise OSError("disk full")
 
-    monkeypatch.setattr("app.services.task_service.shutil.move", raise_move_error)
+    monkeypatch.setattr("app.services.download_workflow.shutil.move", raise_move_error)
 
     with Session(engine) as session:
         task = TaskService.create_task(

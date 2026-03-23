@@ -6,6 +6,7 @@ import pytest
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from app.db.models import SubtitleTask
+from app.services.download_workflow import DownloadWorkflow, DownloadWorkflowError, SubtitleFileSelector, SubtitleMover
 from app.services.task_service import TaskService
 
 # 使用内存数据库进行测试
@@ -279,3 +280,67 @@ def test_list_tasks_order_by_created_at(session):
     assert tasks[0].title == "Third"
     assert tasks[1].title == "Second"
     assert tasks[2].title == "First"
+
+
+def test_subtitle_file_selector_collects_sorted_candidates(tmp_path):
+    nested = tmp_path / "nested"
+    nested.mkdir()
+    (nested / "b.ass").write_text("ass", encoding="utf-8")
+    (tmp_path / "a.srt").write_text("srt", encoding="utf-8")
+    (tmp_path / "ignore.txt").write_text("skip", encoding="utf-8")
+
+    candidates = SubtitleFileSelector.collect_candidates(str(tmp_path))
+
+    assert candidates == [str(tmp_path / "a.srt"), str(nested / "b.ass")]
+
+
+def test_subtitle_file_selector_raises_when_missing(tmp_path):
+    with pytest.raises(DownloadWorkflowError, match="未找到可用字幕文件"):
+        SubtitleFileSelector.select_best(str(tmp_path))
+
+
+def test_subtitle_mover_plans_movie_destination(tmp_path):
+    movie_file = tmp_path / "Interstellar.mkv"
+    movie_file.write_text("video", encoding="utf-8")
+    subtitle_file = tmp_path / "downloaded.srt"
+    subtitle_file.write_text("subtitle", encoding="utf-8")
+
+    task = SubtitleTask(
+        id=1,
+        title="Interstellar",
+        source_url="http://example.com/interstellar",
+        target_path=str(movie_file),
+        target_type="movie",
+        language="zh-CN",
+    )
+
+    placement = SubtitleMover.plan_move(task, str(subtitle_file))
+
+    assert placement.source_path == str(subtitle_file)
+    assert placement.destination_path == str(tmp_path / "Interstellar.zh-CN.srt")
+
+
+@pytest.mark.anyio
+async def test_download_workflow_extracts_archive(monkeypatch, subtitle_zip_bytes, tmp_path):
+    class FakeAgent:
+        async def get_download_page_links(self, source_url):
+            return ["http://example.com/download.zip"]
+
+        async def download_file(self, download_links, referer):
+            return "subtitle.zip", subtitle_zip_bytes({"episode.srt": "subtitle"})
+
+        async def close(self):
+            return None
+
+    monkeypatch.setattr("app.services.download_workflow.ConfigManager.get", lambda *args, **kwargs: str(tmp_path))
+
+    workflow = DownloadWorkflow(agent=FakeAgent())
+    task = SubtitleTask(id=1, title="Test", source_url="http://example.com/detail")
+
+    artifact = await workflow.execute(task)
+
+    assert artifact.filename == "subtitle.zip"
+    assert artifact.file_path == str(tmp_path / "subtitle.zip")
+    assert artifact.save_path == str(tmp_path / "subtitle")
+    assert artifact.extracted_files == [str(tmp_path / "subtitle" / "episode.srt")]
+    await workflow.close()
