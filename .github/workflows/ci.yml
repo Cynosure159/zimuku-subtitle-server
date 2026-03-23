@@ -83,4 +83,4 @@ jobs:
         run: docker build --file Dockerfile --target develop --tag zimuku-backend:test-develop .
 
       - name: Build frontend image
-        run: docker build --file Dockerfile --tag zimuku-frontend:test ./frontend
+        run: docker build --file frontend/Dockerfile --tag zimuku-frontend:test ./frontend
