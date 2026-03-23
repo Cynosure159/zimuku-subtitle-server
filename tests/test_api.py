@@ -52,7 +52,7 @@ async def test_search_api_maps_upstream_failure_to_502():
         instance.search = AsyncMock(side_effect=RuntimeError("upstream boom"))
         instance.close = AsyncMock(return_value=None)
 
-        response = client.get("/search/", params={"q": "avatar"})
+        response = client.get("/search/", params={"q": "avatar-upstream-failure"})
 
     assert response.status_code == 502
     assert response.json()["detail"] == "Search failed"
