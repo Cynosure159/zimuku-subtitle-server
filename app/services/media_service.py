@@ -4,7 +4,6 @@ import os
 import re
 import shutil
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Set, Tuple
 
@@ -13,9 +12,9 @@ from sqlmodel import Session, select
 from ..core.archive import ArchiveManager
 from ..core.config import get_storage_path
 from ..core.scraper import ZimukuAgent
-from ..core.utils import check_has_subtitle, parse_media_filename
 from ..db.models import MediaPath, ScannedFile
 from ..db.session import session_scope
+from .media_scan_pipeline import MediaScanPipeline
 
 logger = logging.getLogger(__name__)
 
@@ -117,108 +116,7 @@ class MediaService:
         global_task_status.is_scanning = True
         try:
             with session_scope() as session:
-                # 1. 第一步清理：清理孤儿记录
-                all_path_ids = [p.id for p in session.exec(select(MediaPath)).all()]
-                orphan_files = session.exec(select(ScannedFile).where(ScannedFile.path_id.not_in(all_path_ids))).all()
-                if orphan_files:
-                    logger.info(f"清理了 {len(orphan_files)} 条孤儿文件记录")
-                    for orphan_file in orphan_files:
-                        session.delete(orphan_file)
-                    session.commit()
-
-                # 2. 第二步清理：物理不存在记录
-                statement = select(ScannedFile)
-                if path_type:
-                    statement = statement.where(ScannedFile.type == path_type)
-                all_files = session.exec(statement).all()
-                removed_count = 0
-                for scanned_file in all_files:
-                    if not os.path.exists(scanned_file.file_path):
-                        session.delete(scanned_file)
-                        removed_count += 1
-                if removed_count > 0:
-                    logger.info(f"清理了 {removed_count} 条物理已不存在的记录")
-                    session.commit()
-
-                # 3. 获取路径并扫描
-                statement = select(MediaPath).where(MediaPath.enabled)
-                if path_type:
-                    statement = statement.where(MediaPath.type == path_type)
-                paths = session.exec(statement).all()
-
-                video_extensions = {".mp4", ".mkv", ".avi", ".ts", ".rmvb"}
-                for media_path in paths:
-                    logger.info(f"扫描路径: {media_path.path}")
-                    logger.debug(f"开始扫描路径: {media_path.path}")
-                    scan_dir = Path(media_path.path)
-                    if not scan_dir.exists() or not scan_dir.is_dir():
-                        logger.debug(f"路径不存在或不是目录: {media_path.path}")
-                        continue
-
-                    try:
-
-                        def process_single_file(file_path: Path, title: str, series_root_path: Optional[str]):
-                            """处理单个视频文件"""
-                            str_path = str(file_path.absolute())
-                            filename = file_path.name
-                            logger.debug(f"处理文件: {filename}, title={title}")
-                            parsed = parse_media_filename(filename)
-                            logger.debug(f"解析结果: {parsed}")
-                            has_sub = check_has_subtitle(file_path)
-                            logger.debug(f"字幕检测结果: has_sub={has_sub}")
-
-                            existing_file = session.exec(
-                                select(ScannedFile).where(ScannedFile.file_path == str_path)
-                            ).first()
-
-                            if not existing_file:
-                                logger.debug(f"新增文件记录: {filename}")
-                                existing_file = ScannedFile(
-                                    path_id=media_path.id,
-                                    type=media_path.type,
-                                    file_path=str_path,
-                                    filename=filename,
-                                    extracted_title=title,
-                                    year=parsed["year"],
-                                    season=parsed["season"],
-                                    episode=parsed["episode"],
-                                    has_subtitle=has_sub,
-                                    series_root_path=series_root_path,
-                                )
-                            else:
-                                logger.debug(f"更新文件记录: {filename}")
-                                existing_file.filename = filename
-                                existing_file.extracted_title = title
-                                existing_file.year = parsed["year"]
-                                existing_file.season = parsed["season"]
-                                existing_file.episode = parsed["episode"]
-                                existing_file.has_subtitle = has_sub
-                                existing_file.series_root_path = series_root_path
-
-                            session.add(existing_file)
-
-                        for sub_dir in scan_dir.iterdir():
-                            logger.debug(f"处理子目录: {sub_dir}")
-                            if not sub_dir.is_dir():
-                                continue
-
-                            extracted_title = sub_dir.name
-                            if media_path.type == "tv":
-                                series_root_path = str(sub_dir.absolute())
-                                for file_path in sub_dir.rglob("*"):
-                                    if file_path.is_file() and file_path.suffix.lower() in video_extensions:
-                                        process_single_file(file_path, extracted_title, series_root_path)
-                            else:
-                                for file_path in sub_dir.iterdir():
-                                    if file_path.is_file() and file_path.suffix.lower() in video_extensions:
-                                        process_single_file(file_path, extracted_title, None)
-                    except Exception as e:
-                        logger.error(f"扫描 {media_path.path} 出错: {e}")
-
-                    media_path.last_scanned_at = datetime.now()
-                    session.add(media_path)
-
-                session.commit()
+                MediaScanPipeline(session=session, path_type=path_type).run()
         finally:
             global_task_status.is_scanning = False
 

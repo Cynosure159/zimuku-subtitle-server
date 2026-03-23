@@ -106,3 +106,72 @@ async def test_cleanup_orphan_records(temp_media_dir):
         orphan = session.exec(select(ScannedFile).where(ScannedFile.path_id == 999)).first()
 
     assert orphan is None
+
+
+@pytest.mark.anyio
+async def test_scan_rules_are_explicit_for_movie_and_tv(tmp_path):
+    movie_root = tmp_path / "movies"
+    movie_dir = movie_root / "Dune Part Two"
+    nested_movie_dir = movie_dir / "extras"
+    nested_movie_dir.mkdir(parents=True)
+    movie_dir.mkdir(exist_ok=True)
+    (movie_dir / "Dune.Part.Two.2024.mkv").touch()
+    (nested_movie_dir / "should_skip_nested_movie.mkv").touch()
+
+    tv_root = tmp_path / "tv"
+    show_dir = tv_root / "Severance"
+    season_dir = show_dir / "Season 01"
+    season_dir.mkdir(parents=True)
+    (season_dir / "Severance.S01E01.mkv").touch()
+
+    with Session(engine) as session:
+        session.add(MediaPath(path=str(movie_root), type="movie", enabled=True))
+        session.add(MediaPath(path=str(tv_root), type="tv", enabled=True))
+        session.commit()
+
+    await MediaService.run_media_scan_and_match()
+
+    with Session(engine) as session:
+        files = session.exec(select(ScannedFile)).all()
+
+    assert len(files) == 2
+    assert all(file_record.filename != "should_skip_nested_movie.mkv" for file_record in files)
+
+    tv_file = next(file_record for file_record in files if file_record.type == "tv")
+    assert tv_file.filename == "Severance.S01E01.mkv"
+    assert tv_file.series_root_path == str(show_dir.absolute())
+
+
+@pytest.mark.anyio
+async def test_media_scan_avoids_per_file_database_lookups(tmp_path, monkeypatch):
+    movie_root = tmp_path / "movies"
+    movie_root.mkdir()
+
+    for index in range(20):
+        folder = movie_root / f"Movie {index:02d}"
+        folder.mkdir()
+        (folder / f"Movie.{index:02d}.2024.1080p.mkv").touch()
+
+    exec_calls = 0
+    original_exec = Session.exec
+
+    def counted_exec(self, statement, *args, **kwargs):
+        nonlocal exec_calls
+        sql = str(statement)
+        if "scannedfile" in sql.lower() and "SELECT" in sql.upper():
+            exec_calls += 1
+        return original_exec(self, statement, *args, **kwargs)
+
+    monkeypatch.setattr(Session, "exec", counted_exec)
+
+    with Session(engine) as session:
+        session.add(MediaPath(path=str(movie_root), type="movie", enabled=True))
+        session.commit()
+
+    await MediaService.run_media_scan_and_match("movie")
+
+    with Session(engine) as session:
+        files = session.exec(select(ScannedFile)).all()
+
+    assert len(files) == 20
+    assert exec_calls <= 4
