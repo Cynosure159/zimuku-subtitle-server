@@ -1,44 +1,69 @@
-FROM python:3.12-slim AS builder
-
-ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PIP_NO_CACHE_DIR=1 \
-    VIRTUAL_ENV=/opt/venv \
-    PATH="/opt/venv/bin:$PATH"
-
-WORKDIR /build
-
-RUN python -m venv "$VIRTUAL_ENV"
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    libxml2-dev \
-    libxslt-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY requirements.prod.txt .
-RUN pip install -r requirements.prod.txt
-
-FROM python:3.12-slim AS runtime
+FROM python:3.12-alpine AS python-base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
     VIRTUAL_ENV=/opt/venv \
     PATH="/opt/venv/bin:$PATH"
 
-RUN groupadd --gid 1000 appgroup && \
-    useradd --uid 1000 --gid appgroup --shell /usr/sbin/nologin --create-home appuser
+FROM python-base AS builder-base
+
+WORKDIR /build
+
+RUN python -m venv "$VIRTUAL_ENV" && \
+    apk add --no-cache \
+        build-base \
+        libxml2-dev \
+        libxslt-dev
+
+FROM builder-base AS deps-prod
+
+COPY requirements.prod.txt .
+RUN pip install --no-compile -r requirements.prod.txt && \
+    find "$VIRTUAL_ENV" -type d -name '__pycache__' -prune -exec rm -rf {} + && \
+    find "$VIRTUAL_ENV" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete && \
+    find "$VIRTUAL_ENV" -type d \( -name 'tests' -o -name 'test' \) -prune -exec rm -rf {} + && \
+    rm -rf \
+        "$VIRTUAL_ENV"/bin/pip* \
+        "$VIRTUAL_ENV"/lib/python3.12/site-packages/pip* \
+        "$VIRTUAL_ENV"/lib/python3.12/site-packages/setuptools* \
+        "$VIRTUAL_ENV"/lib/python3.12/site-packages/wheel*
+
+FROM builder-base AS deps-develop
+
+COPY requirements.prod.txt requirements.txt ./
+RUN pip install -r requirements.txt
+
+FROM python-base AS runtime-base
+
+RUN apk add --no-cache \
+    libxml2 \
+    libxslt && \
+    addgroup -g 1000 -S appgroup && \
+    adduser -u 1000 -S -D -h /home/appuser -s /sbin/nologin -G appgroup appuser
 
 WORKDIR /app
 
-COPY --from=builder /opt/venv /opt/venv
 COPY app ./app
 COPY run_mcp.py .
 
 RUN mkdir -p /app/storage && chown -R appuser:appgroup /app
 
-USER appuser
-
 EXPOSE 8000
 
+FROM runtime-base AS runtime
+
+COPY --from=deps-prod /opt/venv /opt/venv
+
+USER appuser
+
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+FROM runtime-base AS develop
+
+COPY --from=deps-develop /opt/venv /opt/venv
+
+USER appuser
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

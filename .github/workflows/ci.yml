@@ -73,8 +73,14 @@ jobs:
       - name: Validate compose file
         run: docker compose config
 
-      - name: Build backend image
-        run: docker build --file Dockerfile --tag zimuku-backend:test .
+      - name: Validate develop compose file
+        run: docker compose -f docker-compose.yml -f docker-compose.develop.yml config
+
+      - name: Build backend runtime image
+        run: docker build --file Dockerfile --target runtime --tag zimuku-backend:test .
+
+      - name: Build backend develop image
+        run: docker build --file Dockerfile --target develop --tag zimuku-backend:test-develop .
 
       - name: Build frontend image
         run: docker build --file Dockerfile --tag zimuku-frontend:test ./frontend

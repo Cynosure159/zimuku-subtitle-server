@@ -115,11 +115,20 @@ docker compose up --build
 # 仅校验 compose 配置
 docker compose config
 
+# 仅构建正式版后端镜像（无后缀 tag）
+docker build --file Dockerfile --target runtime --tag zimuku-subtitle-server-backend:latest .
+
+# 仅构建 develop 后端镜像（-develop tag）
+docker build --file Dockerfile --target develop --tag zimuku-subtitle-server-backend:develop .
+
 # 使用生产环境变量模板启动
 docker compose --env-file .env.production up -d --build
 
 # 使用测试环境变量模板启动
 docker compose --env-file .env.test up --build
+
+# 使用 develop 覆盖文件启动开发版后端
+docker compose -f docker-compose.yml -f docker-compose.develop.yml --env-file .env.test up --build
 ```
 
 | 服务 | 地址 | 说明 |
@@ -147,9 +156,17 @@ docker compose up frontend
 > - 电影和剧集媒体库会以只读方式挂载到 `/media/movies` 和 `/media/tv`
 > - 后端以非 root 用户运行，确保安全性
 > - 前端将 `/api/*` 请求代理到后端
-> - 后端镜像使用 `requirements.prod.txt` 中锁定的生产依赖
+> - 后端正式版镜像使用 `runtime` target 和 `requirements.prod.txt` 中锁定的生产依赖，默认 tag 为 `zimuku-subtitle-server-backend:latest`
+> - 后端 develop 镜像使用 `develop` target，保留开发依赖，推荐 tag 为 `zimuku-subtitle-server-backend:develop`
 > - 本地验证 Docker 改动时，可先执行 `docker compose config` 和 `docker compose build`
 > - 可基于 `.env.production.example` / `.env.test.example` 生成 Compose 环境变量文件
+
+### Docker 镜像规则
+
+- 正式版后端镜像使用无后缀 tag，例如 `latest` 或 `1.0.0`
+- develop 版后端镜像使用 `-develop` 后缀，例如 `develop` 或 `1.0.0-develop`
+- 默认 [`docker-compose.yml`](/Users/cy/Projects/zimuku-subtitle-server/docker-compose.yml#L1) 构建 `runtime` target
+- [`docker-compose.develop.yml`](/Users/cy/Projects/zimuku-subtitle-server/docker-compose.develop.yml#L1) 会覆盖为 `develop` target，并挂载后端源码目录用于开发调试
 
 如果使用 Docker 挂载的媒体库，请在应用中配置媒体路径为 `/media/movies` 和 `/media/tv`，不要填写宿主机原始路径。
 
@@ -211,6 +228,7 @@ pytest tests/test_scraper.py
 - **后端**：安装 `requirements.txt` → Ruff 代码检查与格式化 → Pytest 单元测试
 - **前端**：`npm ci` → 构建 → ESLint 检查
 - **Docker**：`docker compose config` → 后端镜像构建 → 前端镜像构建
+- **Docker**：校验默认/开发版 compose 配置 → 构建后端 `runtime`/`develop` 双 target → 构建前端镜像
 
 ## 📁 项目结构
 
@@ -227,6 +245,7 @@ zimuku-subtitle-server/
 ├── tests/                  # 测试套件
 ├── .github/workflows/      # CI 配置
 ├── docker-compose.yml      # Docker 编排
+├── docker-compose.develop.yml # 开发版 Docker 覆盖配置
 ├── Dockerfile              # 后端 Docker 镜像
 ├── requirements.txt        # 开发环境 Python 依赖
 └── requirements.prod.txt   # 锁定的生产环境 Python 依赖

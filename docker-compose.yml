@@ -6,9 +6,11 @@ x-logging: &default-logging
 
 services:
   backend:
+    image: ${BACKEND_IMAGE:-zimuku-subtitle-server-backend:latest}
     build:
       context: .
       dockerfile: Dockerfile
+      target: runtime
     init: true
     ports:
       - "${BACKEND_PORT:-8000}:8000"
