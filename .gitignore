@@ -21,6 +21,7 @@ build/
 .claudecignore
 .clauderules
 .claude/settings.local.json
+.planning/
 
 # 编辑器配置
 .vscode/
