@@ -8,7 +8,6 @@ import {
   autoMatchFile,
   matchTVSeason,
   getMediaPosterUrl,
-  type ScannedFile,
   type SortOption,
   type FilterOption,
   type SortOrder,
@@ -19,6 +18,7 @@ import { EmptySelectionState } from '../components/EmptySelectionState';
 import { MediaItem } from '../components/MediaItem';
 import { Search, Loader2 } from 'lucide-react';
 import { useMediaPolling } from '../hooks/useMediaPolling';
+import { useMediaGrouping, type TvGroup } from '../hooks/useMediaGrouping';
 import { useUIStore } from '../stores/useUIStore';
 
 export default function SeriesPage() {
@@ -84,77 +84,15 @@ export default function SeriesPage() {
     }
   };
 
-  const groupedSeries = useMemo(() => {
-    const groups: Record<
-      string,
-      {
-        title: string;
-        year?: string;
-        totalCount: number;
-        hasSubCount: number;
-        firstPath: string;
-        seriesRootPath: string;
-        firstFileId: number;
-        createdAt?: string;
-        seasons: Record<number, ScannedFile[]>;
-      }
-    > = {};
-
-    files.forEach(file => {
-      const title = file.extracted_title || t('page.series.unknownSeries');
-      if (!groups[title]) {
-        groups[title] = {
-          title,
-          year: file.year ?? undefined,
-          totalCount: 0,
-          hasSubCount: 0,
-          firstPath: file.file_path,
-          seriesRootPath: file.series_root_path || file.file_path.split('/').slice(0, -1).join('/'),
-          firstFileId: file.id,
-          createdAt: file.created_at,
-          seasons: {},
-        };
-      }
-      const s = file.season || 1;
-      if (!groups[title].seasons[s]) {
-        groups[title].seasons[s] = [];
-      }
-      groups[title].seasons[s].push(file);
-      groups[title].seasons[s].sort((a, b) => (a.episode || 0) - (b.episode || 0));
-
-      groups[title].totalCount++;
-      if (file.has_subtitle) groups[title].hasSubCount++;
-    });
-
-    let result = Object.values(groups).filter(s =>
-      s.title.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    if (filterOption === 'missing') {
-      result = result.filter(s => s.hasSubCount < s.totalCount);
-    }
-
-    result.sort((a, b) => {
-      let comparison = 0;
-      if (sortOption === 'year') {
-        const yearA = parseInt(a.year || '0');
-        const yearB = parseInt(b.year || '0');
-        comparison = yearA - yearB;
-      } else if (sortOption === 'created') {
-        comparison = (a.createdAt || '').localeCompare(b.createdAt || '');
-      } else if (sortOption === 'status') {
-        const ratioA = a.hasSubCount / a.totalCount;
-        const ratioB = b.hasSubCount / b.totalCount;
-        comparison = ratioA - ratioB;
-      } else {
-        comparison = a.title.localeCompare(b.title);
-      }
-
-      return sortOrder === 'asc' ? comparison : -comparison;
-    });
-
-    return result;
-  }, [files, searchTerm, t, sortOption, sortOrder, filterOption]);
+  const groupedSeries = useMediaGrouping(
+    files,
+    'tv',
+    searchTerm,
+    sortOption,
+    sortOrder,
+    filterOption,
+    t('page.series.unknownSeries')
+  ) as TvGroup[];
 
   const metadataQueries = useQueries({
     queries: (groupedSeries || []).map(series => ({

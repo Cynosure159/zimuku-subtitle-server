@@ -6,7 +6,6 @@ import {
   fetchMediaMetadata,
   triggerMediaMatch,
   getMediaPosterUrl,
-  type ScannedFile,
   type SortOption,
   type FilterOption,
   type SortOrder,
@@ -16,6 +15,7 @@ import { MediaInfoCard } from '../components/MediaInfoCard';
 import { EmptySelectionState } from '../components/EmptySelectionState';
 import { MediaList } from '../components/MediaItem';
 import { useMediaPolling } from '../hooks/useMediaPolling';
+import { useMediaGrouping, type MovieGroup } from '../hooks/useMediaGrouping';
 import { useUIStore } from '../stores/useUIStore';
 
 export default function MoviesPage() {
@@ -49,64 +49,15 @@ export default function MoviesPage() {
     }
   };
 
-  const groupedMovies = useMemo(() => {
-    const groups: Record<
-      string,
-      {
-        title: string;
-        year?: string;
-        files: ScannedFile[];
-        createdAt?: string;
-        hasSubCount: number;
-        totalCount: number;
-      }
-    > = {};
-    files.forEach(file => {
-      const title = file.extracted_title || t('page.movies.unknownMovie');
-      if (!groups[title]) {
-        groups[title] = {
-          title,
-          year: file.year ?? undefined,
-          files: [],
-          createdAt: file.created_at,
-          hasSubCount: 0,
-          totalCount: 0,
-        };
-      }
-      groups[title].files.push(file);
-      groups[title].totalCount++;
-      if (file.has_subtitle) groups[title].hasSubCount++;
-    });
-
-    let result = Object.values(groups).filter(m =>
-      m.title.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    if (filterOption === 'missing') {
-      result = result.filter(m => m.hasSubCount < m.totalCount);
-    }
-
-    result.sort((a, b) => {
-      let comparison = 0;
-      if (sortOption === 'year') {
-        const yearA = parseInt(a.year || '0');
-        const yearB = parseInt(b.year || '0');
-        comparison = yearA - yearB;
-      } else if (sortOption === 'created') {
-        comparison = (a.createdAt || '').localeCompare(b.createdAt || '');
-      } else if (sortOption === 'status') {
-        const ratioA = a.hasSubCount / a.totalCount;
-        const ratioB = b.hasSubCount / b.totalCount;
-        comparison = ratioA - ratioB;
-      } else {
-        comparison = a.title.localeCompare(b.title);
-      }
-
-      return sortOrder === 'asc' ? comparison : -comparison;
-    });
-
-    return result;
-  }, [files, searchTerm, t, sortOption, sortOrder, filterOption]);
+  const groupedMovies = useMediaGrouping(
+    files,
+    'movie',
+    searchTerm,
+    sortOption,
+    sortOrder,
+    filterOption,
+    t('page.movies.unknownMovie')
+  ) as MovieGroup[];
 
   const metadataQueries = useQueries({
     queries: (groupedMovies || []).map(movie => ({
