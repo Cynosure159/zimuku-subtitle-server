@@ -7,7 +7,7 @@ from sqlmodel import Session, delete
 
 from app.db.models import MediaPath, ScannedFile, SubtitleTask
 from app.db.session import create_db_and_tables, engine, session_scope
-from app.services.auto_match_service import AutoMatchWorkflow, SeasonMatchWorkflow, SubtitleCandidateScorer
+from app.services.auto_match_workflow import AutoMatchWorkflow, SeasonMatchWorkflow, SubtitleCandidateScorer
 
 
 @pytest.fixture(autouse=True)
@@ -69,8 +69,8 @@ async def test_auto_match_retries_until_top_five_candidates(monkeypatch, tmp_pat
         close=AsyncMock(return_value=None),
     )
 
-    monkeypatch.setattr("app.services.auto_match_service.ZimukuAgent", lambda: agent)
-    monkeypatch.setattr("app.services.auto_match_service.get_storage_path", lambda: str(tmp_path / "storage"))
+    monkeypatch.setattr("app.services.auto_match_workflow.ZimukuAgent", lambda: agent)
+    monkeypatch.setattr("app.services.auto_match_workflow.get_storage_path", lambda: str(tmp_path / "storage"))
 
     service = AutoMatchWorkflow(session_factory=session_scope)
     matched = await service.run_for_file(scanned_file.id)

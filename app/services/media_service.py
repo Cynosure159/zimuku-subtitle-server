@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 
 from ..db.models import MediaPath, ScannedFile
 from ..db.session import session_scope
-from .auto_match_service import AutoMatchWorkflow, SeasonMatchWorkflow
+from .auto_match_workflow import AutoMatchWorkflow, SeasonMatchWorkflow
 from .media_scan_pipeline import MediaScanPipeline
 
 logger = logging.getLogger(__name__)
