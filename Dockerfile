@@ -11,11 +11,7 @@ FROM python-base AS builder-base
 
 WORKDIR /build
 
-RUN python -m venv "$VIRTUAL_ENV" && \
-    apk add --no-cache \
-        build-base \
-        libxml2-dev \
-        libxslt-dev
+RUN python -m venv "$VIRTUAL_ENV"
 
 FROM builder-base AS deps-prod
 
@@ -37,10 +33,7 @@ RUN pip install -r requirements.txt
 
 FROM python-base AS runtime-base
 
-RUN apk add --no-cache \
-    libxml2 \
-    libxslt && \
-    addgroup -g 1000 -S appgroup && \
+RUN addgroup -g 1000 -S appgroup && \
     adduser -u 1000 -S -D -h /home/appuser -s /sbin/nologin -G appgroup appuser
 
 WORKDIR /app
