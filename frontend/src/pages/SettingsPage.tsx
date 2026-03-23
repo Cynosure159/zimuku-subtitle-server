@@ -9,6 +9,7 @@ import {
   type Setting,
 } from '../api';
 import { changeLanguage } from '../i18n';
+import { supportedLanguages } from '../i18n/config';
 import { useMediaPolling } from '../hooks/useMediaPolling';
 
 export default function SettingsPage() {
@@ -130,8 +131,11 @@ export default function SettingsPage() {
                 onChange={e => handleLanguageChange(e.target.value)}
                 className="bg-surface-container-low border border-outline-variant/20 rounded-xl p-3 text-on-surface font-body w-full max-w-sm focus:ring-1 focus:ring-primary/50 outline-none transition-all cursor-pointer"
               >
-                <option value="zh">中文 (Simplified)</option>
-                <option value="en">English (US)</option>
+                {supportedLanguages.map(lang => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.nativeLabel}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
