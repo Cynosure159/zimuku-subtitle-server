@@ -84,6 +84,16 @@ def test_list_tasks_api():
     assert data["total"] >= 1
 
 
+def test_create_task_accepts_json_body():
+    response = client.post(
+        "/tasks/",
+        json={"title": "Body Test", "source_url": "http://body.test", "target_type": "movie"},
+    )
+    assert response.status_code == 200
+    assert response.json()["title"] == "Body Test"
+    assert response.json()["target_type"] == "movie"
+
+
 def test_delete_task_api():
     resp = client.post("/tasks/", params={"title": "Delete Test", "source_url": "http://test.com"})
     task_id = resp.json()["id"]
@@ -118,6 +128,7 @@ def test_retry_failed_task():
         session.commit()
     response = client.post(f"/tasks/{task_id}/retry")
     assert response.status_code == 400
+    assert response.json()["detail"] == "Only failed tasks can be retried"
 
 
 def test_clear_completed_tasks():

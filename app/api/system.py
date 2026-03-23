@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlmodel import Session
 
 from ..db.session import get_session
@@ -17,6 +17,6 @@ async def get_system_stats(session: Session = Depends(get_session)):
 
 
 @router.get("/logs")
-async def get_recent_logs(lines: int = 100):
+async def get_recent_logs(lines: int = Query(default=100, ge=1, le=1000)):
     """获取最近的日志记录"""
     return SystemService.get_logs(lines)

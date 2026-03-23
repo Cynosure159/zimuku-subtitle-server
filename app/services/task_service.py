@@ -6,6 +6,7 @@ from typing import List, Optional, Tuple
 
 from sqlmodel import Session, desc, func, select
 
+from ..core.observability import log_context
 from ..db.models import SubtitleTask
 from ..db.session import session_scope
 from .download_workflow import DownloadWorkflow, DownloadWorkflowError, SubtitleMover
@@ -137,35 +138,36 @@ class TaskService:
         final_save_path: Optional[str] = None
         final_error: Optional[Exception] = None
 
-        try:
-            logger.info("task %s: starting download workflow", task_id)
-            artifact = await workflow.execute(task_snapshot)
-            final_filename = artifact.filename
-            final_save_path = artifact.save_path
-
-            if task_snapshot.target_path:
-                logger.info("task %s: moving subtitle into target path", task_id)
-                final_save_path = SubtitleMover.move(task_snapshot, artifact.save_path)
-        except (DownloadWorkflowError, OSError) as exc:
-            logger.error("task %s failed: %s", task_id, exc)
-            final_error = exc
-        except Exception as exc:
-            logger.exception("task %s failed with unexpected error", task_id)
-            final_error = exc
-        finally:
+        with log_context(correlation_id=f"task-{task_id}", job_name="download", entity_id=str(task_id)):
             try:
-                await workflow.close()
+                logger.info("task %s: starting download workflow", task_id)
+                artifact = await workflow.execute(task_snapshot)
+                final_filename = artifact.filename
+                final_save_path = artifact.save_path
+
+                if task_snapshot.target_path:
+                    logger.info("task %s: moving subtitle into target path", task_id)
+                    final_save_path = SubtitleMover.move(task_snapshot, artifact.save_path)
+            except (DownloadWorkflowError, OSError) as exc:
+                logger.error("task %s failed: %s", task_id, exc)
+                final_error = exc
+            except Exception as exc:
+                logger.exception("task %s failed with unexpected error", task_id)
+                final_error = exc
             finally:
-                with session_scope() as session:
-                    task = session.get(SubtitleTask, task_id)
-                    if not task:
-                        return
+                try:
+                    await workflow.close()
+                finally:
+                    with session_scope() as session:
+                        task = session.get(SubtitleTask, task_id)
+                        if not task:
+                            return
 
-                    if final_error is None and final_filename and final_save_path:
-                        TaskService._finalize_success(task, final_filename, final_save_path)
-                    elif final_error is not None:
-                        TaskService._finalize_failure(task, final_error)
+                        if final_error is None and final_filename and final_save_path:
+                            TaskService._finalize_success(task, final_filename, final_save_path)
+                        elif final_error is not None:
+                            TaskService._finalize_failure(task, final_error)
 
-                    task.updated_at = datetime.now()
-                    session.add(task)
-                    session.commit()
+                        task.updated_at = datetime.now()
+                        session.add(task)
+                        session.commit()

@@ -38,6 +38,8 @@ def test_get_stats_empty_db(session):
     assert stats["tasks"]["failed"] == 0
     assert stats["tasks"]["pending"] == 0
     assert stats["cache"]["total_entries"] == 0
+    assert stats["runtime"]["task_state_backend"] == "database"
+    assert "scraper" in stats["runtime"]
 
 
 def test_get_stats_with_tasks(session):
@@ -154,3 +156,19 @@ def test_get_logs_line_limit():
     logs = SystemService.get_logs(lines=5)
 
     assert len(logs) <= 5
+
+
+def test_get_stats_runtime_uses_env_overrides(session, monkeypatch):
+    monkeypatch.setenv("ZIMUKU_REQUEST_TIMEOUT_SECONDS", "9")
+    monkeypatch.setenv("ZIMUKU_REQUEST_MAX_RETRIES", "4")
+    monkeypatch.setenv("ZIMUKU_REQUEST_BACKOFF_SECONDS", "1.5")
+    monkeypatch.setenv("ZIMUKU_REQUEST_MIN_INTERVAL_SECONDS", "2")
+
+    stats = SystemService.get_stats(session)
+
+    assert stats["runtime"]["scraper"] == {
+        "timeout_seconds": 9.0,
+        "max_retries": 4,
+        "backoff_seconds": 1.5,
+        "min_interval_seconds": 2.0,
+    }

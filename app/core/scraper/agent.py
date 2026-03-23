@@ -1,15 +1,17 @@
+import asyncio
 import logging
+import os
 import re
+import time
 import urllib.parse
-from typing import List, Optional, Tuple
+from typing import Awaitable, Callable, List, Optional, Tuple
 
 import httpx
 from bs4 import BeautifulSoup, Tag
 
+from app.core.observability import get_correlation_id
 from app.core.ocr import SimpleOCREngine
 
-# 设置基础日志
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # 中文数字映射表，用于按季匹配（最多到第十五季）
@@ -33,6 +35,10 @@ _CHINESE_NUMBERS = (
 
 # 下载文件最小有效大小（字节），低于此阈值视为下载失败
 FILE_MIN_SIZE = 1024
+DEFAULT_TIMEOUT = 15.0
+DEFAULT_MAX_RETRIES = 3
+DEFAULT_BACKOFF_SECONDS = 1.0
+DEFAULT_MIN_REQUEST_INTERVAL = 1.0
 
 
 class SubtitleResult:
@@ -78,7 +84,13 @@ class SubtitleResult:
 
 
 class ZimukuAgent:
-    def __init__(self, base_url: Optional[str] = None, proxy: Optional[str] = None):
+    def __init__(
+        self,
+        base_url: Optional[str] = None,
+        proxy: Optional[str] = None,
+        client: Optional[httpx.AsyncClient] = None,
+        sleep_func: Optional[Callable[[float], Awaitable[None]]] = None,
+    ):
         # 延迟导入以避免循环依赖
         from app.core.config import get_base_url, get_proxy
 
@@ -86,6 +98,17 @@ class ZimukuAgent:
         self.search_url = f"{self.base_url}/search?q="
 
         actual_proxy = proxy or get_proxy()
+        self.request_timeout = self._get_float_env("ZIMUKU_REQUEST_TIMEOUT_SECONDS", DEFAULT_TIMEOUT)
+        self.max_retries = self._get_int_env("ZIMUKU_REQUEST_MAX_RETRIES", DEFAULT_MAX_RETRIES)
+        self.backoff_seconds = self._get_float_env("ZIMUKU_REQUEST_BACKOFF_SECONDS", DEFAULT_BACKOFF_SECONDS)
+        self.min_request_interval = self._get_float_env(
+            "ZIMUKU_REQUEST_MIN_INTERVAL_SECONDS", DEFAULT_MIN_REQUEST_INTERVAL
+        )
+        self._sleep = sleep_func or asyncio.sleep
+        self._request_lock = asyncio.Lock()
+        self._last_request_at = 0.0
+        self._owns_client = client is None
+        self._proxy_configured = bool(actual_proxy)
 
         ua = (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -94,32 +117,128 @@ class ZimukuAgent:
         )
         client_kwargs = {
             "headers": {"User-Agent": ua},
-            "timeout": 15.0,
+            "timeout": self.request_timeout,
             "follow_redirects": True,
         }
         if actual_proxy:
             client_kwargs["proxy"] = actual_proxy
 
-        self.client = httpx.AsyncClient(**client_kwargs)
+        self.client = client or httpx.AsyncClient(**client_kwargs)
         self.ocr = SimpleOCREngine()
+
+    @staticmethod
+    def _get_float_env(key: str, default: float) -> float:
+        raw_value = os.getenv(key)
+        if raw_value is None:
+            return default
+        try:
+            value = float(raw_value)
+            if value <= 0:
+                raise ValueError
+            return value
+        except ValueError:
+            logger.warning("配置 %s=%r 非法，回退到默认值 %s", key, raw_value, default)
+            return default
+
+    @staticmethod
+    def _get_int_env(key: str, default: int) -> int:
+        raw_value = os.getenv(key)
+        if raw_value is None:
+            return default
+        try:
+            value = int(raw_value)
+            if value <= 0:
+                raise ValueError
+            return value
+        except ValueError:
+            logger.warning("配置 %s=%r 非法，回退到默认值 %s", key, raw_value, default)
+            return default
+
+    async def _wait_for_request_slot(self):
+        async with self._request_lock:
+            if self.min_request_interval <= 0:
+                self._last_request_at = time.monotonic()
+                return
+
+            now = time.monotonic()
+            elapsed = now - self._last_request_at
+            remaining = self.min_request_interval - elapsed
+            if remaining > 0:
+                logger.debug("请求节流等待 %.2f 秒", remaining)
+                await self._sleep(remaining)
+            self._last_request_at = time.monotonic()
+
+    async def _request(
+        self,
+        url: str,
+        *,
+        headers: Optional[dict[str, str]] = None,
+        allow_direct_fallback: bool = False,
+    ) -> httpx.Response:
+        last_error: Optional[Exception] = None
+
+        for attempt in range(1, self.max_retries + 1):
+            await self._wait_for_request_slot()
+            logger.info(
+                "发起远程请求 attempt=%s/%s url=%s timeout=%.1fs cid=%s",
+                attempt,
+                self.max_retries,
+                url,
+                self.request_timeout,
+                get_correlation_id(),
+            )
+            try:
+                response = await self.client.get(url, headers=headers)
+                response.raise_for_status()
+                return response
+            except (httpx.ConnectError, httpx.ProxyError) as exc:
+                last_error = exc
+                if allow_direct_fallback and self._proxy_configured:
+                    logger.warning("代理请求失败，尝试直连 url=%s error=%s", url, exc)
+                    try:
+                        async with httpx.AsyncClient(timeout=self.request_timeout, follow_redirects=True) as client:
+                            response = await client.get(url, headers=headers)
+                            response.raise_for_status()
+                            return response
+                    except (httpx.RequestError, httpx.HTTPStatusError) as direct_exc:
+                        last_error = direct_exc
+                        logger.warning("直连请求失败 attempt=%s url=%s error=%s", attempt, url, direct_exc)
+            except httpx.HTTPStatusError as exc:
+                last_error = exc
+                status_code = exc.response.status_code
+                if status_code not in {429, 500, 502, 503, 504}:
+                    logger.warning("请求返回不可重试状态码 status=%s url=%s", status_code, url)
+                    raise
+                logger.warning("请求返回可重试状态码 status=%s attempt=%s url=%s", status_code, attempt, url)
+            except httpx.TimeoutException as exc:
+                last_error = exc
+                logger.warning("请求超时 attempt=%s url=%s error=%s", attempt, url, exc)
+            except httpx.RequestError as exc:
+                last_error = exc
+                logger.warning("请求失败 attempt=%s url=%s error=%s", attempt, url, exc)
+
+            if attempt < self.max_retries:
+                backoff = self.backoff_seconds * (2 ** (attempt - 1))
+                logger.info("准备重试 url=%s backoff=%.2fs", url, backoff)
+                await self._sleep(backoff)
+
+        assert last_error is not None
+        raise last_error
 
     async def _get_page(self, url: str) -> str:
         """异步获取页面内容，自动处理验证码挑战，并支持代理重试"""
         try:
-            response = await self.client.get(url)
+            response = await self._request(url, allow_direct_fallback=True)
             html = response.text
-        except (httpx.ConnectError, httpx.ProxyError) as e:
-            logger.warning(f"使用代理访问 {url} 失败: {e}，尝试直连...")
-            # 创建一个临时无代理客户端进行重试
-            async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as direct_client:
-                response = await direct_client.get(url)
-                html = response.text
+        except (httpx.RequestError, httpx.HTTPStatusError) as e:
+            logger.error("页面请求失败 url=%s error=%s", url, e)
+            raise
 
         # 检测是否触发验证码
         if 'class="verifyimg"' in html:
             logger.info("检测到验证码挑战，正在尝试绕过...")
             if await self._solve_captcha(url, html):
-                response = await self.client.get(url)
+                response = await self._request(url, allow_direct_fallback=True)
                 return response.text
             else:
                 logger.error("验证码挑战失败")
@@ -544,8 +663,7 @@ class ZimukuAgent:
         for link in download_links:
             try:
                 logger.info(f"正在下载字幕: {link}")
-                response = await self.client.get(link, headers=headers)
-                response.raise_for_status()
+                response = await self._request(link, headers=headers)
 
                 # 从 Content-Disposition 获取文件名
                 content_disposition = response.headers.get("Content-Disposition", "")
@@ -597,4 +715,5 @@ class ZimukuAgent:
                 return filename
 
     async def close(self):
-        await self.client.aclose()
+        if self._owns_client:
+            await self.client.aclose()

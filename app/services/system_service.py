@@ -5,6 +5,12 @@ from typing import Any, Dict, List
 from sqlmodel import Session, func, select
 
 from ..core.config import get_download_path
+from ..core.scraper.agent import (
+    DEFAULT_BACKOFF_SECONDS,
+    DEFAULT_MAX_RETRIES,
+    DEFAULT_MIN_REQUEST_INTERVAL,
+    DEFAULT_TIMEOUT,
+)
 from ..db.models import SearchCache, SubtitleTask
 
 
@@ -12,6 +18,32 @@ class SystemService:
     @staticmethod
     def _get_log_file_path() -> str:
         return os.getenv("ZIMUKU_LOG_FILE", "app.log")
+
+    @staticmethod
+    def _get_runtime_config() -> Dict[str, Any]:
+        def read_float(key: str, default: float) -> float:
+            try:
+                value = float(os.getenv(key, default))
+                return value if value > 0 else default
+            except (TypeError, ValueError):
+                return default
+
+        def read_int(key: str, default: int) -> int:
+            try:
+                value = int(os.getenv(key, default))
+                return value if value > 0 else default
+            except (TypeError, ValueError):
+                return default
+
+        return {
+            "task_state_backend": "database",
+            "scraper": {
+                "timeout_seconds": read_float("ZIMUKU_REQUEST_TIMEOUT_SECONDS", DEFAULT_TIMEOUT),
+                "max_retries": read_int("ZIMUKU_REQUEST_MAX_RETRIES", DEFAULT_MAX_RETRIES),
+                "backoff_seconds": read_float("ZIMUKU_REQUEST_BACKOFF_SECONDS", DEFAULT_BACKOFF_SECONDS),
+                "min_interval_seconds": read_float("ZIMUKU_REQUEST_MIN_INTERVAL_SECONDS", DEFAULT_MIN_REQUEST_INTERVAL),
+            },
+        }
 
     @staticmethod
     def get_stats(session: Session) -> Dict[str, Any]:
@@ -48,6 +80,7 @@ class SystemService:
             },
             "cache": {"total_entries": total_cache},
             "storage": storage_info,
+            "runtime": SystemService._get_runtime_config(),
         }
 
     @staticmethod

@@ -30,7 +30,7 @@ def test_media_paths_api():
 
     # 重复添加应报错
     response = client.post("/media/paths", params={"path": "F:/movies", "path_type": "movie"})
-    assert response.status_code == 400
+    assert response.status_code == 409
 
     # 2. 列出路径
     response = client.get("/media/paths")
@@ -94,6 +94,7 @@ def test_trigger_match_api():
     response = client.post("/media/match")
     assert response.status_code == 200
     assert "started" in response.json()["message"]
+    assert response.json()["task_kind"] == "media_scan"
 
 
 def test_media_task_status_api():
@@ -103,3 +104,40 @@ def test_media_task_status_api():
     assert "is_scanning" in data
     assert "matching_files" in data
     assert "matching_seasons" in data
+
+
+def test_media_metadata_api_moves_resolution_to_service(tmp_path):
+    movie_dir = tmp_path / "Movie Title"
+    movie_dir.mkdir(parents=True)
+    video_path = movie_dir / "Movie.Title.2024.mkv"
+    video_path.write_text("video", encoding="utf-8")
+    (movie_dir / "movie.nfo").write_text(
+        "<movie><title>Movie Title</title><year>2024</year></movie>",
+        encoding="utf-8",
+    )
+    (movie_dir / "folder.jpg").write_text("image", encoding="utf-8")
+
+    with Session(engine) as session:
+        media_path = MediaPath(path=str(tmp_path), type="movie", enabled=True)
+        session.add(media_path)
+        session.commit()
+        session.refresh(media_path)
+
+        scanned_file = ScannedFile(
+            path_id=media_path.id,
+            file_path=str(video_path),
+            filename=video_path.name,
+            type="movie",
+        )
+        session.add(scanned_file)
+        session.commit()
+        session.refresh(scanned_file)
+        file_id = scanned_file.id
+
+    response = client.get(f"/media/metadata/{file_id}")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["file_id"] == file_id
+    assert data["filename"] == video_path.name
+    assert data["nfo_data"]["title"] == "Movie Title"
+    assert data["poster_path"] == f"{movie_dir.name}/folder.jpg"

@@ -8,6 +8,7 @@ from sqlmodel import Session, select
 from ..core.config import ConfigManager, SettingKey
 from ..core.scraper import ZimukuAgent
 from ..db.models import SearchCache
+from .errors import ExternalServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,10 @@ class SearchService:
         # 2. 执行爬虫
         agent = ZimukuAgent()
         try:
-            results = await agent.search(q, season=season, episode=episode)
+            try:
+                results = await agent.search(q, season=season, episode=episode)
+            except Exception as exc:
+                raise ExternalServiceError("Search failed") from exc
             results_data = [r.to_dict() for r in results]
 
             # 3. 更新缓存

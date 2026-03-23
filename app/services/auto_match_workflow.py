@@ -11,6 +11,7 @@ from sqlmodel import Session, or_, select
 
 from ..core.archive import ArchiveManager
 from ..core.config import get_temp_path
+from ..core.observability import log_context
 from ..core.scraper import ZimukuAgent
 from ..db.models import ScannedFile
 
@@ -109,28 +110,31 @@ class AutoMatchWorkflow:
         season = file_context.season if file_context.media_type == "tv" else None
         episode = file_context.episode if file_context.media_type == "tv" else None
 
-        logger.info("开始自动匹配: %s", file_context.filename)
-        agent = self._agent_factory()
-        try:
-            results = await agent.search(query, season=season, episode=episode)
-            if not results:
+        with log_context(correlation_id=f"auto-{file_id}", job_name="auto-match", entity_id=str(file_id)):
+            logger.info("开始自动匹配: %s", file_context.filename)
+            agent = self._agent_factory()
+            try:
+                results = await agent.search(query, season=season, episode=episode)
+                if not results:
+                    logger.info("自动匹配无搜索结果 query=%s", query)
+                    return False
+
+                for attempt_index, best_match in enumerate(results[:5]):
+                    logger.info("尝试候选字幕 attempt=%s link=%s", attempt_index + 1, best_match.link)
+                    if await self._try_candidate(
+                        agent=agent,
+                        file_id=file_id,
+                        file_context=file_context,
+                        match_link=best_match.link,
+                        attempt_index=attempt_index,
+                    ):
+                        logger.info("成功为 %s 匹配字幕", file_context.filename)
+                        return True
+
+                logger.error("匹配不到合适字幕")
                 return False
-
-            for attempt_index, best_match in enumerate(results[:5]):
-                if await self._try_candidate(
-                    agent=agent,
-                    file_id=file_id,
-                    file_context=file_context,
-                    match_link=best_match.link,
-                    attempt_index=attempt_index,
-                ):
-                    logger.info("成功为 %s 匹配字幕", file_context.filename)
-                    return True
-
-            logger.error("匹配不到合适字幕")
-            return False
-        finally:
-            await agent.close()
+            finally:
+                await agent.close()
 
     async def _try_candidate(
         self,
@@ -239,8 +243,13 @@ class SeasonMatchWorkflow:
             logger.debug("未找到匹配的文件: title=%s, season=%s", title, season)
             return
 
-        logger.debug("季匹配开始: title=%s, season=%s, files=%s", title, season, len(file_ids))
-        for file_id in file_ids:
-            await self._auto_match_runner(file_id)
-            await self._sleep(2)
-        logger.debug("季匹配完成: title=%s, season=%s", title, season)
+        with log_context(
+            correlation_id=f"season-{season}-{len(file_ids)}",
+            job_name="season-match",
+            entity_id=str(season),
+        ):
+            logger.debug("季匹配开始: title=%s, season=%s, files=%s", title, season, len(file_ids))
+            for file_id in file_ids:
+                await self._auto_match_runner(file_id)
+                await self._sleep(2)
+            logger.debug("季匹配完成: title=%s, season=%s", title, season)

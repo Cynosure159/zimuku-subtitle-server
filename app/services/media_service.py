@@ -6,6 +6,7 @@ from sqlmodel import Session, select
 from ..db.models import MediaPath, ScannedFile
 from ..db.session import session_scope
 from .auto_match_workflow import AutoMatchWorkflow, SeasonMatchWorkflow
+from .errors import ConflictError
 from .media_scan_pipeline import MediaScanPipeline
 
 logger = logging.getLogger(__name__)
@@ -37,7 +38,7 @@ class MediaService:
     def add_path(session: Session, path: str, path_type: str) -> MediaPath:
         existing = session.exec(select(MediaPath).where(MediaPath.path == path)).first()
         if existing:
-            raise ValueError("Path already exists")
+            raise ConflictError("Path already exists")
 
         new_path = MediaPath(path=path, type=path_type)
         session.add(new_path)
@@ -91,6 +92,25 @@ class MediaService:
             statement = statement.where(ScannedFile.type == path_type)
         statement = statement.order_by(ScannedFile.created_at.desc())
         return session.exec(statement).all()
+
+    @staticmethod
+    def list_files_paginated(
+        session: Session,
+        path_type: Optional[str] = None,
+        offset: int = 0,
+        limit: Optional[int] = None,
+    ) -> List[ScannedFile]:
+        statement = select(ScannedFile)
+        if path_type:
+            statement = statement.where(ScannedFile.type == path_type)
+        statement = statement.order_by(ScannedFile.created_at.desc()).offset(offset)
+        if limit is not None:
+            statement = statement.limit(limit)
+        return session.exec(statement).all()
+
+    @staticmethod
+    def get_file(session: Session, file_id: int) -> Optional[ScannedFile]:
+        return session.get(ScannedFile, file_id)
 
     @staticmethod
     async def run_media_scan_and_match(path_type: Optional[str] = None):
