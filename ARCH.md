@@ -41,20 +41,27 @@
 
 | 服务 | 职责 |
 |------|------|
-| `media_service.py` | 媒体扫描、路径管理、自动匹配 |
-| `task_service.py` | 任务创建、状态管理、后台执行 |
+| `media_service.py` | 媒体路径管理与扫描/自动匹配入口编排 |
+| `media_scan_pipeline.py` | 扫描阶段拆分、文件遍历、记录对账 |
+| `auto_match_workflow.py` | 单文件自动匹配、整季补全、候选结果应用 |
+| `task_service.py` | 下载任务创建、状态更新、后台执行入口 |
+| `download_workflow.py` | 下载链路编排、解压、候选选择、最终落盘 |
 | `search_service.py` | 搜索封装、SQLite 缓存 |
-| `system_service.py` | 系统统计、日志获取 |
+| `settings_service.py` | 设置读写与默认值管理 |
+| `metadata_service.py` | NFO、海报与文本元数据读取 |
+| `system_service.py` | 系统统计、日志获取、运行时配置暴露 |
 
 ### Core Layer (`app/core/`)
 
 | 模块 | 职责 |
 |------|------|
-| `scraper.py` | Zimuku 爬虫，三层匹配策略 |
-| `archive.py` | ZIP/7z 解压，编码处理 |
+| `scraper/agent.py` | Zimuku 爬虫，三层匹配策略、请求退避、限速与重试 |
+| `archive/manager.py` | ZIP/7z 解压与安全校验 |
 | `ocr.py` | 验证码识别 |
 | `config.py` | 配置管理 |
-| `utils.py` | 媒体解析、打分算法 |
+| `observability.py` | 统一日志格式与任务级关联上下文 |
+| `metadata.py` | NFO、海报、TXT 元数据抽取 |
+| `utils.py` | 媒体解析与通用辅助函数 |
 
 ### Data Layer (`app/db/`)
 
@@ -119,5 +126,17 @@
 
 ### 任务状态轮询
 
-- 后端：全局 `TaskStatus` 类管理内存状态
+- 后端：任务状态持久化在 SQLite `SubtitleTask` 表，`/system/stats` 暴露 `task_state_backend=database`
 - 前端：动态轮询频率（活跃 2s / 空闲 10s）
+
+## 运行时约束
+
+- 搜索、下载、自动匹配链路会注入 `correlation_id`、任务名和实体 ID，便于串联日志。
+- 爬虫请求统一走超时、最小请求间隔、指数退避和 5xx/429 重试策略。
+- 后台任务和测试都使用显式的数据库会话边界，避免依赖请求生命周期。
+
+## 延后技术债
+
+- 任务状态目前仍以数据库轮询为主，尚未引入更细粒度的事件推送。
+- 搜索/下载的远端策略仍以站点特征为中心，后续若站点变化较大仍需进一步抽象。
+- 目前没有独立的架构决策记录，后续若继续扩展后端模块，建议补 ADR。
