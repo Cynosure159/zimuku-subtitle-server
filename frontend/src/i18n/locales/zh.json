@@ -149,6 +149,7 @@
   },
   "download": {
     "title": "下载字幕",
+    "associateSubtitle": "关联并下载字幕",
     "selectLanguage": "选择语言",
     "format": "格式",
     "selectTargetMedia": "选择目标媒体",
@@ -169,7 +170,8 @@
     "episodes": "{{count}} 集"
   },
   "episodeSelector": {
-    "season": "第 {{n}} 季"
+    "season": "第 {{n}} 季",
+    "episode": "第 {{n}} 集"
   },
   "empty": {
     "selectLeft": "请选择左侧{{type}}查看详情"
