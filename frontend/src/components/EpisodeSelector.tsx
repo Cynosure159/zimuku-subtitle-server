@@ -15,26 +15,26 @@ export default function EpisodeSelector({ seriesTitle, season, episodes, onSelec
   const displayEpisodes = episodes.length > 0 ? episodes : Array.from({ length: 24 }, (_, i) => i + 1);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3 p-3 animate-in fade-in slide-in-from-left-1 duration-300">
       <div className="flex items-center gap-3">
         <button
           onClick={onBack}
-          className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+          className="p-1.5 rounded-lg bg-surface-container-highest/20 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest/40 transition-all duration-300 border border-outline-variant/5"
         >
-          <ChevronLeft className="w-5 h-5 text-slate-500" />
+          <ChevronLeft className="w-4 h-4" />
         </button>
-        <div>
-          <div className="font-medium text-slate-900">{seriesTitle}</div>
-          <div className="text-sm text-slate-500">{t('episodeSelector.season', { n: season })}</div>
+        <div className="min-w-0">
+          <div className="font-headline font-bold text-on-surface text-sm truncate leading-tight">{seriesTitle}</div>
+          <div className="text-[10px] font-label font-bold uppercase tracking-wider text-primary mt-0.5">{t('episodeSelector.season', { n: season })}</div>
         </div>
       </div>
 
-      <div className="grid grid-cols-6 gap-2 max-h-48 overflow-y-auto">
+      <div className="grid grid-cols-6 gap-1.5 max-h-40 overflow-y-auto custom-scrollbar pr-0.5">
         {displayEpisodes.map((ep) => (
           <button
             key={ep}
             onClick={() => onSelect(ep)}
-            className="px-2 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm hover:bg-blue-500 hover:text-white transition-colors"
+            className="px-1.5 py-1.5 bg-surface-container-highest/20 text-on-surface-variant rounded-lg text-[11px] font-label font-bold tracking-wider border border-outline-variant/5 hover:border-primary/40 hover:bg-primary/5 hover:text-primary transition-all duration-200"
           >
             E{ep.toString().padStart(2, '0')}
           </button>

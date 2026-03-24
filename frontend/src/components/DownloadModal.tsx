@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Download, Loader2, ChevronDown, ChevronUp, Film, Tv } from 'lucide-react';
+import { Download, Loader2, ChevronDown, Film, Tv } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import Modal from './Modal';
 import MediaSelector, { type MediaSelection } from './MediaSelector';
@@ -16,7 +16,6 @@ interface DownloadModalProps {
 export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }: DownloadModalProps) {
   const { t } = useTranslation();
   const [selectedLangs, setSelectedLangs] = useState<string[]>([]);
-  const [selectedFormat, setSelectedFormat] = useState<string>('');
   const [targetMedia, setTargetMedia] = useState<MediaSelection | null>(null);
   const [selectedSeason, setSelectedSeason] = useState<number | undefined>(undefined);
   const [selectedEpisode, setSelectedEpisode] = useState<number | undefined>(undefined);
@@ -28,7 +27,6 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
   useEffect(() => {
     if (subtitle) {
       setSelectedLangs(subtitle.lang || []);
-      setSelectedFormat(subtitle.format || '');
     }
   }, [subtitle]);
 
@@ -97,18 +95,6 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
     }
   };
 
-  const getTargetDisplay = () => {
-    if (!targetMedia) return null;
-    if (targetMedia.type === 'movie') {
-      return `${t('movie')}: ${targetMedia.title}${targetMedia.year ? ` (${targetMedia.year})` : ''}`;
-    } else if (selectedSeason && selectedEpisode) {
-      return `${t('tv')}: ${targetMedia.title} S${selectedSeason.toString().padStart(2, '0')}E${selectedEpisode.toString().padStart(2, '0')}`;
-    } else if (selectedSeason) {
-      return `${t('tv')}: ${targetMedia.title} ${t('episodeSelector.season', { n: selectedSeason })}`;
-    }
-    return null;
-  };
-
   const canDownload = () => {
     if (!subtitle || selectedLangs.length === 0) return false;
     if (customPath.trim()) return true;
@@ -127,125 +113,172 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
   ];
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={t('download.title')}>
-      <div className="flex flex-col gap-6">
-        <div className="bg-slate-50 rounded-lg p-4">
-          <h3 className="font-medium text-slate-900">{subtitle.title}</h3>
-          {subtitle.format && (
-            <p className="text-sm text-slate-500 mt-1">
-              {t('download.format')}: {subtitle.format}
-            </p>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-slate-700">{t('download.selectLanguage')}</label>
-          <div className="flex flex-wrap gap-2">
-            {availableLangs.map(lang => (
-              <button
-                key={lang}
-                onClick={() => {
-                  setSelectedLangs(prev =>
-                    prev.includes(lang) ? prev.filter(l => l !== lang) : [...prev, lang]
-                  );
-                }}
-                className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                  selectedLangs.includes(lang)
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                {lang}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {subtitle.format && (
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-slate-700">{t('download.format')}</label>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setSelectedFormat(subtitle.format || '')}
-                className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                  selectedFormat === subtitle.format
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                {subtitle.format}
-              </button>
+    <Modal isOpen={isOpen} onClose={onClose} title={t('download.associateSubtitle')}>
+      <div className="flex flex-col gap-4">
+        {/* Subtitle Info Header */}
+        <div className="space-y-1">
+          <div className="space-y-0.5">
+            <h3 className="text-xl font-headline font-extrabold text-on-surface leading-tight break-all">
+              {subtitle.title}
+            </h3>
+            <div className="flex items-center gap-2 text-sm font-label text-on-surface-variant font-medium tracking-wide">
+              <span>{subtitle.format || 'SRT'}</span>
+              <span className="opacity-30">•</span>
+              <span>{selectedLangs.join(' & ') || availableLangs[0]}</span>
+              {subtitle.fps && (
+                <>
+                  <span className="opacity-30">•</span>
+                  <span>{subtitle.fps} FPS</span>
+                </>
+              )}
             </div>
           </div>
-        )}
-
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-slate-700">{t('download.selectTargetMedia')}</label>
-          {targetMedia && targetMedia.type === 'tv' && !selectedEpisode ? (
-            <EpisodeSelector
-              seriesTitle={targetMedia.title}
-              season={selectedSeason || 1}
-              episodes={targetMedia.episodes || []}
-              onSelect={handleEpisodeSelect}
-              onBack={() => {
-                setTargetMedia(null);
-                setSelectedSeason(undefined);
-                setSelectedEpisode(undefined);
-                setMediaSelectorType('tv');
-              }}
-            />
-          ) : (
-            <MediaSelector onSelect={handleMediaSelect} defaultType={mediaSelectorType} />
-          )}
         </div>
 
-        {getTargetDisplay() && (
-          <div className="flex items-center gap-2 text-sm text-slate-600 bg-blue-50 px-3 py-2 rounded-lg">
-            {targetMedia?.type === 'movie' ? <Film className="w-4 h-4" /> : <Tv className="w-4 h-4" />}
-            <span>{getTargetDisplay()}</span>
+        {/* Configuration Sections */}
+        <div className="space-y-4">
+          {/* Language Selection */}
+          <div className="space-y-2">
+            <label className="text-xs font-label uppercase tracking-widest text-on-surface-variant font-bold opacity-70">
+              {t('download.selectLanguage')}
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {availableLangs.map(lang => (
+                <button
+                  key={lang}
+                  onClick={() => {
+                    setSelectedLangs(prev =>
+                      prev.includes(lang) ? prev.filter(l => l !== lang) : [...prev, lang]
+                    );
+                  }}
+                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-all duration-300 border ${
+                    selectedLangs.includes(lang)
+                      ? 'bg-primary text-on-primary border-primary shadow-[0_0_15px_rgba(189,194,255,0.2)]'
+                      : 'bg-surface-container text-on-surface-variant border-outline-variant/10 hover:border-primary/30 hover:text-on-surface'
+                  }`}
+                >
+                  {lang}
+                </button>
+              ))}
+            </div>
           </div>
-        )}
 
-        <div>
+          {/* Media Selection */}
+          <div className="space-y-2">
+            <label className="text-xs font-label uppercase tracking-widest text-on-surface-variant font-bold opacity-70">
+              {t('download.selectTargetMedia')}
+            </label>
+            
+            <div className="bg-surface-container-low rounded-xl p-0.5 border border-outline-variant/5">
+              {targetMedia && targetMedia.type === 'tv' && !selectedEpisode ? (
+                <EpisodeSelector
+                  seriesTitle={targetMedia.title}
+                  season={selectedSeason || 1}
+                  episodes={targetMedia.episodes || []}
+                  onSelect={handleEpisodeSelect}
+                  onBack={() => {
+                    setTargetMedia(null);
+                    setSelectedSeason(undefined);
+                    setSelectedEpisode(undefined);
+                    setMediaSelectorType('tv');
+                  }}
+                />
+              ) : (
+                <MediaSelector onSelect={handleMediaSelect} defaultType={mediaSelectorType} />
+              )}
+            </div>
+
+            {/* Visual Selection Feedback */}
+            {targetMedia && (
+              <div className="group relative overflow-hidden bg-surface-container-high/40 rounded-xl p-4 border border-outline-variant/5 transition-all duration-500 animate-in fade-in slide-in-from-bottom-1">
+                <div className="flex items-center gap-4 relative z-10">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 text-primary">
+                    {targetMedia.type === 'movie' ? (
+                      <Film className="w-5 h-5" />
+                    ) : (
+                      <Tv className="w-5 h-5" />
+                    )}
+                  </div>
+                  <div className="space-y-0.5 min-w-0">
+                    <p className="text-[10px] font-label uppercase tracking-widest text-on-surface-variant font-bold opacity-50">
+                      {targetMedia.type === 'movie' ? t('movie') : t('tv')}
+                    </p>
+                    <h4 className="text-sm font-headline font-bold text-on-surface truncate">
+                      {targetMedia.title}
+                    </h4>
+                    {targetMedia.type === 'tv' && selectedSeason && (
+                      <p className="text-[11px] font-body text-primary font-semibold">
+                        {t('page.series.season', { n: selectedSeason })}
+                        {selectedEpisode && ` · ${t('episodeSelector.episode', { n: selectedEpisode.toString().padStart(2, '0') })}`}
+                      </p>
+                    )}
+                    {targetMedia.type === 'movie' && targetMedia.year && (
+                      <p className="text-[11px] font-body text-on-surface-variant">
+                        {targetMedia.year}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Advanced Options */}
+          <div className="space-y-2">
+            <button
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="flex items-center gap-2 text-xs font-label font-bold uppercase tracking-widest text-on-surface-variant hover:text-on-surface transition-all duration-300 group"
+            >
+              <div className={`transition-transform duration-300 ${showAdvanced ? 'rotate-180' : ''}`}>
+                <ChevronDown className="w-4 h-4" />
+              </div>
+              {t('download.advancedOptions')}
+              <div className="h-px w-8 bg-outline-variant/10 ml-1 group-hover:bg-outline-variant/30 transition-colors" />
+            </button>
+
+            {showAdvanced && (
+              <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-300">
+                <div className="relative group">
+                  <input
+                    type="text"
+                    value={customPath}
+                    onChange={e => setCustomPath(e.target.value)}
+                    placeholder={t('download.customPathPlaceholder')}
+                    className="w-full bg-surface-container-low px-4 py-3 text-sm border border-outline-variant/10 rounded-xl outline-none focus:border-primary/50 focus:bg-surface-container transition-all"
+                  />
+                </div>
+                <p className="text-[11px] text-on-surface-variant/50 font-body px-1 leading-relaxed">
+                  {t('download.customPathNote')}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Action Button */}
+        <div className="pt-0">
           <button
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 transition-colors"
+            onClick={handleDownload}
+            disabled={!canDownload() || loading}
+            className={`w-full py-4 rounded-xl font-headline font-extrabold text-sm uppercase tracking-widest transition-all duration-500 flex items-center justify-center gap-2 active:scale-[0.98] ${
+              canDownload() && !loading
+                ? 'bg-gradient-to-br from-primary to-primary-container text-on-primary shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:-translate-y-0.5'
+                : 'bg-surface-container-highest/20 text-on-surface-variant border border-outline-variant/10 cursor-not-allowed'
+            }`}
           >
-            {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            {t('download.advancedOptions')}
+            {loading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                {t('download.adding')}
+              </>
+            ) : (
+              <>
+                <Download className="w-5 h-5" />
+                {t('download.startDownload')}
+              </>
+            )}
           </button>
-
-          {showAdvanced && (
-            <div className="mt-3">
-              <input
-                type="text"
-                value={customPath}
-                onChange={e => setCustomPath(e.target.value)}
-                placeholder={t('download.customPathPlaceholder')}
-                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg outline-none focus:border-blue-500"
-              />
-              <p className="text-xs text-slate-500 mt-1">{t('download.customPathNote')}</p>
-            </div>
-          )}
         </div>
-
-        <button
-          onClick={handleDownload}
-          disabled={!canDownload() || loading}
-          className="w-full py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              {t('download.adding')}
-            </>
-          ) : (
-            <>
-              <Download className="w-5 h-5" />
-              {t('download.startDownload')}
-            </>
-          )}
-        </button>
       </div>
     </Modal>
   );

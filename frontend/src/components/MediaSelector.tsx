@@ -132,53 +132,59 @@ export default function MediaSelector({ onSelect, defaultType = 'movie' }: Media
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex gap-2">
+    <div className="flex flex-col gap-3 p-3">
+      <div className="flex bg-surface-container-highest/10 p-1 rounded-xl border border-outline-variant/5">
         <button
           onClick={() => setMediaType('movie')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            mediaType === 'movie' ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-label font-bold uppercase tracking-wider transition-all duration-300 ${
+            mediaType === 'movie' 
+              ? 'bg-primary text-on-primary shadow-lg shadow-primary/20' 
+              : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest/20'
           }`}
         >
-          <Film className="w-4 h-4" />
+          <Film className="w-3.5 h-3.5" />
           {t('mediaSelector.movie')}
         </button>
         <button
           onClick={() => setMediaType('tv')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            mediaType === 'tv' ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-label font-bold uppercase tracking-wider transition-all duration-300 ${
+            mediaType === 'tv' 
+              ? 'bg-primary text-on-primary shadow-lg shadow-primary/20' 
+              : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest/20'
           }`}
         >
-          <Tv className="w-4 h-4" />
+          <Tv className="w-3.5 h-3.5" />
           {t('mediaSelector.tv')}
         </button>
       </div>
 
-      <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-lg">
+      <div className="max-h-48 overflow-y-auto custom-scrollbar pr-0.5">
         {mediaItems.length === 0 ? (
-          <div className="p-4 text-sm text-slate-500 text-center">
+          <div className="p-6 text-[11px] text-on-surface-variant text-center font-body opacity-40 italic">
             {mediaType === 'movie' ? t('mediaSelector.notFound') : t('mediaSelector.notFoundTv')}
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
+          <div className="space-y-0.5">
             {mediaItems.map(item => (
-              <div key={item.id}>
+              <div key={item.id} className="group">
                 <button
                   onClick={() => (item.path_type === 'tv' ? toggleExpand(item.id) : handleSelect(item))}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left"
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-container-highest/20 transition-all duration-200 text-left border border-transparent hover:border-outline-variant/5"
                 >
-                  {item.path_type === 'tv' ? (
-                    expandedItems.has(item.id) ? (
-                      <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                  <div className="w-7 h-7 rounded-md bg-surface-container-high flex items-center justify-center shrink-0 text-on-surface-variant group-hover:text-primary transition-colors">
+                    {item.path_type === 'tv' ? (
+                      expandedItems.has(item.id) ? (
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      )
                     ) : (
-                      <ChevronRight className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                    )
-                  ) : (
-                    <Film className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0 flex items-center justify-between">
-                    <div className="font-medium text-slate-900 truncate">{item.title}</div>
-                    <div className="text-sm text-slate-500 shrink-0 ml-2">
+                      <Film className="w-3.5 h-3.5" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-headline font-bold text-on-surface text-sm truncate leading-tight">{item.title}</div>
+                    <div className="text-[10px] font-label font-bold uppercase tracking-wider text-on-surface-variant/40 mt-0.5">
                       {item.path_type === 'movie' && item.year && `${item.year}`}
                       {item.path_type === 'tv' &&
                         item.episode_count &&
@@ -188,12 +194,12 @@ export default function MediaSelector({ onSelect, defaultType = 'movie' }: Media
                 </button>
 
                 {item.path_type === 'tv' && expandedItems.has(item.id) && item.seasons && (
-                  <div className="pl-10 pr-4 pb-3 flex flex-wrap gap-2">
+                  <div className="pl-12 pr-4 pb-2 pt-0.5 flex flex-wrap gap-1.5 animate-in fade-in slide-in-from-top-1">
                     {item.seasons.map(season => (
                       <button
                         key={season}
                         onClick={() => handleSelect(item, season)}
-                        className="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-sm hover:bg-blue-500 hover:text-white transition-colors"
+                        className="px-3 py-1 bg-surface-container-highest/30 text-on-surface-variant rounded-md text-[10px] font-bold font-label tracking-wider hover:bg-primary hover:text-on-primary transition-all duration-200"
                       >
                         {t('episodeSelector.season', { n: season })}
                       </button>

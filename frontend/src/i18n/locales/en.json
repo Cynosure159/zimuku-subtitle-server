@@ -149,6 +149,7 @@
   },
   "download": {
     "title": "Download Subtitle",
+    "associateSubtitle": "Associate & Download Subtitle",
     "selectLanguage": "Select Language",
     "format": "Format",
     "selectTargetMedia": "Select Target Media",
@@ -169,7 +170,8 @@
     "episodes": "{{count}} episodes"
   },
   "episodeSelector": {
-    "season": "Season {{n}}"
+    "season": "Season {{n}}",
+    "episode": "Episode {{n}}"
   },
   "empty": {
     "selectLeft": "Select a {{type}} on the left to view details"
