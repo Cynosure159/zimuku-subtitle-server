@@ -98,13 +98,12 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="flex-1 w-full h-full max-w-[1800px] overflow-y-auto custom-scrollbar pr-4">
-      <header className="flex items-center justify-between pb-8 pt-4">
-        <div>
-          <h2 className="text-3xl font-headline font-extrabold tracking-tight text-primary">
+    <div className="flex-1 w-full h-full max-w-[1400px] mx-auto overflow-y-auto custom-scrollbar px-8 py-10">
+      <header className="flex items-center justify-between pb-10">
+        <div className="flex flex-col gap-3">
+          <h1 className="text-4xl font-headline font-extrabold tracking-tight text-on-surface leading-none">
             {t('page.settings.title')}
-          </h2>
-          <p className="text-on-surface-variant font-label text-sm mt-1">{t('page.settings.subtitle')}</p>
+          </h1>
         </div>
       </header>
 

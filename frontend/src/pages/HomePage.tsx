@@ -77,9 +77,11 @@ export default function HomePage() {
     stats && stats.totalFiles > 0 ? Math.round((stats.hasSubtitle / stats.totalFiles) * 100) : 0;
 
   return (
-    <div className="flex flex-col w-full h-full overflow-y-auto custom-scrollbar px-6 py-8 gap-10">
-      <div>
-        <h1 className="font-headline text-4xl font-extrabold tracking-tight text-on-surface">{t('nav.home')}</h1>
+    <div className="flex flex-col w-full h-full max-w-[1400px] mx-auto overflow-y-auto custom-scrollbar px-8 py-10 gap-10">
+      <div className="flex flex-col gap-3">
+        <h1 className="font-headline text-4xl font-extrabold tracking-tight text-on-surface leading-none">
+          {t('nav.home')}
+        </h1>
       </div>
 
       {loading ? (

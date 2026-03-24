@@ -62,10 +62,7 @@
       "save": "保存",
       "saved": "保存成功",
       "saveFailed": "保存失败",
-      "lastUpdated": "最后更新",
       "noConfig": "暂无配置项，请在后端初始化或插入数据",
-      "loading": "加载中...",
-      "subtitle": "管理您的数字媒体生态偏好配置",
       "general": "常规设置",
       "systemProperties": "系统属性配置",
       "digitalLibraries": "数字媒体库管理",
@@ -74,12 +71,10 @@
       "tvDirectory": "剧集目录",
       "tvSub": "剧集的本地和网络存放路径",
       "add": "添加",
-      "noDirectories": "尚未添加相关目录",
-      "noPlot": "暂无剧情简介"
+      "noDirectories": "尚未添加相关目录"
     }
   },
   "home": {
-    "subtitle": "您的私有媒体库字幕状态概览与数据统计",
     "totalFiles": "媒体库总量",
     "matched": "已匹配",
     "missing": "待匹配",
@@ -182,7 +177,6 @@
   "downloadCount": "{{count}} 次下载",
   "author": "作者",
   "association": "关联扫描目录",
-  "noPlot": "暂无简介信息。后续将通过刮削器自动补充详细信息。",
   "metadataError": "无法加载元数据",
   "metadataRetry": "重试",
   "sidebar": {
