@@ -1,63 +1,42 @@
-import { useMemo, useState, useEffect, startTransition } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { useQueries } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import {
-  fetchMediaMetadata,
-  triggerMediaMatch,
-  autoMatchFile,
-  matchTVSeason,
-  getMediaPosterUrl,
-  type SortOption,
-  type FilterOption,
-  type SortOrder,
-} from '../api';
-import { MediaSidebar, type SidebarItem } from '../components/MediaSidebar';
+import { autoMatchFile, matchTVSeason } from '../api';
+import { MediaSidebar } from '../components/MediaSidebar';
 import { MediaInfoCard } from '../components/MediaInfoCard';
 import { EmptySelectionState } from '../components/EmptySelectionState';
 import { MediaItem } from '../components/MediaItem';
 import { Search, Loader2 } from 'lucide-react';
-import { useMediaPolling } from '../hooks/useMediaPolling';
-import { useMediaGrouping, type TvGroup } from '../hooks/useMediaGrouping';
-import { useUIStore } from '../stores/useUIStore';
+import { useMediaBrowserController } from '../hooks/useMediaBrowserController';
 
 export default function SeriesPage() {
   const { t } = useTranslation();
-  const [searchParams, setSearchParams] = useSearchParams();
   const {
-    files,
+    selectedItem: selectedSeries,
+    sidebarItems,
+    searchTerm,
+    setSearchTerm,
+    selectedTitle: selectedSeriesTitle,
+    setSelectedTitle: setSelectedSeriesTitle,
+    sortOption,
+    sortOrder,
+    filterOption,
+    handleSortChange,
+    setFilterOption,
+    handleRefresh,
     status,
-    setIsScanningOptimistic,
+    sidebarOpen,
+    toggleSidebar,
     setMatchingFileOptimistic,
     setMatchingSeasonOptimistic,
-  } = useMediaPolling('tv');
-
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSeriesTitle, setSelectedSeriesTitle] = useState<string | null>(null);
-  const [selectedSeason, setSelectedSeason] = useState<number>(1);
-  const [sortOption, setSortOption] = useState<SortOption>('name');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
-  const [filterOption, setFilterOption] = useState<FilterOption>('all');
-
-  const handleRefresh = async () => {
-    try {
-      setIsScanningOptimistic(true);
-      setTimeout(() => setIsScanningOptimistic(false), 3000);
-      await triggerMediaMatch('tv');
-    } catch (err: unknown) {
-      console.error(err);
-    }
-  };
-
-  const handleSortChange = (opt: SortOption) => {
-    if (opt === sortOption) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortOption(opt);
-      if (opt === 'name') setSortOrder('asc');
-      else setSortOrder('desc');
-    }
-  };
+    selectedSeason,
+    setSelectedSeason,
+    availableSeasons,
+    currentSeasonFiles,
+    totalEpisodesCount,
+    isSelectedSeasonMatching,
+  } = useMediaBrowserController({
+    type: 'tv',
+    unknownLabel: t('page.series.unknownSeries'),
+  });
 
   const handleAutoSearch = async (fileId: number) => {
     setMatchingFileOptimistic(fileId, true);
@@ -83,113 +62,6 @@ export default function SeriesPage() {
       alert(t('mediaConfig.triggerFailed') + ': ' + message);
     }
   };
-
-  const groupedSeries = useMediaGrouping(
-    files,
-    'tv',
-    searchTerm,
-    sortOption,
-    sortOrder,
-    filterOption,
-    t('page.series.unknownSeries')
-  ) as TvGroup[];
-
-  const metadataQueries = useQueries({
-    queries: (groupedSeries || []).map(series => ({
-      queryKey: ['media', 'metadata', series.firstFileId],
-      queryFn: () => fetchMediaMetadata(series.firstFileId),
-      staleTime: 10 * 60 * 1000,
-      retry: 1,
-    })),
-  });
-
-  const sidebarItems: SidebarItem[] = useMemo(() => {
-    if (!groupedSeries) return [];
-    return groupedSeries.map((series, index) => {
-      const metadata = metadataQueries[index]?.data;
-      const nfoTitle = metadata?.nfo_data?.title;
-      const nfoYear = metadata?.nfo_data?.year ?? undefined;
-      const posterUrl = metadata?.poster_path ? getMediaPosterUrl(metadata.poster_path) : null;
-      return {
-        id: series.title,
-        displayTitle: nfoTitle || series.title,
-        year: nfoYear || series.year,
-        totalCount: series.totalCount,
-        hasSubCount: series.hasSubCount,
-        poster: posterUrl,
-        createdAt: series.createdAt,
-      };
-    });
-  }, [groupedSeries, metadataQueries]);
-
-  const { toggleSidebar, sidebarOpen } = useUIStore();
-
-  useEffect(() => {
-    const mql = window.matchMedia('(min-width: 1024px)');
-    const handler = (e: MediaQueryListEvent) => {
-      if (e.matches && !useUIStore.getState().sidebarOpen) {
-        toggleSidebar();
-      }
-    };
-    mql.addEventListener('change', handler);
-    return () => mql.removeEventListener('change', handler);
-  }, [toggleSidebar]);
-
-  useEffect(() => {
-    const titleFromUrl = searchParams.get('title');
-    const seasonFromUrl = searchParams.get('season');
-
-    if (titleFromUrl && groupedSeries.find(s => s.title === titleFromUrl)) {
-      startTransition(() => {
-        setSelectedSeriesTitle(titleFromUrl);
-        if (seasonFromUrl) {
-          setSelectedSeason(Number(seasonFromUrl));
-        }
-      });
-      const newParams = new URLSearchParams(searchParams);
-      newParams.delete('title');
-      newParams.delete('season');
-      setSearchParams(newParams, { replace: true });
-    } else if (
-      groupedSeries.length > 0 &&
-      (!selectedSeriesTitle || !groupedSeries.find(s => s.title === selectedSeriesTitle))
-    ) {
-      const timer = setTimeout(() => {
-        const first = groupedSeries[0];
-        setSelectedSeriesTitle(first.title);
-        const availableSeasons = Object.keys(first.seasons).map(Number).sort((a, b) => a - b);
-        if (availableSeasons.length > 0) {
-          setSelectedSeason(availableSeasons[0]);
-        }
-      }, 0);
-      return () => clearTimeout(timer);
-    }
-  }, [groupedSeries, selectedSeriesTitle, searchParams, setSearchParams]);
-
-  const selectedSeries = groupedSeries.find(s => s.title === selectedSeriesTitle);
-  const availableSeasons = useMemo(() => {
-    return selectedSeries ? Object.keys(selectedSeries.seasons).map(Number).sort((a, b) => a - b) : [];
-  }, [selectedSeries]);
-
-  useEffect(() => {
-    if (selectedSeries && !availableSeasons.includes(selectedSeason)) {
-      if (availableSeasons.length > 0) {
-        const timer = setTimeout(() => setSelectedSeason(availableSeasons[0]), 0);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [selectedSeriesTitle, selectedSeries, availableSeasons, selectedSeason]);
-
-  const currentSeasonFiles = selectedSeries?.seasons[selectedSeason] || [];
-
-  const isSelectedSeasonMatching =
-    selectedSeries &&
-    status.matching_seasons.some(m => m.title === selectedSeries.title && m.season === selectedSeason);
-
-  const totalEpisodesCount = useMemo(() => {
-    if (!selectedSeries) return 0;
-    return Object.values(selectedSeries.seasons).reduce((acc, files) => acc + files.length, 0);
-  }, [selectedSeries]);
 
   return (
     <div className="flex flex-col gap-6 w-full h-full max-w-[1800px]">

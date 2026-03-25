@@ -1,126 +1,33 @@
-import { useMemo, useState, useEffect, startTransition } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { useQueries } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import {
-  fetchMediaMetadata,
-  triggerMediaMatch,
-  getMediaPosterUrl,
-  type SortOption,
-  type FilterOption,
-  type SortOrder,
-} from '../api';
-import { MediaSidebar, type SidebarItem } from '../components/MediaSidebar';
+import { MediaSidebar } from '../components/MediaSidebar';
 import { MediaInfoCard } from '../components/MediaInfoCard';
 import { EmptySelectionState } from '../components/EmptySelectionState';
 import { MediaList } from '../components/MediaItem';
-import { useMediaPolling } from '../hooks/useMediaPolling';
-import { useMediaGrouping, type MovieGroup } from '../hooks/useMediaGrouping';
-import { useUIStore } from '../stores/useUIStore';
+import { useMediaBrowserController } from '../hooks/useMediaBrowserController';
 
 export default function MoviesPage() {
   const { t } = useTranslation();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const { files, status, setIsScanningOptimistic, setMatchingFileOptimistic } = useMediaPolling('movie');
-
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedMovieTitle, setSelectedMovieTitle] = useState<string | null>(null);
-  const [sortOption, setSortOption] = useState<SortOption>('name');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
-  const [filterOption, setFilterOption] = useState<FilterOption>('all');
-
-  const handleRefresh = async () => {
-    try {
-      setIsScanningOptimistic(true);
-      setTimeout(() => setIsScanningOptimistic(false), 3000);
-      await triggerMediaMatch('movie');
-    } catch (err: unknown) {
-      console.error(err);
-    }
-  };
-
-  const handleSortChange = (opt: SortOption) => {
-    if (opt === sortOption) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortOption(opt);
-      if (opt === 'name') setSortOrder('asc');
-      else setSortOrder('desc');
-    }
-  };
-
-  const groupedMovies = useMediaGrouping(
-    files,
-    'movie',
+  const {
+    selectedItem: selectedMovie,
+    sidebarItems,
     searchTerm,
+    setSearchTerm,
+    selectedTitle: selectedMovieTitle,
+    setSelectedTitle: setSelectedMovieTitle,
     sortOption,
     sortOrder,
     filterOption,
-    t('page.movies.unknownMovie')
-  ) as MovieGroup[];
-
-  const metadataQueries = useQueries({
-    queries: (groupedMovies || []).map(movie => ({
-      queryKey: ['media', 'metadata', movie.files[0]?.id],
-      queryFn: () => fetchMediaMetadata(movie.files[0].id),
-      staleTime: 10 * 60 * 1000,
-      retry: 1,
-      enabled: movie.files.length > 0,
-    })),
+    handleSortChange,
+    setFilterOption,
+    handleRefresh,
+    status,
+    sidebarOpen,
+    toggleSidebar,
+    setMatchingFileOptimistic,
+  } = useMediaBrowserController({
+    type: 'movie',
+    unknownLabel: t('page.movies.unknownMovie'),
   });
-
-  const sidebarItems: SidebarItem[] = useMemo(() => {
-    if (!groupedMovies) return [];
-    return groupedMovies.map((movie, index) => {
-      const metadata = metadataQueries[index]?.data;
-      const nfoTitle = metadata?.nfo_data?.title;
-      const nfoYear = metadata?.nfo_data?.year ?? undefined;
-      const posterUrl = metadata?.poster_path ? getMediaPosterUrl(metadata.poster_path) : null;
-      const totalCount = movie.files.length;
-      const hasSubCount = movie.files.filter(f => f.has_subtitle).length;
-      return {
-        id: movie.title,
-        displayTitle: nfoTitle || movie.title,
-        year: nfoYear || movie.year,
-        totalCount,
-        hasSubCount,
-        poster: posterUrl,
-      };
-    });
-  }, [groupedMovies, metadataQueries]);
-
-  const { toggleSidebar, sidebarOpen } = useUIStore();
-
-  useEffect(() => {
-    const mql = window.matchMedia('(min-width: 1024px)');
-    const handler = (e: MediaQueryListEvent) => {
-      if (e.matches && !useUIStore.getState().sidebarOpen) {
-        toggleSidebar();
-      }
-    };
-    mql.addEventListener('change', handler);
-    return () => mql.removeEventListener('change', handler);
-  }, [toggleSidebar]);
-
-  useEffect(() => {
-    const titleFromUrl = searchParams.get('title');
-    if (titleFromUrl && groupedMovies.find(m => m.title === titleFromUrl)) {
-      startTransition(() => {
-        setSelectedMovieTitle(titleFromUrl);
-      });
-      const newParams = new URLSearchParams(searchParams);
-      newParams.delete('title');
-      setSearchParams(newParams, { replace: true });
-    } else if (
-      groupedMovies.length > 0 &&
-      (!selectedMovieTitle || !groupedMovies.find(m => m.title === selectedMovieTitle))
-    ) {
-      const timer = setTimeout(() => setSelectedMovieTitle(groupedMovies[0].title), 0);
-      return () => clearTimeout(timer);
-    }
-  }, [groupedMovies, selectedMovieTitle, searchParams, setSearchParams]);
-
-  const selectedMovie = groupedMovies.find(m => m.title === selectedMovieTitle);
 
   return (
     <div className="flex flex-col gap-6 w-full h-full max-w-[1800px]">
