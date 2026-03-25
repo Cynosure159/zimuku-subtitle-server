@@ -1,73 +1,91 @@
-# React + TypeScript + Vite
+# Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+[中文](./README-zh.md) | English
 
-Currently, two official plugins are available:
+This directory contains the React frontend for Zimuku Subtitle Server.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Tech Stack
 
-## React Compiler
+- React 19
+- TypeScript
+- Vite
+- Tailwind CSS v4
+- TanStack React Query
+- Zustand
+- React Router
+- Vitest
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Development Commands
 
-## Expanding the ESLint configuration
+```bash
+cd frontend
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+# Install dependencies
+npm install
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+# Start dev server
+npm run dev
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+# Lint
+npm run lint
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# Unit tests
+npm run test
+
+# Production build
+npm run build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Current Frontend Layers
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```text
+pages
+  -> controller hooks
+  -> query hooks / UI store
+  -> selectors
+  -> api modules
 ```
+
+- `src/api/`
+  - Domain-based API modules: `media`, `tasks`, `search`, `settings`
+- `src/hooks/queries/`
+  - Shared React Query queries and mutations
+- `src/contexts/MediaPollingContext.tsx`
+  - Shared media polling state, refresh methods, and optimistic status overlay
+- `src/hooks/useMediaBrowserController.ts`
+  - Shared controller for Movies and Series pages
+- `src/selectors/`
+  - Pure functions for grouping, sorting, filtering, sidebar mapping, and search filtering
+- `src/stores/useUIStore.ts`
+  - UI-only state
+
+## Data Flow Conventions
+
+- Remote data should go through React Query instead of page-local `useEffect + useState` fetching
+- Query keys are centralized in `src/lib/queryKeys.ts`
+- Pages should consume query hooks instead of calling low-level API functions directly
+- Selectors handle derived data; pages and components focus on orchestration and rendering
+- `useMediaPolling()` remains as a compatibility facade, but is now backed by React Query
+
+## Polling And Refresh
+
+- Media task polling uses a dynamic interval:
+  - Active tasks: 2 seconds
+  - Idle tasks: 30 seconds
+- Background tabs do not keep polling continuously
+- Manual refresh actions use optimistic UI first, then hand over to query invalidation and refetch
+
+## Routing And Loading
+
+- Home, Search, Movies, Series, Tasks, and Settings pages are route-level lazy loaded
+- The `Suspense` fallback stays visually minimal to avoid introducing a new loading style
+
+## Test Coverage
+
+Current frontend tests focus on pure logic:
+
+- Media grouping, sorting, and filtering
+- Media sidebar mapping and default selection logic
+- Search result language filtering
+
+If more tests are added later, selector and controller edge cases should remain the first priority.

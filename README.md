@@ -215,12 +215,6 @@ pytest
 pytest tests/test_scraper.py
 ```
 
-### Backend Notes
-
-- Task state is now persisted in the database instead of process-local memory.
-- Media scan, auto-match, and download flows are split into dedicated workflow/pipeline modules.
-- Search and download paths include correlation logging, request pacing, timeout, and retry controls.
-
 ### CI Pipeline
 
 This project uses [GitHub Actions](https://github.com/Cynosure159/zimuku-subtitle-server/actions/workflows/ci.yml) for continuous integration:

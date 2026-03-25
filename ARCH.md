@@ -69,6 +69,18 @@
 - 数据库会话管理
 - 迁移脚本
 
+### Frontend Layer (`frontend/src/`)
+
+| 目录 / 模块 | 职责 |
+|------|------|
+| `api/` | 按领域拆分前端接口调用，保留后端契约不变 |
+| `hooks/queries/` | React Query 查询与 mutation 封装 |
+| `contexts/MediaPollingContext.tsx` | 媒体轮询状态、刷新能力与乐观状态合并 |
+| `hooks/useMediaBrowserController.ts` | 电影页 / 剧集页共享控制器 |
+| `selectors/` | 分组、排序、筛选、sidebar 映射、搜索过滤等纯函数 |
+| `stores/useUIStore.ts` | 纯 UI 状态，如侧边栏开关 |
+| `pages/` | 页面编排与渲染，避免直接拼装底层远程数据逻辑 |
+
 ## 数据模型
 
 ### SubtitleTask
@@ -127,7 +139,18 @@
 ### 任务状态轮询
 
 - 后端：任务状态持久化在 SQLite `SubtitleTask` 表，`/system/stats` 暴露 `task_state_backend=database`
-- 前端：动态轮询频率（活跃 2s / 空闲 10s）
+- 前端：动态轮询频率（活跃 2s / 空闲 30s），后台标签页不持续轮询
+
+### 前端数据流
+
+```text
+api -> query hooks -> selectors / controller -> pages -> components
+```
+
+- 远程数据统一由 React Query 托管
+- `queryKeys` 集中定义缓存标识
+- 页面层优先消费 query hooks，不直接维护接口请求生命周期
+- `useMediaPolling()` 作为兼容 facade，对外保留媒体页共享轮询入口
 
 ## 运行时约束
 

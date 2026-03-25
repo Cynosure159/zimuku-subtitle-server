@@ -215,12 +215,6 @@ pytest
 pytest tests/test_scraper.py
 ```
 
-### 后端现状补充
-
-- 后端任务状态已落到数据库，不再依赖进程内内存状态。
-- 媒体扫描、自动匹配、下载流程已拆分到独立 workflow/pipeline 模块，便于测试和维护。
-- 搜索与下载链路带有关联日志、请求限速、超时和重试控制。
-
 ### CI 流水线
 
 项目使用 [GitHub Actions](https://github.com/Cynosure159/zimuku-subtitle-server/actions/workflows/ci.yml) 进行持续集成：
