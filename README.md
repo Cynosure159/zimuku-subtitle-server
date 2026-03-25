@@ -268,9 +268,3 @@ Please make sure to run `ruff check .` and `ruff format .` before submitting.
 This project is licensed under the MIT License — see the [LICENSE](./LICENSE) file for details.
 
 ---
-
-<div align="center">
-
-Built with ❤️ and Claude
-
-</div>

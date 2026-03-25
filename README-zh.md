@@ -266,11 +266,3 @@ zimuku-subtitle-server/
 ## 📄 许可证
 
 本项目基于 MIT 许可证开源 — 详情请查看 [LICENSE](./LICENSE) 文件。
-
----
-
-<div align="center">
-
-借助 ❤️ 和 Claude 开发
-
-</div>
