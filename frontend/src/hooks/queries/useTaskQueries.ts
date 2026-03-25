@@ -1,10 +1,62 @@
-import { useQuery } from '@tanstack/react-query';
-import { listTasks } from '../../api';
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseQueryOptions,
+} from '@tanstack/react-query';
+import {
+  clearCompletedTasks,
+  deleteTask,
+  listTasks,
+  retryTask,
+} from '../../api';
 import { queryKeys } from '../../lib/queryKeys';
+import type { Task } from '../../types/api';
 
-export function useTasksQuery() {
+type TasksQueryResult = { items: Task[] };
+
+type TasksQueryOptions = Omit<
+  UseQueryOptions<TasksQueryResult, Error, TasksQueryResult, ReturnType<typeof queryKeys.tasks.list>>,
+  'queryKey' | 'queryFn'
+>;
+
+export function useTasksQuery(options?: TasksQueryOptions) {
   return useQuery({
     queryKey: queryKeys.tasks.list(),
     queryFn: listTasks,
+    ...options,
+  });
+}
+
+export function useDeleteTaskMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (taskId: number) => deleteTask(taskId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tasks.list() });
+    },
+  });
+}
+
+export function useRetryTaskMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (taskId: number) => retryTask(taskId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tasks.list() });
+    },
+  });
+}
+
+export function useClearCompletedTasksMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: clearCompletedTasks,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tasks.list() });
+    },
   });
 }

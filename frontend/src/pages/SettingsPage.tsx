@@ -1,20 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  listSettings,
-  updateSetting,
-  addMediaPath,
-  deleteMediaPath,
-  triggerMediaMatch,
-  type Setting,
-} from '../api';
 import { changeLanguage } from '../i18n';
 import { supportedLanguages } from '../i18n/config';
 import { useMediaPolling } from '../hooks/useMediaPolling';
+import {
+  useAddMediaPathMutation,
+  useDeleteMediaPathMutation,
+  useSettingsQuery,
+  useTriggerMediaMatchMutation,
+  useUpdateSettingMutation,
+} from '../hooks/queries';
 
 export default function SettingsPage() {
   const { t, i18n } = useTranslation();
-  const [settings, setSettings] = useState<Setting[]>([]);
   const [formValues, setFormValues] = useState<Record<string, string>>({});
 
   const { paths: moviePaths, fetchData: fetchMoviePaths, status, setIsScanningOptimistic } =
@@ -23,33 +21,23 @@ export default function SettingsPage() {
 
   const [newMoviePath, setNewMoviePath] = useState('');
   const [newTvPath, setNewTvPath] = useState('');
-
-  const fetchSettings = async () => {
-    try {
-      const data = await listSettings();
-      setSettings(data);
-      const values: Record<string, string> = {};
-      data.forEach((s: Setting) => {
-        values[s.key] = s.value;
-      });
-      setFormValues(values);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchSettings();
-  }, []);
+  const settingsQuery = useSettingsQuery();
+  const updateSettingMutation = useUpdateSettingMutation();
+  const addMediaPathMutation = useAddMediaPathMutation();
+  const deleteMediaPathMutation = useDeleteMediaPathMutation();
+  const triggerMediaMatchMutation = useTriggerMediaMatchMutation();
+  const settings = settingsQuery.data ?? [];
 
   const handleSaveSetting = async (key: string) => {
     try {
       const newValue = formValues[key];
       const setting = settings.find(s => s.key === key);
-      await updateSetting(key, newValue, setting?.description);
+      await updateSettingMutation.mutateAsync({
+        key,
+        value: newValue,
+        description: setting?.description,
+      });
       alert(t('page.settings.saved'));
-      fetchSettings();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       alert(t('page.settings.saveFailed') + ': ' + message);
@@ -63,7 +51,7 @@ export default function SettingsPage() {
   const handleAddPath = async (type: 'movie' | 'tv', path: string) => {
     if (!path) return;
     try {
-      await addMediaPath(path, type);
+      await addMediaPathMutation.mutateAsync({ path, pathType: type });
       if (type === 'movie') {
         setNewMoviePath('');
         fetchMoviePaths();
@@ -79,7 +67,7 @@ export default function SettingsPage() {
 
   const handleDeletePath = async (id: number, type: 'movie' | 'tv') => {
     if (!window.confirm(t('confirm.deletePath'))) return;
-    await deleteMediaPath(id);
+    await deleteMediaPathMutation.mutateAsync({ id, pathType: type });
     if (type === 'movie') {
       fetchMoviePaths();
     } else {
@@ -91,7 +79,7 @@ export default function SettingsPage() {
     try {
       setIsScanningOptimistic(true);
       setTimeout(() => setIsScanningOptimistic(false), 3000);
-      await triggerMediaMatch(type);
+      await triggerMediaMatchMutation.mutateAsync(type);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       alert(t('mediaConfig.triggerFailed') + ': ' + message);
@@ -170,7 +158,8 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
-                      value={formValues[setting.key] || ''}
+                      // 未编辑时直接回退到服务端值，避免为了同步 query 结果再额外维护 effect。
+                      value={formValues[setting.key] ?? setting.value ?? ''}
                       onChange={e => setFormValues(prev => ({ ...prev, [setting.key]: e.target.value }))}
                       className="flex-1 bg-surface-container-lowest border-none rounded-lg p-2 text-sm text-on-surface focus:ring-1 focus:ring-primary/40 outline-none transition-all"
                     />

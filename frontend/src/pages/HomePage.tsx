@@ -1,80 +1,26 @@
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { listScannedFiles, type ScannedFile } from '../api';
+import { useMediaFilesQuery } from '../hooks/queries';
+import { buildHomeStats, buildRecentMedia } from '../selectors/home';
+import type { ScannedFile } from '../types/api';
 
-interface Stats {
-  totalFiles: number;
-  hasSubtitle: number;
-  missingSubtitle: number;
-  totalMovies: number;
-  hasSubtitleMovies: number;
-  missingMovies: number;
-  totalSeries: number;
-  hasSubtitleSeries: number;
-  missingSeries: number;
-}
+const EMPTY_FILES: ScannedFile[] = [];
 
 export default function HomePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [recentFiles, setRecentFiles] = useState<ScannedFile[]>([]);
-  const [loading, setLoading] = useState(true);
+  const movieFilesQuery = useMediaFilesQuery('movie');
+  const tvFilesQuery = useMediaFilesQuery('tv');
+  const movieFiles = movieFilesQuery.data ?? EMPTY_FILES;
+  const tvFiles = tvFilesQuery.data ?? EMPTY_FILES;
+  const loading = movieFilesQuery.isLoading || tvFilesQuery.isLoading;
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [movieFiles, tvFiles] = await Promise.all([
-          listScannedFiles('movie'),
-          listScannedFiles('tv'),
-        ]);
-
-        const movies = movieFiles;
-        const tvShows = tvFiles;
-        const all = [...movies, ...tvShows];
-
-        const totalMovies = movies.length;
-        const hasSubtitleMovies = movies.filter(f => f.has_subtitle).length;
-        const totalTv = tvShows.length;
-        const hasSubtitleTv = tvShows.filter(f => f.has_subtitle).length;
-
-        setStats({
-          totalFiles: all.length,
-          hasSubtitle: hasSubtitleMovies + hasSubtitleTv,
-          missingSubtitle: totalMovies - hasSubtitleMovies + (totalTv - hasSubtitleTv),
-          totalMovies,
-          hasSubtitleMovies,
-          missingMovies: totalMovies - hasSubtitleMovies,
-          totalSeries: totalTv,
-          hasSubtitleSeries: hasSubtitleTv,
-          missingSeries: totalTv - hasSubtitleTv,
-        });
-
-        const titlesSeen = new Set<string>();
-        const recent: ScannedFile[] = [];
-        const sorted = all.sort((a, b) => b.created_at.localeCompare(a.created_at));
-        for (const f of sorted) {
-          const key = `${f.type}:${f.extracted_title}`;
-          if (!titlesSeen.has(key)) {
-            titlesSeen.add(key);
-            recent.push(f);
-          }
-          if (recent.length >= 6) break;
-        }
-        setRecentFiles(recent);
-      } catch (e) {
-        console.error('Failed to fetch dashboard data', e);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
+  const stats = useMemo(() => buildHomeStats(movieFiles, tvFiles), [movieFiles, tvFiles]);
+  const recentFiles = useMemo(() => buildRecentMedia(movieFiles, tvFiles), [movieFiles, tvFiles]);
 
   const coveragePercent =
-    stats && stats.totalFiles > 0 ? Math.round((stats.hasSubtitle / stats.totalFiles) * 100) : 0;
+    stats.totalFiles > 0 ? Math.round((stats.hasSubtitle / stats.totalFiles) * 100) : 0;
 
   return (
     <div className="flex flex-col w-full h-full max-w-[1400px] mx-auto overflow-y-auto custom-scrollbar px-8 py-10 gap-10">
@@ -90,7 +36,7 @@ export default function HomePage() {
             <div key={i} className="flex-1 h-32 rounded-2xl bg-surface-container animate-pulse" />
           ))}
         </div>
-      ) : stats ? (
+      ) : (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="col-span-1 sm:col-span-1 p-6 rounded-2xl bg-surface-container border border-outline-variant/5 flex flex-col gap-3">
             <div className="flex items-center justify-between">
@@ -168,34 +114,32 @@ export default function HomePage() {
             </div>
           </div>
         </div>
-      ) : null}
+      )}
 
-      {stats && (
-        <div className="p-6 rounded-2xl bg-surface-container border border-outline-variant/5">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="font-headline font-bold text-on-surface text-lg">{t('home.globalHealth')}</p>
-              <p className="text-on-surface-variant text-xs font-label mt-0.5">{t('home.globalHealthDesc')}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-4xl font-headline font-extrabold text-on-surface">{coveragePercent}%</p>
-              <p className="text-xs text-on-surface-variant font-label">{t('home.subtitleCoverage')}</p>
-            </div>
+      <div className="p-6 rounded-2xl bg-surface-container border border-outline-variant/5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <p className="font-headline font-bold text-on-surface text-lg">{t('home.globalHealth')}</p>
+            <p className="text-on-surface-variant text-xs font-label mt-0.5">{t('home.globalHealthDesc')}</p>
           </div>
-          <div className="h-3 rounded-full bg-surface-container-high overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-primary to-primary-fixed-dim rounded-full relative transition-all duration-1000 ease-out"
-              style={{ width: `${coveragePercent}%` }}
-            >
-              <div className="absolute inset-0 bg-white/10 animate-pulse rounded-full" />
-            </div>
-          </div>
-          <div className="flex justify-between mt-3 text-xs font-label text-on-surface-variant">
-            <span>{stats.hasSubtitle} {t('home.matched')}</span>
-            <span>{stats.missingSubtitle} {t('home.missing')}</span>
+          <div className="text-right">
+            <p className="text-4xl font-headline font-extrabold text-on-surface">{coveragePercent}%</p>
+            <p className="text-xs text-on-surface-variant font-label">{t('home.subtitleCoverage')}</p>
           </div>
         </div>
-      )}
+        <div className="h-3 rounded-full bg-surface-container-high overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-primary to-primary-fixed-dim rounded-full relative transition-all duration-1000 ease-out"
+            style={{ width: `${coveragePercent}%` }}
+          >
+            <div className="absolute inset-0 bg-white/10 animate-pulse rounded-full" />
+          </div>
+        </div>
+        <div className="flex justify-between mt-3 text-xs font-label text-on-surface-variant">
+          <span>{stats.hasSubtitle} {t('home.matched')}</span>
+          <span>{stats.missingSubtitle} {t('home.missing')}</span>
+        </div>
+      </div>
 
       <div>
         <div className="flex items-center justify-between mb-5">

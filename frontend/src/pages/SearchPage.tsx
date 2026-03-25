@@ -2,13 +2,15 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { searchSubtitles, type SearchResult } from '../api';
+import type { SearchResult } from '../api';
 import SearchResultRow from '../components/SearchResultRow';
 import DownloadModal from '../components/DownloadModal';
+import { useSubtitleSearchQuery } from '../hooks/queries';
 
 export default function SearchPage() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
+  const initialQuery = searchParams.get('q') ?? '';
   const [activeFilter, setActiveFilter] = useState(t('searchFilter.all'));
   const filters = [
     t('searchFilter.all'),
@@ -18,48 +20,27 @@ export default function SearchPage() {
     t('searchFilter.bilingual'),
   ];
 
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [query, setQuery] = useState(() => initialQuery);
+  const [submittedQuery, setSubmittedQuery] = useState(() => initialQuery);
   const [selectedSubtitle, setSelectedSubtitle] = useState<SearchResult | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const searchQuery = useSubtitleSearchQuery(submittedQuery, {
+    enabled: submittedQuery.trim().length > 0,
+  });
+  const results = searchQuery.data ?? [];
+  const loading = searchQuery.isFetching;
+  const error = searchQuery.error?.message || '';
 
   useEffect(() => {
-    const qParam = searchParams.get('q');
-    if (qParam) {
-      setQuery(qParam);
-      const doSearch = async () => {
-        setLoading(true);
-        setError('');
-        try {
-          const data = await searchSubtitles(qParam);
-          setResults(data);
-        } catch (err: unknown) {
-          const message = err instanceof Error ? err.message : String(err);
-          setError(message || t('page.search.searchFailed') || 'Search failed');
-        } finally {
-          setLoading(false);
-        }
-      };
-      doSearch();
+    // URL q 只作为一次性入口参数消费，避免后续输入过程被地址栏状态反向覆盖。
+    if (initialQuery) {
       setSearchParams(new URLSearchParams(), { replace: true });
     }
-  }, [searchParams, setSearchParams, t]);
+  }, [initialQuery, setSearchParams]);
 
-  const handleSearch = async () => {
+  const handleSearch = () => {
     if (!query.trim()) return;
-    setLoading(true);
-    setError('');
-    try {
-      const data = await searchSubtitles(query);
-      setResults(data);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      setError(message || t('page.search.searchFailed') || 'Search failed');
-    } finally {
-      setLoading(false);
-    }
+    setSubmittedQuery(query.trim());
   };
 
   const handleDownload = (item: SearchResult) => {
@@ -87,8 +68,9 @@ export default function SearchPage() {
     return filterMap[filter] || filter;
   };
 
+  const filterLabel = getFilterLabel(activeFilter);
+  // 保持现有行为：没有 lang 的结果仍然放行，不因为筛选被隐藏。
   const filteredResults = results.filter(item => {
-    const filterLabel = getFilterLabel(activeFilter);
     if (filterLabel === t('searchFilter.all')) return true;
     if (!item.lang) return true;
     return item.lang.some(lang => lang.includes(filterLabel));
@@ -174,8 +156,8 @@ export default function SearchPage() {
         )}
 
         <div className="flex flex-col gap-4">
-          {filteredResults.map((item, index) => (
-            <SearchResultRow key={index} item={item} onDownload={handleDownload} />
+          {filteredResults.map(item => (
+            <SearchResultRow key={item.link} item={item} onDownload={handleDownload} />
           ))}
           {results.length > 0 && filteredResults.length === 0 && (
             <div className="text-on-surface-variant text-sm py-12 text-center bg-surface-container rounded-2xl border border-outline-variant/10">

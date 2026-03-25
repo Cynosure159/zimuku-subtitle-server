@@ -1,7 +1,12 @@
-import { useEffect, useState } from 'react';
 import { RefreshCw, Trash2, CheckCircle2, XCircle, Clock, Save, History, Terminal } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { listTasks, deleteTask, retryTask, clearCompletedTasks, type Task } from '../api';
+import type { Task } from '../api';
+import {
+  useClearCompletedTasksMutation,
+  useDeleteTaskMutation,
+  useRetryTaskMutation,
+  useTasksQuery,
+} from '../hooks/queries';
 
 function TaskSkeleton() {
   return (
@@ -23,41 +28,27 @@ function TaskSkeleton() {
 
 export default function TasksPage() {
   const { t } = useTranslation();
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchTasks = async () => {
-    try {
-      const data = await listTasks();
-      setTasks(data.items);
-    } catch (err: unknown) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchTasks();
-    const interval = setInterval(fetchTasks, 3000);
-    return () => clearInterval(interval);
-  }, []);
+  const tasksQuery = useTasksQuery({
+    refetchInterval: 3000,
+  });
+  const deleteTaskMutation = useDeleteTaskMutation();
+  const retryTaskMutation = useRetryTaskMutation();
+  const clearCompletedTasksMutation = useClearCompletedTasksMutation();
+  const tasks = tasksQuery.data?.items ?? [];
+  const loading = tasksQuery.isLoading;
 
   const handleDelete = async (id: number) => {
     if (!window.confirm(t('confirm.deleteTask'))) return;
-    await deleteTask(id);
-    fetchTasks();
+    await deleteTaskMutation.mutateAsync(id);
   };
 
   const handleRetry = async (id: number) => {
-    await retryTask(id);
-    fetchTasks();
+    await retryTaskMutation.mutateAsync(id);
   };
 
   const handleClear = async () => {
     if (!window.confirm(t('confirm.clearCompleted'))) return;
-    await clearCompletedTasks();
-    fetchTasks();
+    await clearCompletedTasksMutation.mutateAsync();
   };
 
   const StatusIcon = ({ status }: { status: Task['status'] }) => {

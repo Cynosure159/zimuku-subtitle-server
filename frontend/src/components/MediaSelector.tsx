@@ -1,20 +1,18 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Film, Tv, ChevronRight, ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { listScannedFiles, type ScannedFile, type MediaSelection } from '../api';
+import type { MediaSelection } from '../api';
+import { useMediaFilesQuery } from '../hooks/queries';
+import {
+  buildMediaSelection,
+  buildMediaSelectorItems,
+  type MediaSelectorItem,
+} from '../selectors/mediaSelector';
+import type { ScannedFile } from '../types/api';
 
 export type { MediaSelection };
 
-interface MediaItem {
-  id: number | string;
-  title: string;
-  path: string;
-  path_type: 'movie' | 'tv';
-  year?: number;
-  episode_count?: number;
-  seasons?: number[];
-  seasonEpisodes?: Record<number, number[]>;
-}
+const EMPTY_FILES: ScannedFile[] = [];
 
 interface MediaSelectorProps {
   onSelect: (media: MediaSelection) => void;
@@ -24,82 +22,11 @@ interface MediaSelectorProps {
 export default function MediaSelector({ onSelect, defaultType = 'movie' }: MediaSelectorProps) {
   const { t } = useTranslation();
   const [mediaType, setMediaType] = useState<'movie' | 'tv'>(defaultType);
-  const [rawData, setRawData] = useState<ScannedFile[]>([]);
-  const [loading, setLoading] = useState(true);
   const [expandedItems, setExpandedItems] = useState<Set<number | string>>(new Set());
-
-  useEffect(() => {
-    const fetchMedia = async () => {
-      setLoading(true);
-      try {
-        const data = await listScannedFiles(mediaType);
-        setRawData(data);
-      } catch (err) {
-        console.error('Failed to fetch media:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchMedia();
-  }, [mediaType]);
-
-  const mediaItems = useMemo(() => {
-    if (mediaType === 'movie') {
-      return rawData.map(file => ({
-        id: file.id,
-        title: file.extracted_title || file.filename,
-        path: file.file_path,
-        path_type: file.type as 'movie' | 'tv',
-        year: file.year ? parseInt(file.year) : undefined,
-        episode_count: undefined,
-        seasons: undefined,
-        seasonEpisodes: undefined,
-      }));
-    }
-
-    const grouped = new Map<string, MediaItem>();
-    for (const file of rawData) {
-      const title = file.extracted_title || file.filename;
-      if (!grouped.has(title)) {
-        grouped.set(title, {
-          id: title.split('').reduce((a, c) => a + c.charCodeAt(0), 0),
-          title,
-          path: file.file_path,
-          path_type: 'tv',
-          seasons: [],
-          episode_count: 0,
-          seasonEpisodes: {},
-        });
-      }
-      const item = grouped.get(title)!;
-      const season = file.season;
-      if (season !== null && season !== undefined) {
-        if (!item.seasons!.includes(season)) {
-          item.seasons!.push(season);
-        }
-        const episode = file.episode;
-        if (episode !== null && episode !== undefined) {
-          if (!item.seasonEpisodes![season]) {
-            item.seasonEpisodes![season] = [];
-          }
-          if (!item.seasonEpisodes![season].includes(episode)) {
-            item.seasonEpisodes![season].push(episode);
-          }
-        }
-      }
-      item.episode_count = (item.episode_count || 0) + 1;
-    }
-
-    for (const item of grouped.values()) {
-      item.seasons?.sort((a, b) => a - b);
-      if (item.seasonEpisodes) {
-        for (const season of Object.keys(item.seasonEpisodes)) {
-          item.seasonEpisodes[parseInt(season)].sort((a, b) => a - b);
-        }
-      }
-    }
-    return Array.from(grouped.values());
-  }, [rawData, mediaType]);
+  const mediaFilesQuery = useMediaFilesQuery(mediaType);
+  const rawData = mediaFilesQuery.data ?? EMPTY_FILES;
+  const loading = mediaFilesQuery.isLoading;
+  const mediaItems = useMemo(() => buildMediaSelectorItems(rawData, mediaType), [rawData, mediaType]);
 
   const toggleExpand = (id: number | string) => {
     setExpandedItems(prev => {
@@ -113,18 +40,8 @@ export default function MediaSelector({ onSelect, defaultType = 'movie' }: Media
     });
   };
 
-  const handleSelect = (item: MediaItem, season?: number) => {
-    const file = rawData.find(f => (f.extracted_title || f.filename) === item.title);
-    onSelect({
-      id: file?.id || item.id,
-      title: item.title,
-      type: item.path_type,
-      path: file?.file_path || item.path,
-      year: item.year,
-      episode_count: item.episode_count,
-      season,
-      episodes: season && item.seasonEpisodes ? item.seasonEpisodes[season] : undefined,
-    });
+  const handleSelect = (item: MediaSelectorItem, season?: number) => {
+    onSelect(buildMediaSelection(item, rawData, season));
   };
 
   if (loading) {
