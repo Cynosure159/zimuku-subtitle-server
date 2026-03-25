@@ -3,7 +3,6 @@ import { useQueries } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import {
   fetchMediaMetadata,
-  getMediaPosterUrl,
   triggerMediaMatch,
   type FilterOption,
   type SortOption,
@@ -14,6 +13,21 @@ import { useMediaPolling } from './useMediaPolling';
 import { queryKeys } from '../lib/queryKeys';
 import { useUIStore } from '../stores/useUIStore';
 import type { SidebarItem } from '../types/api';
+import {
+  buildSidebarItem,
+  findGroupByTitle,
+  getCurrentSeasonFiles,
+  getDefaultSortOrder,
+  getNextSelectedSeason,
+  getNextSelectedTitle,
+  getSelectionFromUrl,
+  getSortedSeasonNumbers,
+  isMovieGroup,
+  isSelectedSeasonMatching as getIsSelectedSeasonMatching,
+  orderSidebarEntries,
+  type SidebarEntry,
+  getTotalEpisodesCount,
+} from '../selectors/mediaBrowser';
 
 const DESKTOP_MEDIA_QUERY = '(min-width: 1024px)';
 
@@ -66,38 +80,6 @@ interface TvBrowserController extends BaseMediaBrowserController<TvGroup> {
   isSelectedSeasonMatching: boolean;
 }
 
-interface SidebarEntry<TGroup extends MovieGroup | TvGroup> {
-  group: TGroup;
-  item: SidebarItem;
-}
-
-function getDefaultSortOrder(option: SortOption): SortOrder {
-  return option === 'name' ? 'asc' : 'desc';
-}
-
-function getSortedSeasonNumbers(series: TvGroup | undefined): number[] {
-  if (!series) return [];
-  return Object.keys(series.seasons)
-    .map(Number)
-    .sort((a, b) => a - b);
-}
-
-function isMovieGroup(group: MovieGroup | TvGroup): group is MovieGroup {
-  return 'files' in group;
-}
-
-function sortEntriesByDisplayYear<TGroup extends MovieGroup | TvGroup>(
-  entries: SidebarEntry<TGroup>[],
-  sortOrder: SortOrder
-): SidebarEntry<TGroup>[] {
-  return [...entries].sort((a, b) => {
-    const yearA = parseInt(a.item.year || a.group.year || '0', 10);
-    const yearB = parseInt(b.item.year || b.group.year || '0', 10);
-    const comparison = yearA - yearB;
-    return sortOrder === 'asc' ? comparison : -comparison;
-  });
-}
-
 function useKeepDesktopSidebarOpen(toggleSidebar: () => void) {
   useEffect(() => {
     const mediaQuery = window.matchMedia(DESKTOP_MEDIA_QUERY);
@@ -135,21 +117,10 @@ function useSidebarEntries<TGroup extends MovieGroup | TvGroup>(
   return useMemo<SidebarEntry<TGroup>[]>(() => {
     return groups.map((group, index) => {
       const metadata = metadataQueries[index]?.data;
-      const posterUrl = metadata?.poster_path ? getMediaPosterUrl(metadata.poster_path) : null;
-      const displayTitle = metadata?.nfo_data?.title || group.title;
-      const year = metadata?.nfo_data?.year ?? group.year;
 
       return {
         group,
-        item: {
-          id: group.title,
-          displayTitle,
-          year: year ?? undefined,
-          totalCount: group.totalCount,
-          hasSubCount: group.hasSubCount,
-          poster: posterUrl,
-          createdAt: group.createdAt,
-        },
+        item: buildSidebarItem(group, metadata),
       };
     });
   }, [groups, metadataQueries]);
@@ -194,14 +165,14 @@ export function useMediaBrowserController(
 
   const movieSidebarEntries = useSidebarEntries(movieGroupedItems, 'movie');
   const tvSidebarEntries = useSidebarEntries(tvGroupedItems, 'tv');
-  const orderedMovieEntries = useMemo(() => {
-    if (sortOption !== 'year') return movieSidebarEntries;
-    return sortEntriesByDisplayYear(movieSidebarEntries, sortOrder);
-  }, [movieSidebarEntries, sortOption, sortOrder]);
-  const orderedTvEntries = useMemo(() => {
-    if (sortOption !== 'year') return tvSidebarEntries;
-    return sortEntriesByDisplayYear(tvSidebarEntries, sortOrder);
-  }, [tvSidebarEntries, sortOption, sortOrder]);
+  const orderedMovieEntries = useMemo(
+    () => orderSidebarEntries(movieSidebarEntries, sortOption, sortOrder),
+    [movieSidebarEntries, sortOption, sortOrder]
+  );
+  const orderedTvEntries = useMemo(
+    () => orderSidebarEntries(tvSidebarEntries, sortOption, sortOrder),
+    [tvSidebarEntries, sortOption, sortOrder]
+  );
   const orderedEntries = type === 'movie' ? orderedMovieEntries : orderedTvEntries;
 
   const orderedGroupedItems = useMemo(() => orderedEntries.map(entry => entry.group), [orderedEntries]);
@@ -222,15 +193,16 @@ export function useMediaBrowserController(
   useEffect(() => {
     const titleFromUrl = searchParams.get('title');
     const seasonFromUrl = searchParams.get('season');
-    const matchingItem = (type === 'movie' ? orderedMovieGroupedItems : orderedTvGroupedItems).find(
-      item => item.title === titleFromUrl
-    );
+    // URL 参数只负责“一次性恢复选中项”，消费后立即清掉，避免后续筛选/切换被旧参数反向覆盖。
+    const urlSelection = type === 'movie'
+      ? getSelectionFromUrl(orderedMovieGroupedItems, titleFromUrl, seasonFromUrl)
+      : getSelectionFromUrl(orderedTvGroupedItems, titleFromUrl, seasonFromUrl);
 
-    if (titleFromUrl && matchingItem) {
+    if (urlSelection?.title) {
       startTransition(() => {
-        setSelectedTitle(titleFromUrl);
-        if (type === 'tv' && seasonFromUrl) {
-          setSelectedSeason(Number(seasonFromUrl));
+        setSelectedTitle(urlSelection.title);
+        if (type === 'tv' && typeof urlSelection.season === 'number') {
+          setSelectedSeason(urlSelection.season);
         }
       });
 
@@ -241,19 +213,18 @@ export function useMediaBrowserController(
       return;
     }
 
-    if (
-      (type === 'movie' ? orderedMovieGroupedItems.length > 0 : orderedTvGroupedItems.length > 0) &&
-      (!selectedTitle ||
-        !(type === 'movie' ? orderedMovieGroupedItems : orderedTvGroupedItems).some(
-          item => item.title === selectedTitle
-        ))
-    ) {
+    const nextSelectedTitle = type === 'movie'
+      ? getNextSelectedTitle(orderedMovieGroupedItems, selectedTitle)
+      : getNextSelectedTitle(orderedTvGroupedItems, selectedTitle);
+
+    if (nextSelectedTitle && nextSelectedTitle !== selectedTitle) {
       const timer = setTimeout(() => {
-        const firstItem = type === 'movie' ? orderedMovieGroupedItems[0] : orderedTvGroupedItems[0];
-        setSelectedTitle(firstItem.title);
+        // 延后到下一轮事件循环设置默认选中，避免和当前渲染批次里的 URL 消费/列表重排互相打架。
+        setSelectedTitle(nextSelectedTitle);
 
         if (type === 'tv') {
-          const firstSeason = getSortedSeasonNumbers(firstItem as TvGroup)[0];
+          const firstItem = findGroupByTitle(orderedTvGroupedItems, nextSelectedTitle);
+          const firstSeason = getSortedSeasonNumbers(firstItem)[0];
           if (typeof firstSeason === 'number') {
             setSelectedSeason(firstSeason);
           }
@@ -272,43 +243,45 @@ export function useMediaBrowserController(
   ]);
 
   const selectedItem = useMemo(
-    () =>
-      (type === 'movie' ? orderedMovieGroupedItems : orderedTvGroupedItems).find(
-        item => item.title === selectedTitle
-      ),
+    () => (type === 'movie'
+      ? findGroupByTitle(orderedMovieGroupedItems, selectedTitle)
+      : findGroupByTitle(orderedTvGroupedItems, selectedTitle)),
     [orderedMovieGroupedItems, orderedTvGroupedItems, selectedTitle, type]
+  );
+  const selectedTvItem = useMemo(
+    () => (type === 'tv' ? findGroupByTitle(orderedTvGroupedItems, selectedTitle) : undefined),
+    [orderedTvGroupedItems, selectedTitle, type]
   );
 
   const availableSeasons = useMemo(
-    () => (type === 'tv' ? getSortedSeasonNumbers(selectedItem as TvGroup | undefined) : []),
-    [selectedItem, type]
+    () => (type === 'tv' ? getSortedSeasonNumbers(selectedTvItem) : []),
+    [selectedTvItem, type]
   );
 
   useEffect(() => {
-    if (type !== 'tv' || !selectedItem) return;
-    if (availableSeasons.includes(selectedSeason)) return;
-    if (availableSeasons.length === 0) return;
+    if (type !== 'tv' || !selectedTvItem) return;
+    const nextSeason = getNextSelectedSeason(availableSeasons, selectedSeason);
+    if (nextSeason === null || nextSeason === selectedSeason) return;
 
-    const timer = setTimeout(() => setSelectedSeason(availableSeasons[0]), 0);
+    // 剧集在筛选、排序或 URL 恢复后，若当前季已失效则自动回到可用季。
+    const timer = setTimeout(() => setSelectedSeason(nextSeason), 0);
     return () => clearTimeout(timer);
-  }, [availableSeasons, selectedItem, selectedSeason, type]);
+  }, [availableSeasons, selectedSeason, selectedTvItem, type]);
 
   const currentSeasonFiles = useMemo(() => {
-    if (type !== 'tv' || !selectedItem) return [];
-    return (selectedItem as TvGroup).seasons[selectedSeason] || [];
-  }, [selectedItem, selectedSeason, type]);
+    if (type !== 'tv') return [];
+    return getCurrentSeasonFiles(selectedTvItem, selectedSeason);
+  }, [selectedSeason, selectedTvItem, type]);
 
   const totalEpisodesCount = useMemo(() => {
-    if (type !== 'tv' || !selectedItem) return 0;
-    return Object.values((selectedItem as TvGroup).seasons).reduce((count, files) => count + files.length, 0);
-  }, [selectedItem, type]);
+    if (type !== 'tv') return 0;
+    return getTotalEpisodesCount(selectedTvItem);
+  }, [selectedTvItem, type]);
 
   const isSelectedSeasonMatching = useMemo(() => {
-    if (type !== 'tv' || !selectedItem) return false;
-    return status.matching_seasons.some(
-      season => season.title === selectedItem.title && season.season === selectedSeason
-    );
-  }, [selectedItem, selectedSeason, status.matching_seasons, type]);
+    if (type !== 'tv') return false;
+    return getIsSelectedSeasonMatching(status, selectedTvItem, selectedSeason);
+  }, [selectedSeason, selectedTvItem, status, type]);
 
   const handleSortChange = (option: SortOption) => {
     if (option === sortOption) {
@@ -323,6 +296,7 @@ export function useMediaBrowserController(
   const handleRefresh = async () => {
     try {
       setIsScanningOptimistic(true);
+      // 维持当前“点击后立即进入扫描中”的前端体验，不等待后端轮询状态返回。
       setTimeout(() => setIsScanningOptimistic(false), 3000);
       await triggerMediaMatch(type);
     } catch (error: unknown) {

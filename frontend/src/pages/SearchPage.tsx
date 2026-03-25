@@ -6,6 +6,7 @@ import type { SearchResult } from '../api';
 import SearchResultRow from '../components/SearchResultRow';
 import DownloadModal from '../components/DownloadModal';
 import { useSubtitleSearchQuery } from '../hooks/queries';
+import { filterSearchResults, getSearchFilterLabel } from '../selectors/search';
 
 export default function SearchPage() {
   const { t } = useTranslation();
@@ -57,24 +58,11 @@ export default function SearchPage() {
     setSelectedSubtitle(null);
   };
 
-  const getFilterLabel = (filter: string) => {
-    const filterMap: Record<string, string> = {
-      [t('searchFilter.all')]: t('searchFilter.all'),
-      [t('searchFilter.simplified')]: t('searchFilter.simplified_short', { defaultValue: '简体' }),
-      [t('searchFilter.traditional')]: t('searchFilter.traditional_short', { defaultValue: '繁体' }),
-      [t('searchFilter.english')]: t('searchFilter.english_short', { defaultValue: '英文' }),
-      [t('searchFilter.bilingual')]: t('searchFilter.bilingual_short', { defaultValue: '双语' }),
-    };
-    return filterMap[filter] || filter;
-  };
-
-  const filterLabel = getFilterLabel(activeFilter);
-  // 保持现有行为：没有 lang 的结果仍然放行，不因为筛选被隐藏。
-  const filteredResults = results.filter(item => {
-    if (filterLabel === t('searchFilter.all')) return true;
-    if (!item.lang) return true;
-    return item.lang.some(lang => lang.includes(filterLabel));
-  });
+  const allFilterLabel = t('searchFilter.all');
+  const translateFilterLabel = (key: string, options?: object) =>
+    String(t(key, options as { readonly [key: string]: unknown } | undefined));
+  const filterLabel = getSearchFilterLabel(activeFilter, translateFilterLabel);
+  const filteredResults = filterSearchResults(results, activeFilter, allFilterLabel, filterLabel);
 
   return (
     <div className="flex flex-col w-full h-full max-w-[1800px] overflow-y-auto custom-scrollbar px-4 pb-12">
