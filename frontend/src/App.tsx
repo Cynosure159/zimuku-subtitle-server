@@ -1,16 +1,22 @@
-import { BrowserRouter as Router, Routes, Route, NavLink } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
+import { BrowserRouter as Router, Routes, Route, NavLink, Link } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { queryClient } from './lib/queryClient';
 import { MediaPollingProvider } from './contexts/MediaPollingContext';
 import './i18n';
-import SearchPage from './pages/SearchPage';
-import MoviesPage from './pages/MoviesPage';
-import SeriesPage from './pages/SeriesPage';
-import TasksPage from './pages/TasksPage';
-import SettingsPage from './pages/SettingsPage';
-import HomePage from './pages/HomePage';
-import { Link } from 'react-router-dom';
+
+const HomePage = lazy(() => import('./pages/HomePage'));
+const SearchPage = lazy(() => import('./pages/SearchPage'));
+const MoviesPage = lazy(() => import('./pages/MoviesPage'));
+const SeriesPage = lazy(() => import('./pages/SeriesPage'));
+const TasksPage = lazy(() => import('./pages/TasksPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+
+function RouteFallback() {
+  // 懒加载切页时保持既有布局，仅让内容区维持空白过渡，避免引入新的视觉占位。
+  return <div className="h-full w-full" aria-hidden="true" />;
+}
 
 function Sidebar() {
   const { t } = useTranslation();
@@ -79,14 +85,16 @@ function App() {
       <MediaPollingProvider>
         <Router>
           <Layout>
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/search" element={<SearchPage />} />
-              <Route path="/movies" element={<MoviesPage />} />
-              <Route path="/series" element={<SeriesPage />} />
-              <Route path="/tasks" element={<TasksPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-            </Routes>
+            <Suspense fallback={<RouteFallback />}>
+              <Routes>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/search" element={<SearchPage />} />
+                <Route path="/movies" element={<MoviesPage />} />
+                <Route path="/series" element={<SeriesPage />} />
+                <Route path="/tasks" element={<TasksPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+              </Routes>
+            </Suspense>
           </Layout>
         </Router>
       </MediaPollingProvider>
