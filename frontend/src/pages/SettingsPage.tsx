@@ -30,8 +30,8 @@ export default function SettingsPage() {
 
   const handleSaveSetting = async (key: string) => {
     try {
-      const newValue = formValues[key];
       const setting = settings.find(s => s.key === key);
+      const newValue = formValues[key] ?? setting?.value ?? '';
       await updateSettingMutation.mutateAsync({
         key,
         value: newValue,
