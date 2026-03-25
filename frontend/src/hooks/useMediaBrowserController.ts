@@ -3,13 +3,13 @@ import { useQueries } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import {
   fetchMediaMetadata,
-  triggerMediaMatch,
   type FilterOption,
   type SortOption,
   type SortOrder,
 } from '../api';
 import { useMediaGrouping, type MovieGroup, type TvGroup } from './useMediaGrouping';
 import { useMediaPolling } from './useMediaPolling';
+import { useTriggerMediaMatchMutation } from './queries';
 import { queryKeys } from '../lib/queryKeys';
 import { useUIStore } from '../stores/useUIStore';
 import type { SidebarItem } from '../types/api';
@@ -147,6 +147,7 @@ export function useMediaBrowserController(
   const [filterOption, setFilterOption] = useState<FilterOption>('all');
   const [selectedSeason, setSelectedSeason] = useState(1);
   const { sidebarOpen, toggleSidebar } = useUIStore();
+  const triggerMediaMatchMutation = useTriggerMediaMatchMutation();
 
   useKeepDesktopSidebarOpen(toggleSidebar);
 
@@ -296,9 +297,9 @@ export function useMediaBrowserController(
   const handleRefresh = async () => {
     try {
       setIsScanningOptimistic(true);
-      // 维持当前“点击后立即进入扫描中”的前端体验，不等待后端轮询状态返回。
+      // 维持当前“点击后立即进入扫描中”的前端体验，同时复用统一 mutation 的失效刷新链路。
       setTimeout(() => setIsScanningOptimistic(false), 3000);
-      await triggerMediaMatch(type);
+      await triggerMediaMatchMutation.mutateAsync(type);
     } catch (error: unknown) {
       console.error(error);
     }

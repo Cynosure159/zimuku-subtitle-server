@@ -20,6 +20,9 @@ interface OptimisticStatusState {
   matchingSeasons: Map<string, { title: string; season: number }>;
 }
 
+const ACTIVE_POLL_INTERVAL = 2000;
+const IDLE_POLL_INTERVAL = 30000;
+
 const initialOptimisticStatus: OptimisticStatusState = {
   isScanning: null,
   matchingFiles: new Set<number>(),
@@ -73,8 +76,11 @@ export function MediaPollingProvider({ children }: { children: ReactNode }) {
   const movieFilesQuery = useMediaFilesQuery('movie');
   const tvFilesQuery = useMediaFilesQuery('tv');
   const statusQuery = useMediaTaskStatusQuery({
-    refetchInterval: query => (hasActiveTasks(query.state.data) ? 2000 : 10000),
-    refetchIntervalInBackground: true,
+    // 活跃任务保持高频轮询；空闲时放宽到 30s，并避免后台标签页持续打点。
+    refetchInterval: query => (
+      hasActiveTasks(query.state.data) ? ACTIVE_POLL_INTERVAL : IDLE_POLL_INTERVAL
+    ),
+    refetchIntervalInBackground: false,
   });
 
   const refreshMovie = useCallback(async () => {
