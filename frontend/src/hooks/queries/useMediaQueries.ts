@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type UseQueryOptions } from '@tanstack/react-query';
 import {
   fetchMediaMetadata,
   getTaskStatus,
@@ -6,6 +6,7 @@ import {
   listScannedFiles,
 } from '../../api';
 import { queryKeys } from '../../lib/queryKeys';
+import type { TaskStatus } from '../../types/api';
 
 export function useMediaPathsQuery() {
   return useQuery({
@@ -32,9 +33,15 @@ export function useMediaMetadataQuery(fileId: number | null) {
   });
 }
 
-export function useMediaTaskStatusQuery() {
+type MediaTaskStatusQueryOptions = Omit<
+  UseQueryOptions<TaskStatus, Error, TaskStatus, ReturnType<typeof queryKeys.media.taskStatus>>,
+  'queryKey' | 'queryFn'
+>;
+
+export function useMediaTaskStatusQuery(options?: MediaTaskStatusQueryOptions) {
   return useQuery({
     queryKey: queryKeys.media.taskStatus(),
     queryFn: getTaskStatus,
+    ...options,
   });
 }

@@ -1,22 +1,31 @@
-import { useMediaPollingContext } from '../contexts/MediaPollingContext';
+import { useMediaPollingContext } from './useMediaPollingContext';
 
 export type { MediaPath, ScannedFile, TaskStatus } from '../api';
 
 export function useMediaPolling(type: 'movie' | 'tv') {
-  const { movie, tv, status, setIsScanningOptimistic, setMatchingFileOptimistic, setMatchingSeasonOptimistic } =
-    useMediaPollingContext();
+  const {
+    movie,
+    tv,
+    status,
+    refreshMovie,
+    refreshTv,
+    refreshAll,
+    setIsScanningOptimistic,
+    setMatchingFileOptimistic,
+    setMatchingSeasonOptimistic,
+  } = useMediaPollingContext();
 
   const data = type === 'movie' ? movie : tv;
-
-  const fetchData = async () => {
-    // Context handles data fetching; this is a no-op wrapper for compatibility
-  };
+  const fetchData = type === 'movie' ? refreshMovie : refreshTv;
 
   return {
     paths: data.paths,
     files: data.files,
     status,
     fetchData,
+    refreshMovie,
+    refreshTv,
+    refreshAll,
     setIsScanningOptimistic,
     setMatchingFileOptimistic,
     setMatchingSeasonOptimistic,

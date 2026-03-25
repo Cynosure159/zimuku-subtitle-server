@@ -90,6 +90,7 @@ export default function SettingsPage() {
   const handleRefreshLibrary = async (type: 'movie' | 'tv') => {
     try {
       setIsScanningOptimistic(true);
+      setTimeout(() => setIsScanningOptimistic(false), 3000);
       await triggerMediaMatch(type);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);

@@ -1,185 +1,186 @@
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
 import {
-  listMediaPaths,
-  listScannedFiles,
-  getTaskStatus,
-  type MediaPath,
-  type ScannedFile,
-  type TaskStatus,
-} from '../api';
+  useCallback,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import type { TaskStatus } from '../api';
+import { queryKeys } from '../lib/queryKeys';
+import { MediaPollingContext, type MediaPollingContextValue } from './mediaPollingContext.shared';
+import {
+  useMediaFilesQuery,
+  useMediaPathsQuery,
+  useMediaTaskStatusQuery,
+} from '../hooks/queries/useMediaQueries';
 
-interface MovieState {
-  paths: MediaPath[];
-  files: ScannedFile[];
+interface OptimisticStatusState {
+  isScanning: boolean | null;
+  matchingFiles: Set<number>;
+  matchingSeasons: Map<string, { title: string; season: number }>;
 }
 
-interface TvState {
-  paths: MediaPath[];
-  files: ScannedFile[];
-}
-
-interface MediaPollingState {
-  movie: MovieState;
-  tv: TvState;
-  status: TaskStatus;
-}
-
-interface MediaPollingContextValue extends MediaPollingState {
-  fetchMovieData: () => Promise<void>;
-  fetchTvData: () => Promise<void>;
-  setIsScanningOptimistic: (value: boolean) => void;
-  setMatchingFileOptimistic: (fileId: number, isMatching: boolean) => void;
-  setMatchingSeasonOptimistic: (title: string, season: number, isMatching: boolean) => void;
-}
-
-const MediaPollingContext = createContext<MediaPollingContextValue | null>(null);
-
-const initialState: MediaPollingState = {
-  movie: { paths: [], files: [] },
-  tv: { paths: [], files: [] },
-  status: {
-    is_scanning: false,
-    matching_files: [],
-    matching_seasons: [],
-  },
+const initialOptimisticStatus: OptimisticStatusState = {
+  isScanning: null,
+  matchingFiles: new Set<number>(),
+  matchingSeasons: new Map<string, { title: string; season: number }>(),
 };
 
+function hasActiveTasks(status: TaskStatus | undefined) {
+  if (!status) {
+    return false;
+  }
+
+  return (
+    status.is_scanning ||
+    status.matching_files.length > 0 ||
+    status.matching_seasons.length > 0
+  );
+}
+
+function getSeasonKey(title: string, season: number) {
+  return `${title}::${season}`;
+}
+
+function mergeStatus(baseStatus: TaskStatus | undefined, optimisticStatus: OptimisticStatusState): TaskStatus {
+  const mergedMatchingFiles = new Set(baseStatus?.matching_files ?? []);
+  const mergedMatchingSeasons = new Map<string, { title: string; season: number }>();
+
+  for (const match of baseStatus?.matching_seasons ?? []) {
+    mergedMatchingSeasons.set(getSeasonKey(match.title, match.season), match);
+  }
+
+  for (const fileId of optimisticStatus.matchingFiles) {
+    mergedMatchingFiles.add(fileId);
+  }
+
+  for (const [key, value] of optimisticStatus.matchingSeasons) {
+    mergedMatchingSeasons.set(key, value);
+  }
+
+  return {
+    is_scanning: optimisticStatus.isScanning ?? baseStatus?.is_scanning ?? false,
+    matching_files: Array.from(mergedMatchingFiles),
+    matching_seasons: Array.from(mergedMatchingSeasons.values()),
+  };
+}
+
 export function MediaPollingProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<MediaPollingState>(initialState);
+  const queryClient = useQueryClient();
+  const [optimisticStatus, setOptimisticStatus] = useState<OptimisticStatusState>(initialOptimisticStatus);
 
-  const fetchAll = useCallback(async () => {
-    try {
-      const [pathsData, filesData, statusData] = await Promise.all([
-        listMediaPaths(),
-        listScannedFiles(),
-        getTaskStatus(),
-      ]);
+  const mediaPathsQuery = useMediaPathsQuery();
+  const movieFilesQuery = useMediaFilesQuery('movie');
+  const tvFilesQuery = useMediaFilesQuery('tv');
+  const statusQuery = useMediaTaskStatusQuery({
+    refetchInterval: query => (hasActiveTasks(query.state.data) ? 2000 : 10000),
+    refetchIntervalInBackground: true,
+  });
 
-      setState(() => ({
-        movie: {
-          paths: pathsData.filter((p: MediaPath) => p.type === 'movie'),
-          files: filesData.filter((f: ScannedFile) => f.type === 'movie'),
-        },
-        tv: {
-          paths: pathsData.filter((p: MediaPath) => p.type === 'tv'),
-          files: filesData.filter((f: ScannedFile) => f.type === 'tv'),
-        },
-        status: statusData,
-      }));
-    } catch (err) {
-      console.error('Polling error:', err);
-    }
-  }, []);
+  const refreshMovie = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.media.paths() }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.media.files('movie') }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.media.taskStatus() }),
+    ]);
+  }, [queryClient]);
 
-  const fetchMovieData = useCallback(async () => {
-    try {
-      const [pathsData, filesData, statusData] = await Promise.all([
-        listMediaPaths(),
-        listScannedFiles('movie'),
-        getTaskStatus(),
-      ]);
-      setState(prev => ({
-        ...prev,
-        movie: {
-          paths: pathsData.filter((p: MediaPath) => p.type === 'movie'),
-          files: filesData,
-        },
-        status: statusData,
-      }));
-    } catch (err) {
-      console.error('Fetch movie data error:', err);
-    }
-  }, []);
+  const refreshTv = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.media.paths() }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.media.files('tv') }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.media.taskStatus() }),
+    ]);
+  }, [queryClient]);
 
-  const fetchTvData = useCallback(async () => {
-    try {
-      const [pathsData, filesData, statusData] = await Promise.all([
-        listMediaPaths(),
-        listScannedFiles('tv'),
-        getTaskStatus(),
-      ]);
-      setState(prev => ({
-        ...prev,
-        tv: {
-          paths: pathsData.filter((p: MediaPath) => p.type === 'tv'),
-          files: filesData,
-        },
-        status: statusData,
-      }));
-    } catch (err) {
-      console.error('Fetch tv data error:', err);
-    }
-  }, []);
-
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
-
-    const poll = async () => {
-      await fetchAll();
-
-      const statusData = await getTaskStatus().catch(() => null);
-      if (!statusData) {
-        timer = setTimeout(poll, 10000);
-        return;
-      }
-
-      const hasTasks =
-        statusData.is_scanning ||
-        statusData.matching_files.length > 0 ||
-        statusData.matching_seasons.length > 0;
-
-      timer = setTimeout(poll, hasTasks ? 2000 : 10000);
-    };
-
-    poll();
-    return () => clearTimeout(timer);
-  }, [fetchAll]);
+  const refreshAll = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.media.paths() }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.media.files('movie') }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.media.files('tv') }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.media.taskStatus() }),
+    ]);
+  }, [queryClient]);
 
   const setIsScanningOptimistic = useCallback((value: boolean) => {
-    setState(prev => ({ ...prev, status: { ...prev.status, is_scanning: value } }));
+    setOptimisticStatus(prev => ({
+      ...prev,
+      isScanning: value,
+    }));
   }, []);
 
   const setMatchingFileOptimistic = useCallback((fileId: number, isMatching: boolean) => {
-    setState(prev => ({
-      ...prev,
-      status: {
-        ...prev.status,
-        matching_files: isMatching
-          ? [...prev.status.matching_files, fileId]
-          : prev.status.matching_files.filter(id => id !== fileId),
-      },
-    }));
+    setOptimisticStatus(prev => {
+      const matchingFiles = new Set(prev.matchingFiles);
+
+      if (isMatching) {
+        matchingFiles.add(fileId);
+      } else {
+        matchingFiles.delete(fileId);
+      }
+
+      return {
+        ...prev,
+        matchingFiles,
+      };
+    });
   }, []);
 
   const setMatchingSeasonOptimistic = useCallback((title: string, season: number, isMatching: boolean) => {
-    setState(prev => ({
-      ...prev,
-      status: {
-        ...prev.status,
-        matching_seasons: isMatching
-          ? [...prev.status.matching_seasons, { title, season }]
-          : prev.status.matching_seasons.filter(m => !(m.title === title && m.season === season)),
-      },
-    }));
+    setOptimisticStatus(prev => {
+      const matchingSeasons = new Map(prev.matchingSeasons);
+      const seasonKey = getSeasonKey(title, season);
+
+      if (isMatching) {
+        matchingSeasons.set(seasonKey, { title, season });
+      } else {
+        matchingSeasons.delete(seasonKey);
+      }
+
+      return {
+        ...prev,
+        matchingSeasons,
+      };
+    });
   }, []);
 
-  const value: MediaPollingContextValue = {
-    ...state,
-    fetchMovieData,
-    fetchTvData,
+  const value = useMemo<MediaPollingContextValue>(() => {
+    const status = mergeStatus(statusQuery.data, optimisticStatus);
+    const allPaths = mediaPathsQuery.data ?? [];
+
+    return {
+      movie: {
+        paths: allPaths.filter(path => path.type === 'movie'),
+        files: movieFilesQuery.data ?? [],
+      },
+      tv: {
+        paths: allPaths.filter(path => path.type === 'tv'),
+        files: tvFilesQuery.data ?? [],
+      },
+      status,
+      fetchMovieData: refreshMovie,
+      fetchTvData: refreshTv,
+      fetchAllData: refreshAll,
+      refreshMovie,
+      refreshTv,
+      refreshAll,
+      setIsScanningOptimistic,
+      setMatchingFileOptimistic,
+      setMatchingSeasonOptimistic,
+    };
+  }, [
+    mediaPathsQuery.data,
+    movieFilesQuery.data,
+    optimisticStatus,
+    refreshAll,
+    refreshMovie,
+    refreshTv,
     setIsScanningOptimistic,
     setMatchingFileOptimistic,
     setMatchingSeasonOptimistic,
-  };
+    statusQuery.data,
+    tvFilesQuery.data,
+  ]);
 
   return <MediaPollingContext.Provider value={value}>{children}</MediaPollingContext.Provider>;
-}
-
-// eslint-disable-next-line react-refresh/only-export-components
-export function useMediaPollingContext(): MediaPollingContextValue {
-  const context = useContext(MediaPollingContext);
-  if (!context) {
-    throw new Error('useMediaPollingContext must be used within MediaPollingProvider');
-  }
-  return context;
 }
