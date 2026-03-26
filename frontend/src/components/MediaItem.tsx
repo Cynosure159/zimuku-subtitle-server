@@ -11,6 +11,52 @@ interface MediaItemProps {
   setMatchingFileOptimistic?: (fileId: number, isMatching: boolean) => void;
 }
 
+interface MediaItemTone {
+  backgroundClass: string;
+  borderClass: string;
+  iconClass: string;
+}
+
+function getMediaItemTone(hasSubtitle: boolean, isMatching: boolean): MediaItemTone {
+  if (hasSubtitle || isMatching) {
+    return {
+      backgroundClass: 'bg-surface-container-high',
+      borderClass: 'hover:border-primary/20',
+      iconClass: 'text-primary',
+    };
+  }
+
+  return {
+    backgroundClass: 'bg-surface-container-high/60',
+    borderClass: 'hover:border-error-dim/20',
+    iconClass: 'text-error',
+  };
+}
+
+function getBadgeClass(hasSubtitle: boolean, isMatching: boolean): string {
+  if (hasSubtitle || isMatching) {
+    return 'bg-primary/10 text-primary border border-primary/20';
+  }
+
+  return 'bg-error-dim/10 text-error-dim border-error-dim/20';
+}
+
+function getBadgeLabel(
+  hasSubtitle: boolean,
+  isMatching: boolean,
+  t: ReturnType<typeof useTranslation>['t'],
+): string {
+  if (isMatching) {
+    return t('status.searching');
+  }
+
+  if (hasSubtitle) {
+    return t('status.matched');
+  }
+
+  return t('status.missing');
+}
+
 export function MediaItem({
   file,
   status,
@@ -18,13 +64,17 @@ export function MediaItem({
   showEpisode = false,
   onAutoSearch,
   setMatchingFileOptimistic,
-}: MediaItemProps) {
+}: MediaItemProps): React.JSX.Element {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const isMatching = status.matching_files.includes(file.id);
-  const hasSub = file.has_subtitle;
+  const hasSubtitle = file.has_subtitle;
+  const { backgroundClass, borderClass, iconClass } = getMediaItemTone(hasSubtitle, isMatching);
+  const badgeClass = getBadgeClass(hasSubtitle, isMatching);
+  const badgeLabel = getBadgeLabel(hasSubtitle, isMatching, t);
+  const episodeLabel = showEpisode ? `E${file.episode?.toString().padStart(2, '0') || '??'}` : null;
 
-  const handleAutoSearch = async () => {
+  const handleAutoSearch = async (): Promise<void> => {
     if (setMatchingFileOptimistic) {
       setMatchingFileOptimistic(file.id, true);
       setTimeout(() => setMatchingFileOptimistic(file.id, false), 3000);
@@ -44,28 +94,17 @@ export function MediaItem({
     }
   };
 
-  const handleManualSearch = () => {
+  const handleManualSearch = (): void => {
     navigate(`/search?q=${encodeURIComponent(file.extracted_title || file.filename)}`);
   };
 
-  const bgColor = hasSub || isMatching ? 'bg-surface-container-high' : 'bg-surface-container-high/60';
-  const borderColor = hasSub || isMatching ? 'hover:border-primary/20' : 'hover:border-error-dim/20';
-  const iconColor = hasSub || isMatching ? 'text-primary' : 'text-error';
-  const badgeClass = isMatching
-    ? 'bg-primary/10 text-primary border border-primary/20'
-    : hasSub
-      ? 'bg-primary/10 text-primary border border-primary/20'
-      : 'bg-error-dim/10 text-error-dim border-error-dim/20';
-  const badgeLabel = isMatching ? t('status.searching') : hasSub ? t('status.matched') : t('status.missing');
-  const episodeStr = showEpisode ? `E${file.episode?.toString().padStart(2, '0') || '??'}` : null;
-
   return (
     <div
-      className={`grid xl:grid-cols-12 grid-cols-1 items-center gap-4 ${bgColor} p-4 rounded-2xl hover:bg-surface-bright/40 transition-colors border border-transparent ${borderColor} group`}
+      className={`grid xl:grid-cols-12 grid-cols-1 items-center gap-4 ${backgroundClass} p-4 rounded-2xl hover:bg-surface-bright/40 transition-colors border border-transparent ${borderClass} group`}
     >
       <div className="xl:col-span-8 flex items-center gap-5 w-full overflow-hidden">
         <div
-          className={`w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center ${iconColor} shadow-sm shrink-0 ${!hasSub && !isMatching ? 'opacity-80' : ''}`}
+          className={`w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center ${iconClass} shadow-sm shrink-0 ${!hasSubtitle && !isMatching ? 'opacity-80' : ''}`}
         >
           {isMatching ? (
             <span className="material-symbols-outlined text-2xl animate-spin">sync</span>
@@ -77,7 +116,9 @@ export function MediaItem({
         </div>
         <div className="min-w-0 pr-2 overflow-hidden flex-1">
           <div className="flex items-center gap-3">
-            {episodeStr && <span className="w-10 text-sm font-bold text-outline-variant shrink-0">{episodeStr}</span>}
+            {episodeLabel && (
+              <span className="w-10 text-sm font-bold text-outline-variant shrink-0">{episodeLabel}</span>
+            )}
             <p className="font-bold text-on-surface truncate" title={file.filename}>
               {file.filename}
             </p>
@@ -94,7 +135,7 @@ export function MediaItem({
           >
             <span className="material-symbols-outlined text-xl">search</span>
           </button>
-          {!hasSub && !isMatching && (
+          {!hasSubtitle && !isMatching && (
             <button
               onClick={handleAutoSearch}
               className="w-10 h-10 flex items-center justify-center rounded-md hover:bg-surface-container-highest text-on-surface-variant hover:text-primary transition-colors tooltip"
@@ -120,7 +161,12 @@ interface MediaListProps {
   setMatchingFileOptimistic?: (fileId: number, isMatching: boolean) => void;
 }
 
-export function MediaList({ files, status, onAutoSearch, setMatchingFileOptimistic }: MediaListProps) {
+export function MediaList({
+  files,
+  status,
+  onAutoSearch,
+  setMatchingFileOptimistic,
+}: MediaListProps): React.JSX.Element {
   return (
     <div className="flex flex-col gap-3 w-full">
       {files.map(file => (

@@ -1,7 +1,22 @@
 import { useTranslation } from 'react-i18next';
 import { useMediaMetadata, useMediaPosterUrl } from '../hooks/useMetadata';
 
-function SkeletonLoader() {
+interface ErrorStateProps {
+  title: string;
+  year?: string;
+  onRetry: () => void;
+}
+
+function getRuntimeText(runtime: string | number | undefined): string | null {
+  if (!runtime) {
+    return null;
+  }
+
+  const runtimeText = String(runtime);
+  return runtimeText.includes('min') ? runtimeText : `${runtimeText} min`;
+}
+
+function SkeletonLoader(): React.JSX.Element {
   return (
     <div className="h-[260px] relative overflow-hidden flex-shrink-0 animate-pulse bg-surface-container-low">
       <div className="absolute inset-0 bg-gradient-to-t from-surface-container-low via-surface-container-low/60 to-transparent"></div>
@@ -21,7 +36,7 @@ function SkeletonLoader() {
   );
 }
 
-function ErrorState({ title, year, onRetry }: { title: string; year?: string; onRetry: () => void }) {
+function ErrorState({ title, year, onRetry }: ErrorStateProps): React.JSX.Element {
   const { t } = useTranslation();
   return (
     <div className="h-[260px] relative overflow-hidden flex-shrink-0 bg-surface-container-low border-b border-outline-variant/10">
@@ -60,7 +75,13 @@ interface MediaInfoCardProps {
 
 // ...
 
-export function MediaInfoCard({ fileId, title, year, isTv, count }: MediaInfoCardProps) {
+export function MediaInfoCard({
+  fileId,
+  title,
+  year,
+  isTv,
+  count,
+}: MediaInfoCardProps): React.JSX.Element {
   const { t } = useTranslation();
   const { data: metadata, isLoading, error, refetch } = useMediaMetadata(fileId);
   const bannerUrl = useMediaPosterUrl(metadata?.fanart_path ?? metadata?.poster_path ?? null);
@@ -68,10 +89,15 @@ export function MediaInfoCard({ fileId, title, year, isTv, count }: MediaInfoCar
   const displayTitle = metadata?.nfo_data?.title || title;
   const displayYear = metadata?.nfo_data?.year || year;
   const rating = metadata?.nfo_data?.rating;
-  const runtime = metadata?.nfo_data?.runtime;
+  const runtimeText = getRuntimeText(metadata?.nfo_data?.runtime);
 
-  if (isLoading) return <SkeletonLoader />;
-  if (error) return <ErrorState title={title} year={year} onRetry={() => refetch()} />;
+  if (isLoading) {
+    return <SkeletonLoader />;
+  }
+
+  if (error) {
+    return <ErrorState title={title} year={year} onRetry={() => refetch()} />;
+  }
 
   return (
     <div className="h-[260px] relative overflow-hidden flex-shrink-0 border-b border-outline-variant/10">
@@ -94,20 +120,17 @@ export function MediaInfoCard({ fileId, title, year, isTv, count }: MediaInfoCar
                 <span className="material-symbols-outlined text-lg text-tertiary" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
                 {rating || '0.0'}
               </span>
-              {isTv ? (
-                count !== undefined && (
-                  <span className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-lg text-primary">layers</span>
-                    {t('page.series.episodes', { count })}
-                  </span>
-                )
-              ) : (
-                runtime && (
-                  <span className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-lg text-secondary">schedule</span>
-                    {String(runtime).includes('min') ? runtime : `${runtime} min`}
-                  </span>
-                )
+              {isTv && count !== undefined && (
+                <span className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-lg text-primary">layers</span>
+                  {t('page.series.episodes', { count })}
+                </span>
+              )}
+              {!isTv && runtimeText && (
+                <span className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-lg text-secondary">schedule</span>
+                  {runtimeText}
+                </span>
               )}
             </div>
           </div>

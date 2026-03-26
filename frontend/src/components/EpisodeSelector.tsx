@@ -9,10 +9,23 @@ interface EpisodeSelectorProps {
   onBack: () => void;
 }
 
-export default function EpisodeSelector({ seriesTitle, season, episodes, onSelect, onBack }: EpisodeSelectorProps) {
+function buildDisplayEpisodes(episodes: number[]): number[] {
+  if (episodes.length > 0) {
+    return episodes;
+  }
+
+  return Array.from({ length: 24 }, (_, index) => index + 1);
+}
+
+export default function EpisodeSelector({
+  seriesTitle,
+  season,
+  episodes,
+  onSelect,
+  onBack,
+}: EpisodeSelectorProps): React.JSX.Element {
   const { t } = useTranslation();
-  // Use provided episodes or default to 1-24 if empty
-  const displayEpisodes = episodes.length > 0 ? episodes : Array.from({ length: 24 }, (_, i) => i + 1);
+  const displayEpisodes = buildDisplayEpisodes(episodes);
 
   return (
     <div className="flex flex-col gap-3 p-3 animate-in fade-in slide-in-from-left-1 duration-300">
@@ -30,13 +43,13 @@ export default function EpisodeSelector({ seriesTitle, season, episodes, onSelec
       </div>
 
       <div className="grid grid-cols-6 gap-1.5 max-h-40 overflow-y-auto custom-scrollbar pr-0.5">
-        {displayEpisodes.map((ep) => (
+        {displayEpisodes.map(episode => (
           <button
-            key={ep}
-            onClick={() => onSelect(ep)}
+            key={episode}
+            onClick={() => onSelect(episode)}
             className="px-1.5 py-1.5 bg-surface-container-highest/20 text-on-surface-variant rounded-lg text-[11px] font-label font-bold tracking-wider border border-outline-variant/5 hover:border-primary/40 hover:bg-primary/5 hover:text-primary transition-all duration-200"
           >
-            E{ep.toString().padStart(2, '0')}
+            E{episode.toString().padStart(2, '0')}
           </button>
         ))}
       </div>

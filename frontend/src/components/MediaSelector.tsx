@@ -19,7 +19,37 @@ interface MediaSelectorProps {
   defaultType?: 'movie' | 'tv';
 }
 
-export default function MediaSelector({ onSelect, defaultType = 'movie' }: MediaSelectorProps) {
+function getMediaTypeButtonClass(currentType: 'movie' | 'tv', buttonType: 'movie' | 'tv'): string {
+  if (currentType === buttonType) {
+    return 'bg-primary text-on-primary shadow-lg shadow-primary/20';
+  }
+
+  return 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest/20';
+}
+
+function getMediaItemMetaText(
+  item: MediaSelectorItem,
+  t: ReturnType<typeof useTranslation>['t'],
+): string {
+  if (item.path_type === 'movie') {
+    return item.year ? `${item.year}` : '';
+  }
+
+  if (!item.episode_count) {
+    return '';
+  }
+
+  return t('mediaSelector.episodes', { count: item.episode_count });
+}
+
+function getEmptyStateText(mediaType: 'movie' | 'tv', t: ReturnType<typeof useTranslation>['t']): string {
+  return mediaType === 'movie' ? t('mediaSelector.notFound') : t('mediaSelector.notFoundTv');
+}
+
+export default function MediaSelector({
+  onSelect,
+  defaultType = 'movie',
+}: MediaSelectorProps): React.JSX.Element {
   const { t } = useTranslation();
   const [mediaType, setMediaType] = useState<'movie' | 'tv'>(defaultType);
   const [expandedItems, setExpandedItems] = useState<Set<number | string>>(new Set());
@@ -28,7 +58,7 @@ export default function MediaSelector({ onSelect, defaultType = 'movie' }: Media
   const loading = mediaFilesQuery.isLoading;
   const mediaItems = useMemo(() => buildMediaSelectorItems(rawData, mediaType), [rawData, mediaType]);
 
-  const toggleExpand = (id: number | string) => {
+  const toggleExpand = (id: number | string): void => {
     setExpandedItems(prev => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -40,7 +70,7 @@ export default function MediaSelector({ onSelect, defaultType = 'movie' }: Media
     });
   };
 
-  const handleSelect = (item: MediaSelectorItem, season?: number) => {
+  const handleSelect = (item: MediaSelectorItem, season?: number): void => {
     onSelect(buildMediaSelection(item, rawData, season));
   };
 
@@ -53,22 +83,14 @@ export default function MediaSelector({ onSelect, defaultType = 'movie' }: Media
       <div className="flex bg-surface-container-highest/10 p-1 rounded-xl border border-outline-variant/5">
         <button
           onClick={() => setMediaType('movie')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-label font-bold uppercase tracking-wider transition-all duration-300 ${
-            mediaType === 'movie' 
-              ? 'bg-primary text-on-primary shadow-lg shadow-primary/20' 
-              : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest/20'
-          }`}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-label font-bold uppercase tracking-wider transition-all duration-300 ${getMediaTypeButtonClass(mediaType, 'movie')}`}
         >
           <Film className="w-3.5 h-3.5" />
           {t('mediaSelector.movie')}
         </button>
         <button
           onClick={() => setMediaType('tv')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-label font-bold uppercase tracking-wider transition-all duration-300 ${
-            mediaType === 'tv' 
-              ? 'bg-primary text-on-primary shadow-lg shadow-primary/20' 
-              : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-highest/20'
-          }`}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-label font-bold uppercase tracking-wider transition-all duration-300 ${getMediaTypeButtonClass(mediaType, 'tv')}`}
         >
           <Tv className="w-3.5 h-3.5" />
           {t('mediaSelector.tv')}
@@ -78,7 +100,7 @@ export default function MediaSelector({ onSelect, defaultType = 'movie' }: Media
       <div className="max-h-48 overflow-y-auto custom-scrollbar pr-0.5">
         {mediaItems.length === 0 ? (
           <div className="p-6 text-[11px] text-on-surface-variant text-center font-body opacity-40 italic">
-            {mediaType === 'movie' ? t('mediaSelector.notFound') : t('mediaSelector.notFoundTv')}
+            {getEmptyStateText(mediaType, t)}
           </div>
         ) : (
           <div className="space-y-0.5">
@@ -102,10 +124,7 @@ export default function MediaSelector({ onSelect, defaultType = 'movie' }: Media
                   <div className="flex-1 min-w-0">
                     <div className="font-headline font-bold text-on-surface text-sm truncate leading-tight">{item.title}</div>
                     <div className="text-[10px] font-label font-bold uppercase tracking-wider text-on-surface-variant/40 mt-0.5">
-                      {item.path_type === 'movie' && item.year && `${item.year}`}
-                      {item.path_type === 'tv' &&
-                        item.episode_count &&
-                        t('mediaSelector.episodes', { count: item.episode_count })}
+                      {getMediaItemMetaText(item, t)}
                     </div>
                   </div>
                 </button>

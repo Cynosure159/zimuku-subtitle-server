@@ -1,6 +1,10 @@
 import { useTranslation } from 'react-i18next';
 
-export function EmptySelectionState({ typeName }: { typeName: string }) {
+interface EmptySelectionStateProps {
+  typeName: string;
+}
+
+export function EmptySelectionState({ typeName }: EmptySelectionStateProps): React.JSX.Element {
   const { t } = useTranslation();
   return (
     <div className="flex-1 flex items-center justify-center bg-slate-50 rounded-2xl border border-slate-100 border-dashed">

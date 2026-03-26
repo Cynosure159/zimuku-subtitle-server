@@ -13,7 +13,12 @@ interface DownloadModalProps {
   onDownload?: () => void;
 }
 
-export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }: DownloadModalProps) {
+export default function DownloadModal({
+  isOpen,
+  onClose,
+  subtitle,
+  onDownload,
+}: DownloadModalProps): React.JSX.Element | null {
   const { t } = useTranslation();
   const [selectedLangs, setSelectedLangs] = useState<string[]>([]);
   const [targetMedia, setTargetMedia] = useState<MediaSelection | null>(null);
@@ -40,7 +45,7 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
     }
   }, [isOpen]);
 
-  const handleMediaSelect = (media: MediaSelection) => {
+  const handleMediaSelect = (media: MediaSelection): void => {
     setTargetMedia(media);
     setMediaSelectorType(media.type);
     if (media.type === 'movie') {
@@ -56,18 +61,37 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
     }
   };
 
-  const handleEpisodeSelect = (episode: number) => {
+  const handleEpisodeSelect = (episode: number): void => {
     setSelectedEpisode(episode);
   };
 
-  const handleDownload = async () => {
-    if (!subtitle) return;
+  const handleLanguageToggle = (language: string): void => {
+    setSelectedLangs(prev =>
+      prev.includes(language) ? prev.filter(item => item !== language) : [...prev, language]
+    );
+  };
 
-    const hasMediaTarget =
-      targetMedia && (targetMedia.type === 'movie' || (selectedSeason && selectedEpisode));
-    const hasCustomPath = customPath.trim();
+  const resetEpisodeSelection = (): void => {
+    setTargetMedia(null);
+    setSelectedSeason(undefined);
+    setSelectedEpisode(undefined);
+    setMediaSelectorType('tv');
+  };
 
-    if (!hasMediaTarget && !hasCustomPath) return;
+  const customTargetPath = customPath.trim();
+  const hasMediaTarget =
+    targetMedia !== null &&
+    (targetMedia.type === 'movie' ||
+      (selectedSeason !== undefined && selectedEpisode !== undefined));
+  const canDownload =
+    subtitle !== null &&
+    selectedLangs.length > 0 &&
+    (customTargetPath.length > 0 || hasMediaTarget);
+
+  const handleDownload = async (): Promise<void> => {
+    if (!subtitle || (!hasMediaTarget && customTargetPath.length === 0)) {
+      return;
+    }
 
     setLoading(true);
     try {
@@ -81,8 +105,8 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
           selectedEpisode,
           selectedLangs[0]
         );
-      } else if (hasCustomPath) {
-        await createDownloadTask(subtitle.title, subtitle.link, customPath.trim());
+      } else {
+        await createDownloadTask(subtitle.title, subtitle.link, customTargetPath);
       }
       onDownload?.();
       onClose();
@@ -95,15 +119,9 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
     }
   };
 
-  const canDownload = () => {
-    if (!subtitle || selectedLangs.length === 0) return false;
-    if (customPath.trim()) return true;
-    if (!targetMedia) return false;
-    if (targetMedia.type === 'movie') return true;
-    return selectedSeason !== undefined && selectedEpisode !== undefined;
-  };
-
-  if (!subtitle) return null;
+  if (!subtitle) {
+    return null;
+  }
 
   const availableLangs = subtitle.lang || [
     t('searchFilter.simplified'),
@@ -115,7 +133,6 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={t('download.associateSubtitle')}>
       <div className="flex flex-col gap-4">
-        {/* Subtitle Info Header */}
         <div className="space-y-1">
           <div className="space-y-0.5">
             <h3 className="text-xl font-headline font-extrabold text-on-surface leading-tight break-all">
@@ -135,9 +152,7 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
           </div>
         </div>
 
-        {/* Configuration Sections */}
         <div className="space-y-4">
-          {/* Language Selection */}
           <div className="space-y-2">
             <label className="text-xs font-label uppercase tracking-widest text-on-surface-variant font-bold opacity-70">
               {t('download.selectLanguage')}
@@ -146,11 +161,7 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
               {availableLangs.map(lang => (
                 <button
                   key={lang}
-                  onClick={() => {
-                    setSelectedLangs(prev =>
-                      prev.includes(lang) ? prev.filter(l => l !== lang) : [...prev, lang]
-                    );
-                  }}
+                  onClick={() => handleLanguageToggle(lang)}
                   className={`px-4 py-2 rounded-lg text-sm font-bold transition-all duration-300 border ${
                     selectedLangs.includes(lang)
                       ? 'bg-primary text-on-primary border-primary shadow-[0_0_15px_rgba(189,194,255,0.2)]'
@@ -163,12 +174,11 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
             </div>
           </div>
 
-          {/* Media Selection */}
           <div className="space-y-2">
             <label className="text-xs font-label uppercase tracking-widest text-on-surface-variant font-bold opacity-70">
               {t('download.selectTargetMedia')}
             </label>
-            
+
             <div className="bg-surface-container-low rounded-xl p-0.5 border border-outline-variant/5">
               {targetMedia && targetMedia.type === 'tv' && !selectedEpisode ? (
                 <EpisodeSelector
@@ -176,19 +186,13 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
                   season={selectedSeason || 1}
                   episodes={targetMedia.episodes || []}
                   onSelect={handleEpisodeSelect}
-                  onBack={() => {
-                    setTargetMedia(null);
-                    setSelectedSeason(undefined);
-                    setSelectedEpisode(undefined);
-                    setMediaSelectorType('tv');
-                  }}
+                  onBack={resetEpisodeSelection}
                 />
               ) : (
                 <MediaSelector onSelect={handleMediaSelect} defaultType={mediaSelectorType} />
               )}
             </div>
 
-            {/* Visual Selection Feedback */}
             {targetMedia && (
               <div className="group relative overflow-hidden bg-surface-container-high/40 rounded-xl p-4 border border-outline-variant/5 transition-all duration-500 animate-in fade-in slide-in-from-bottom-1">
                 <div className="flex items-center gap-4 relative z-10">
@@ -223,7 +227,6 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
             )}
           </div>
 
-          {/* Advanced Options */}
           <div className="space-y-2">
             <button
               onClick={() => setShowAdvanced(!showAdvanced)}
@@ -255,13 +258,12 @@ export default function DownloadModal({ isOpen, onClose, subtitle, onDownload }:
           </div>
         </div>
 
-        {/* Action Button */}
         <div className="pt-0">
           <button
             onClick={handleDownload}
-            disabled={!canDownload() || loading}
+            disabled={!canDownload || loading}
             className={`w-full py-4 rounded-xl font-headline font-extrabold text-sm uppercase tracking-widest transition-all duration-500 flex items-center justify-center gap-2 active:scale-[0.98] ${
-              canDownload() && !loading
+              canDownload && !loading
                 ? 'bg-gradient-to-br from-primary to-primary-container text-on-primary shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:-translate-y-0.5'
                 : 'bg-surface-container-highest/20 text-on-surface-variant border border-outline-variant/10 cursor-not-allowed'
             }`}

@@ -6,8 +6,12 @@ interface SearchResultRowProps {
   onDownload: (item: SearchResult) => void;
 }
 
-export default function SearchResultRow({ item, onDownload }: SearchResultRowProps) {
+export default function SearchResultRow({
+  item,
+  onDownload,
+}: SearchResultRowProps): React.JSX.Element {
   const { t } = useTranslation();
+  const languages = item.lang ?? [];
 
   return (
     <div className="group flex flex-col lg:flex-row items-start lg:items-center justify-between p-6 rounded-2xl bg-surface-container border border-outline-variant/5 hover:bg-surface-container-highest hover:-translate-y-1 transition-all duration-300 gap-4">
@@ -20,9 +24,8 @@ export default function SearchResultRow({ item, onDownload }: SearchResultRowPro
             {item.title}
           </h4>
           <div className="flex flex-wrap items-center gap-3">
-            {item.lang &&
-              item.lang.length > 0 &&
-              item.lang.map((lang, idx) => (
+            {languages.length > 0 &&
+              languages.map((lang, idx) => (
                 <span
                   key={idx}
                   className="px-2 py-0.5 rounded bg-surface-container-highest border border-outline-variant/20 text-[10px] font-bold text-primary-fixed uppercase tracking-wider shadow-[0_0_8px_rgba(189,194,255,0.15)]"

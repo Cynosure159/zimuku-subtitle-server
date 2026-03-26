@@ -5,6 +5,9 @@ import type { SidebarItem, SortOption, FilterOption, SortOrder } from '../types/
 
 export type { SidebarItem, SortOption, FilterOption, SortOrder };
 
+const SORT_OPTIONS: SortOption[] = ['name', 'year', 'created', 'status'];
+const FILTER_OPTIONS: FilterOption[] = ['all', 'missing'];
+
 interface MediaSidebarProps {
   items: SidebarItem[];
   searchTerm: string;
@@ -23,6 +26,39 @@ interface MediaSidebarProps {
   onFilterOptionChange?: (opt: FilterOption) => void;
 }
 
+function getSortLabel(
+  sortOption: SortOption,
+  t: ReturnType<typeof useTranslation>['t'],
+): string {
+  switch (sortOption) {
+    case 'name':
+      return t('sort.name');
+    case 'year':
+      return t('sort.year');
+    case 'created':
+      return t('sort.created');
+    case 'status':
+      return t('sort.subtitleStatus');
+    default:
+      return '';
+  }
+}
+
+function getFilterLabel(
+  filterOption: FilterOption,
+  t: ReturnType<typeof useTranslation>['t'],
+): string {
+  return filterOption === 'all' ? t('filter.all') : t('filter.missing');
+}
+
+function getFilterButtonClass(activeFilter: FilterOption, filterOption: FilterOption): string {
+  if (activeFilter === filterOption) {
+    return 'bg-primary-container text-primary shadow-[0_4px_12px_rgba(189,194,255,0.3)]';
+  }
+
+  return 'text-on-surface-variant hover:bg-surface-container-high';
+}
+
 export function MediaSidebar({
   items,
   searchTerm,
@@ -39,33 +75,29 @@ export function MediaSidebar({
   sortOrder = 'asc',
   filterOption = 'all',
   onFilterOptionChange,
-}: MediaSidebarProps) {
+}: MediaSidebarProps): React.JSX.Element {
   const { t } = useTranslation();
   const { sidebarOpen, toggleSidebar } = useUIStore();
 
   const [isSortOpen, setIsSortOpen] = useState(false);
 
-  const getSubtitleStatusText = (item: SidebarItem) => {
-    if (item.totalCount === 0) return '';
-    if (item.hasSubCount === item.totalCount) return t('status.matched');
-    if (item.hasSubCount === 0) return t('status.missing');
+  const getSubtitleStatusText = (item: SidebarItem): string => {
+    if (item.totalCount === 0) {
+      return '';
+    }
+
+    if (item.hasSubCount === item.totalCount) {
+      return t('status.matched');
+    }
+
+    if (item.hasSubCount === 0) {
+      return t('status.missing');
+    }
+
     return t('status.matchedCount', { has: item.hasSubCount, total: item.totalCount });
   };
 
-  const currentSortLabel = useMemo(() => {
-    switch (sortOption) {
-      case 'name':
-        return t('sort.name');
-      case 'year':
-        return t('sort.year');
-      case 'created':
-        return t('sort.created');
-      case 'status':
-        return t('sort.subtitleStatus');
-      default:
-        return '';
-    }
-  }, [sortOption, t]);
+  const currentSortLabel = useMemo(() => getSortLabel(sortOption, t), [sortOption, t]);
 
   return (
     <>
@@ -110,22 +142,16 @@ export function MediaSidebar({
 
             {isSortOpen && (
               <div className="absolute right-0 mt-2 w-40 bg-surface-container-high rounded-xl shadow-2xl border border-outline-variant/10 z-50 overflow-hidden backdrop-blur-md">
-                {(['name', 'year', 'created', 'status'] as SortOption[]).map(opt => (
+                {SORT_OPTIONS.map(option => (
                   <button
-                    key={opt}
+                    key={option}
                     onClick={() => {
-                      onSortOptionChange?.(opt);
+                      onSortOptionChange?.(option);
                       setIsSortOpen(false);
                     }}
-                    className={`w-full text-left px-4 py-3 text-xs font-bold transition-colors hover:bg-primary/10 ${sortOption === opt ? 'text-primary bg-primary/5' : 'text-on-surface-variant'}`}
+                    className={`w-full text-left px-4 py-3 text-xs font-bold transition-colors hover:bg-primary/10 ${sortOption === option ? 'text-primary bg-primary/5' : 'text-on-surface-variant'}`}
                   >
-                    {opt === 'name'
-                      ? t('sort.name')
-                      : opt === 'year'
-                        ? t('sort.year')
-                        : opt === 'created'
-                          ? t('sort.created')
-                          : t('sort.subtitleStatus')}
+                    {getSortLabel(option, t)}
                   </button>
                 ))}
               </div>
@@ -146,26 +172,15 @@ export function MediaSidebar({
           </div>
 
           <div className="flex p-1.5 bg-surface-container rounded-2xl border border-outline-variant/5 shadow-inner">
-            <button
-              onClick={() => onFilterOptionChange?.('all')}
-              className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all duration-300 ${
-                filterOption === 'all'
-                  ? 'bg-primary-container text-primary shadow-[0_4px_12px_rgba(189,194,255,0.3)]'
-                  : 'text-on-surface-variant hover:bg-surface-container-high'
-              }`}
-            >
-              {t('filter.all')}
-            </button>
-            <button
-              onClick={() => onFilterOptionChange?.('missing')}
-              className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all duration-300 ${
-                filterOption === 'missing'
-                  ? 'bg-primary-container text-primary shadow-[0_4px_12px_rgba(189,194,255,0.3)]'
-                  : 'text-on-surface-variant hover:bg-surface-container-high'
-              }`}
-            >
-              {t('filter.missing')}
-            </button>
+            {FILTER_OPTIONS.map(option => (
+              <button
+                key={option}
+                onClick={() => onFilterOptionChange?.(option)}
+                className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all duration-300 ${getFilterButtonClass(filterOption, option)}`}
+              >
+                {getFilterLabel(option, t)}
+              </button>
+            ))}
           </div>
         </div>
 
