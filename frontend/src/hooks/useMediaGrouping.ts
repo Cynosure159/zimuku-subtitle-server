@@ -4,16 +4,23 @@ import { buildGroupedMedia, type MovieGroup, type TvGroup } from '../selectors/m
 
 export type { MovieGroup, TvGroup } from '../selectors/mediaGrouping';
 
-export function useMediaGrouping(
+type MediaType = 'movie' | 'tv';
+type MediaGroups<TType extends MediaType> = TType extends 'movie' ? MovieGroup[] : TvGroup[];
+
+export function useMediaGrouping<TType extends MediaType>(
   files: ScannedFile[],
-  type: 'movie' | 'tv',
+  type: TType,
   searchTerm: string,
   sortOption: SortOption,
   sortOrder: SortOrder,
   filterOption: FilterOption,
   unknownLabel: string
-): MovieGroup[] | TvGroup[] {
+): MediaGroups<TType> {
   return useMemo(() => {
-    return buildGroupedMedia(files, type, searchTerm, sortOption, sortOrder, filterOption, unknownLabel);
-  }, [files, type, searchTerm, sortOption, sortOrder, filterOption, unknownLabel]);
+    if (type === 'movie') {
+      return buildGroupedMedia(files, 'movie', searchTerm, sortOption, sortOrder, filterOption, unknownLabel);
+    }
+
+    return buildGroupedMedia(files, 'tv', searchTerm, sortOption, sortOrder, filterOption, unknownLabel);
+  }, [files, type, searchTerm, sortOption, sortOrder, filterOption, unknownLabel]) as MediaGroups<TType>;
 }

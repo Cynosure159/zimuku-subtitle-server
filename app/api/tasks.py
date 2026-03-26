@@ -105,7 +105,11 @@ async def list_tasks(
 
 
 @router.delete("/{task_id}", response_model=ActionResponse)
-async def delete_task(task_id: int, delete_files: bool = False, session: Session = Depends(get_session)) -> ActionResponse:
+async def delete_task(
+    task_id: int,
+    delete_files: bool = False,
+    session: Session = Depends(get_session),
+) -> ActionResponse:
     """删除任务"""
     success = TaskService.delete_task(session, task_id, delete_files)
     if not success:
