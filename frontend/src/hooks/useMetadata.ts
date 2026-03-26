@@ -3,7 +3,7 @@ import { useMediaMetadataQuery } from './queries';
 
 export type { MediaMetadata };
 
-export function useMediaMetadata(fileId: number | null) {
+export function useMediaMetadata(fileId: number | null): ReturnType<typeof useMediaMetadataQuery> {
   return useMediaMetadataQuery(fileId);
 }
 

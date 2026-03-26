@@ -9,10 +9,12 @@ type SearchQueryOptions = Omit<
 >;
 
 export function useSubtitleSearchQuery(query: string, options?: SearchQueryOptions) {
+  const trimmedQuery = query.trim();
+
   return useQuery({
     queryKey: queryKeys.search.results(query),
     queryFn: () => searchSubtitles(query),
-    enabled: query.trim().length > 0,
+    enabled: trimmedQuery.length > 0,
     ...options,
   });
 }

@@ -14,10 +14,6 @@ export function useMediaGrouping(
   unknownLabel: string
 ): MovieGroup[] | TvGroup[] {
   return useMemo(() => {
-    if (type === 'movie') {
-      return buildGroupedMedia(files, 'movie', searchTerm, sortOption, sortOrder, filterOption, unknownLabel);
-    }
-
-    return buildGroupedMedia(files, 'tv', searchTerm, sortOption, sortOrder, filterOption, unknownLabel);
+    return buildGroupedMedia(files, type, searchTerm, sortOption, sortOrder, filterOption, unknownLabel);
   }, [files, type, searchTerm, sortOption, sortOrder, filterOption, unknownLabel]);
 }

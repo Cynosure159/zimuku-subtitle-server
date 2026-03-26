@@ -2,6 +2,7 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  type QueryClient,
   type UseQueryOptions,
 } from '@tanstack/react-query';
 import {
@@ -20,6 +21,10 @@ type TasksQueryOptions = Omit<
   'queryKey' | 'queryFn'
 >;
 
+async function invalidateTasksQuery(queryClient: QueryClient): Promise<void> {
+  await queryClient.invalidateQueries({ queryKey: queryKeys.tasks.list() });
+}
+
 export function useTasksQuery(options?: TasksQueryOptions) {
   return useQuery({
     queryKey: queryKeys.tasks.list(),
@@ -34,7 +39,7 @@ export function useDeleteTaskMutation() {
   return useMutation({
     mutationFn: (taskId: number) => deleteTask(taskId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.tasks.list() });
+      await invalidateTasksQuery(queryClient);
     },
   });
 }
@@ -45,7 +50,7 @@ export function useRetryTaskMutation() {
   return useMutation({
     mutationFn: (taskId: number) => retryTask(taskId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.tasks.list() });
+      await invalidateTasksQuery(queryClient);
     },
   });
 }
@@ -56,7 +61,7 @@ export function useClearCompletedTasksMutation() {
   return useMutation({
     mutationFn: clearCompletedTasks,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.tasks.list() });
+      await invalidateTasksQuery(queryClient);
     },
   });
 }

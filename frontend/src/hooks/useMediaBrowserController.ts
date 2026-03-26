@@ -94,15 +94,24 @@ function useKeepDesktopSidebarOpen(toggleSidebar: () => void) {
   }, [toggleSidebar]);
 }
 
+function getSidebarMetadataFileId(
+  group: MovieGroup | TvGroup,
+  type: 'movie' | 'tv',
+): number | undefined {
+  if (type === 'movie') {
+    return isMovieGroup(group) ? group.files[0]?.id : undefined;
+  }
+
+  return isMovieGroup(group) ? undefined : group.firstFileId;
+}
+
 function useSidebarEntries<TGroup extends MovieGroup | TvGroup>(
   groups: TGroup[],
   type: 'movie' | 'tv'
 ) {
   const metadataQueries = useQueries({
     queries: groups.map(group => {
-      const fileId = type === 'movie'
-        ? (isMovieGroup(group) ? group.files[0]?.id : undefined)
-        : (isMovieGroup(group) ? undefined : group.firstFileId);
+      const fileId = getSidebarMetadataFileId(group, type);
 
       return {
         queryKey: queryKeys.media.metadata(fileId ?? null),
@@ -271,16 +280,19 @@ export function useMediaBrowserController(
 
   const currentSeasonFiles = useMemo(() => {
     if (type !== 'tv') return [];
+
     return getCurrentSeasonFiles(selectedTvItem, selectedSeason);
   }, [selectedSeason, selectedTvItem, type]);
 
   const totalEpisodesCount = useMemo(() => {
     if (type !== 'tv') return 0;
+
     return getTotalEpisodesCount(selectedTvItem);
   }, [selectedTvItem, type]);
 
   const isSelectedSeasonMatching = useMemo(() => {
     if (type !== 'tv') return false;
+
     return getIsSelectedSeasonMatching(status, selectedTvItem, selectedSeason);
   }, [selectedSeason, selectedTvItem, status, type]);
 

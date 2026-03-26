@@ -2,7 +2,9 @@ import { useMediaPollingContext } from './useMediaPollingContext';
 
 export type { MediaPath, ScannedFile, TaskStatus } from '../api';
 
-export function useMediaPolling(type: 'movie' | 'tv') {
+type MediaType = 'movie' | 'tv';
+
+export function useMediaPolling(type: MediaType) {
   const {
     movie,
     tv,

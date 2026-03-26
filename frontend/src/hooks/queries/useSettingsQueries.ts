@@ -2,6 +2,7 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  type QueryClient,
   type UseQueryOptions,
 } from '@tanstack/react-query';
 import { listSettings, updateSetting } from '../../api';
@@ -12,6 +13,10 @@ type SettingsQueryOptions = Omit<
   UseQueryOptions<Setting[], Error, Setting[], ReturnType<typeof queryKeys.settings.list>>,
   'queryKey' | 'queryFn'
 >;
+
+async function invalidateSettingsQuery(queryClient: QueryClient): Promise<void> {
+  await queryClient.invalidateQueries({ queryKey: queryKeys.settings.list() });
+}
 
 export function useSettingsQuery(options?: SettingsQueryOptions) {
   return useQuery({
@@ -28,7 +33,7 @@ export function useUpdateSettingMutation() {
     mutationFn: ({ key, value, description }: { key: string; value: string; description?: string }) =>
       updateSetting(key, value, description),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.settings.list() });
+      await invalidateSettingsQuery(queryClient);
     },
   });
 }
