@@ -77,19 +77,32 @@ def _ensure_directory(path: str) -> str:
     return path
 
 
+def _get_optional_env_path(env_name: Optional[str], default_path: str) -> str:
+    if not env_name:
+        return default_path
+    env_value = os.getenv(env_name)
+    if not env_value:
+        return default_path
+    return _normalize_path(env_value)
+
+
 def get_storage_paths() -> StoragePaths:
     root_value = os.getenv("ZIMUKU_STORAGE_PATH")
     storage_root = _normalize_path(root_value) if root_value else str(_project_root() / "storage")
 
-    download_env = os.getenv(PATH_ENV_MAP[SettingKey.DOWNLOAD_PATH])
-    temp_env = os.getenv(PATH_ENV_MAP[SettingKey.TEMP_PATH])
-    extracted_env = os.getenv(PATH_ENV_MAP[SettingKey.EXTRACTED_PATH])
-    db_env = os.getenv("ZIMUKU_DB_PATH")
-
-    downloads = _normalize_path(download_env) if download_env else os.path.join(storage_root, "downloads")
-    temp = _normalize_path(temp_env) if temp_env else os.path.join(storage_root, "tmp")
-    extracted = _normalize_path(extracted_env) if extracted_env else os.path.join(storage_root, "extracted")
-    database = _normalize_path(db_env) if db_env else os.path.join(storage_root, "zimuku.db")
+    downloads = _get_optional_env_path(
+        PATH_ENV_MAP[SettingKey.DOWNLOAD_PATH],
+        os.path.join(storage_root, "downloads"),
+    )
+    temp = _get_optional_env_path(
+        PATH_ENV_MAP[SettingKey.TEMP_PATH],
+        os.path.join(storage_root, "tmp"),
+    )
+    extracted = _get_optional_env_path(
+        PATH_ENV_MAP[SettingKey.EXTRACTED_PATH],
+        os.path.join(storage_root, "extracted"),
+    )
+    database = _get_optional_env_path("ZIMUKU_DB_PATH", os.path.join(storage_root, "zimuku.db"))
 
     return StoragePaths(
         root=storage_root,
@@ -107,29 +120,30 @@ class ConfigManager:
     _DESCRIPTIONS = {key: definition.description for key, definition in SETTINGS_DEFINITIONS.items()}
 
     @classmethod
+    def _load_setting(cls, key: str) -> Optional[Setting]:
+        from ..db.session import session_scope
+
+        with session_scope() as session:
+            statement = select(Setting).where(Setting.key == key)
+            return session.exec(statement).first()
+
+    @classmethod
     def get(cls, key: str, default: Any = None) -> str:
         """获取配置"""
         if key in PATH_ENV_MAP:
             return cls.get_path(key)
 
-        # 优先从数据库查询
         try:
-            from ..db.session import session_scope
-
-            with session_scope() as session:
-                statement = select(Setting).where(Setting.key == key)
-                setting = session.exec(statement).first()
-                if setting:
-                    return setting.value
+            setting = cls._load_setting(key)
+            if setting:
+                return setting.value
         except Exception as e:
             logger.error(f"从数据库读取配置出错 ({key}): {e}")
 
-        # 其次尝试环境变量 (大写形式)
         env_val = os.getenv(f"ZIMUKU_{key.upper()}")
         if env_val:
             return env_val
 
-        # 最后返回内置默认值或参数默认值
         return default if default is not None else cls._DEFAULTS.get(key, "")
 
     @classmethod
@@ -187,13 +201,9 @@ class ConfigManager:
             return _ensure_directory(derived_paths[key])
 
         try:
-            from ..db.session import session_scope
-
-            with session_scope() as session:
-                statement = select(Setting).where(Setting.key == key)
-                setting = session.exec(statement).first()
-                if setting and setting.value:
-                    return _ensure_directory(cls.normalize_value(key, setting.value))
+            setting = cls._load_setting(key)
+            if setting and setting.value:
+                return _ensure_directory(cls.normalize_value(key, setting.value))
         except Exception as e:
             logger.error("从数据库读取路径配置出错 (%s): %s", key, e)
 

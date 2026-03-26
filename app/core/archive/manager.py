@@ -2,7 +2,7 @@ import logging
 import os
 import zipfile
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import py7zr
 
@@ -25,6 +25,23 @@ class ArchiveManager:
         return target_path
 
     @staticmethod
+    def _normalize_archive_name(filename: str) -> Optional[Path]:
+        normalized = Path(filename)
+        safe_parts = [part for part in normalized.parts if part not in {"", "."}]
+        if not safe_parts or any(part == ".." for part in safe_parts):
+            return None
+        return Path(*safe_parts)
+
+    @staticmethod
+    def _decode_zip_filename(filename: str) -> str:
+        for encoding in ("gbk", "utf-8"):
+            try:
+                return filename.encode("cp437").decode(encoding)
+            except Exception:
+                continue
+        return filename
+
+    @staticmethod
     def extract(file_path: str, extract_to: str) -> List[str]:
         """解压文件并返回解压后的文件列表"""
         if not os.path.exists(file_path):
@@ -34,11 +51,11 @@ class ArchiveManager:
 
         if file_path.lower().endswith(".zip"):
             return ArchiveManager._extract_zip(file_path, extract_to)
-        elif file_path.lower().endswith(".7z"):
+        if file_path.lower().endswith(".7z"):
             return ArchiveManager._extract_7z(file_path, extract_to)
-        else:
-            logger.warning(f"Unsupported archive format: {file_path}")
-            return []
+
+        logger.warning(f"Unsupported archive format: {file_path}")
+        return []
 
     @staticmethod
     def _extract_zip(file_path: str, extract_to: str) -> List[str]:
@@ -48,23 +65,11 @@ class ArchiveManager:
                 if info.is_dir():
                     continue
 
-                # 修复 ZIP 文件名乱码 (CP437 -> GBK/UTF-8)
-                try:
-                    # 尝试将原始编码 cp437 转换为 gbk
-                    filename = info.filename.encode("cp437").decode("gbk")
-                except Exception:
-                    try:
-                        # 备选：如果不是 gbk，尝试 utf-8
-                        filename = info.filename.encode("cp437").decode("utf-8")
-                    except Exception:
-                        filename = info.filename
-
-                normalized = Path(filename)
-                safe_parts = [part for part in normalized.parts if part not in {"", "."}]
-                if any(part == ".." for part in safe_parts) or not safe_parts:
+                filename = ArchiveManager._decode_zip_filename(info.filename)
+                relative_name = ArchiveManager._normalize_archive_name(filename)
+                if relative_name is None:
                     continue
 
-                relative_name = Path(*safe_parts)
                 target_path = ArchiveManager._resolve_safe_target(extract_to, str(relative_name))
                 target_path.parent.mkdir(parents=True, exist_ok=True)
                 with open(target_path, "wb") as f:

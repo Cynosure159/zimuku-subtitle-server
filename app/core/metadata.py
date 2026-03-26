@@ -15,25 +15,54 @@ POSTER_NAMES = ["folder.jpg", "poster.jpg", "poster.png", "folder.png"]
 
 # Fanart file names to search for (for banner backgrounds)
 FANART_NAMES = ["fanart.jpg", "fanart.png", "backdrop.jpg", "background.jpg"]
+IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png"]
+MEDIA_ROOT_TAGS = ["movie", "tvshow", "episodedetails"]
+TXT_METADATA_KEYS = {"title", "year", "plot", "description"}
+
+
+def _is_searchable_folder(folder: Path) -> bool:
+    return folder.exists() and folder.is_dir()
+
+
+def _find_first_existing(folder: Path, names: list[str]) -> Optional[Path]:
+    for name in names:
+        candidate = folder / name
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _find_stem_match(folder: Path, video_filename: Optional[str], suffixes: list[str]) -> Optional[Path]:
+    if not video_filename:
+        return None
+
+    video_stem = Path(str(video_filename)).stem
+    for suffix in suffixes:
+        candidate = folder / f"{video_stem}{suffix}"
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _read_text_with_encodings(file_path: Path, encodings: list[str]) -> Optional[str]:
+    for encoding in encodings:
+        try:
+            return file_path.read_text(encoding=encoding)
+        except UnicodeDecodeError:
+            continue
+    return None
 
 
 def find_fanart(folder: Path, video_filename: Optional[str] = None) -> Optional[Path]:
     """Find fanart image in folder (prioritize fanart over poster)."""
-    if not folder.exists() or not folder.is_dir():
+    if not _is_searchable_folder(folder):
         return None
 
-    for name in FANART_NAMES:
-        path = folder / name
-        if path.exists():
-            return path
+    fanart_path = _find_first_existing(folder, FANART_NAMES)
+    if fanart_path is not None:
+        return fanart_path
 
-    if video_filename:
-        video_stem = Path(str(video_filename)).stem
-        for ext in [".jpg", ".jpeg", ".png"]:
-            path = folder / f"{video_stem}-fanart{ext}"
-            if path.exists():
-                return path
-    return None
+    return _find_stem_match(folder, video_filename, [f"-fanart{ext}" for ext in IMAGE_EXTENSIONS])
 
 
 def parse_nfo(nfo_path: Path) -> Optional[dict]:
@@ -49,7 +78,6 @@ def parse_nfo(nfo_path: Path) -> Optional[dict]:
     if not nfo_path.exists():
         return None
 
-    # Try different encodings
     for encoding in NFO_ENCODINGS:
         try:
             content = nfo_path.read_text(encoding=encoding)
@@ -69,11 +97,9 @@ def _extract_nfo_metadata(content: str) -> dict:
     except ET.ParseError:
         return {}
 
-    # Root can be <movie>, <tvshow>, <episodedetails> or a wrapper
-    # If root's tag is one of these, use root as the main element
     target = root
-    if root.tag not in ["movie", "tvshow", "episodedetails"]:
-        for tag in ["movie", "tvshow", "episodedetails"]:
+    if root.tag not in MEDIA_ROOT_TAGS:
+        for tag in MEDIA_ROOT_TAGS:
             found = root.find(tag)
             if found is not None:
                 target = found
@@ -86,7 +112,6 @@ def _extract_nfo_metadata(content: str) -> dict:
 
     def get_rating(element: ET.Element) -> Optional[str]:
         """Extract rating from various NFO structures."""
-        # 1. Try <ratings><rating><value>
         ratings_node = element.find("ratings")
         if ratings_node is not None:
             rating_node = ratings_node.find("rating")
@@ -99,13 +124,12 @@ def _extract_nfo_metadata(content: str) -> dict:
                     except ValueError:
                         return value_node.text.strip()
 
-        # 2. Try top-level <rating> or <userrating>
         for tag in ["rating", "userrating"]:
             node = element.find(tag)
             if node is not None and node.text:
                 try:
                     val = float(node.text.strip())
-                    if val > 0:  # Ignore 0.0 scores if possible
+                    if val > 0:
                         return f"{val:.1f}"
                 except ValueError:
                     return node.text.strip()
@@ -117,7 +141,6 @@ def _extract_nfo_metadata(content: str) -> dict:
         found = element.findall(tag)
         return [f.text.strip() for f in found if f.text and f.text.strip()]
 
-    # Extract metadata
     metadata = {
         "title": get_text(target, "title"),
         "year": get_text(target, "year"),
@@ -131,7 +154,6 @@ def _extract_nfo_metadata(content: str) -> dict:
         "runtime": get_text(target, "runtime"),
     }
 
-    # Clean up None values
     return {k: v for k, v in metadata.items() if v is not None}
 
 
@@ -146,24 +168,14 @@ def find_poster(folder: Path, video_filename: Optional[str] = None) -> Optional[
     Returns:
         Path to poster image or None if not found
     """
-    if not folder.exists() or not folder.is_dir():
+    if not _is_searchable_folder(folder):
         return None
 
-    # Check standard poster names
-    for poster_name in POSTER_NAMES:
-        poster_path = folder / poster_name
-        if poster_path.exists():
-            return poster_path
+    poster_path = _find_first_existing(folder, POSTER_NAMES)
+    if poster_path is not None:
+        return poster_path
 
-    # Check for same-name poster (video.mp4 -> video.jpg)
-    if video_filename:
-        video_stem = Path(video_filename).stem
-        for ext in [".jpg", ".jpeg", ".png"]:
-            poster_path = folder / f"{video_stem}{ext}"
-            if poster_path.exists():
-                return poster_path
-
-    return None
+    return _find_stem_match(folder, video_filename, IMAGE_EXTENSIONS)
 
 
 def parse_txt_info(txt_path: Path) -> Optional[dict]:
@@ -179,28 +191,22 @@ def parse_txt_info(txt_path: Path) -> Optional[dict]:
     if not txt_path.exists():
         return None
 
-    try:
-        content = txt_path.read_text(encoding="utf-8")
-    except UnicodeDecodeError:
-        try:
-            content = txt_path.read_text(encoding="gbk")
-        except UnicodeDecodeError:
-            logger.warning(f"Failed to read TXT file {txt_path}")
-            return None
+    content = _read_text_with_encodings(txt_path, ["utf-8", "gbk"])
+    if content is None:
+        logger.warning(f"Failed to read TXT file {txt_path}")
+        return None
 
-    # Parse key:value lines
     metadata = {}
     for line in content.splitlines():
         line = line.strip()
         if not line or ":" not in line:
             continue
 
-        # Split on first colon only
         key, _, value = line.partition(":")
         key = key.strip().lower()
         value = value.strip()
 
-        if key in ["title", "year", "plot", "description"]:
+        if key in TXT_METADATA_KEYS:
             metadata[key] = value
 
     return metadata if metadata else None
@@ -222,22 +228,13 @@ def find_nfo_file(folder: Path, video_filename: Optional[str] = None) -> Optiona
     Returns:
         Path to NFO file or None if not found
     """
-    if not folder.exists() or not folder.is_dir():
+    if not _is_searchable_folder(folder):
         return None
 
-    # Check for movie.nfo
-    nfo_path = folder / "movie.nfo"
-    if nfo_path.exists():
+    nfo_path = _find_first_existing(folder, ["movie.nfo"])
+    if nfo_path is not None:
         return nfo_path
-
-    # Check for same-name NFO (video.mp4 -> video.nfo)
-    if video_filename:
-        video_stem = Path(str(video_filename)).stem
-        nfo_path = folder / f"{video_stem}.nfo"
-        if nfo_path.exists():
-            return nfo_path
-
-    return None
+    return _find_stem_match(folder, video_filename, [".nfo"])
 
 
 def find_txt_file(folder: Path, video_filename: Optional[str] = None) -> Optional[Path]:
@@ -251,19 +248,10 @@ def find_txt_file(folder: Path, video_filename: Optional[str] = None) -> Optiona
     Returns:
         Path to TXT file or None if not found
     """
-    if not folder.exists() or not folder.is_dir():
+    if not _is_searchable_folder(folder):
         return None
 
-    # Check for info.txt
-    txt_path = folder / "info.txt"
-    if txt_path.exists():
+    txt_path = _find_first_existing(folder, ["info.txt"])
+    if txt_path is not None:
         return txt_path
-
-    # Check for same-name TXT (video.mp4 -> video.txt)
-    if video_filename:
-        video_stem = Path(str(video_filename)).stem
-        txt_path = folder / f"{video_stem}.txt"
-        if txt_path.exists():
-            return txt_path
-
-    return None
+    return _find_stem_match(folder, video_filename, [".txt"])

@@ -17,6 +17,10 @@ class ContextFilter(logging.Filter):
         return True
 
 
+def _has_context_filter(filters: list[logging.Filter]) -> bool:
+    return any(isinstance(existing_filter, ContextFilter) for existing_filter in filters)
+
+
 def configure_logging(level: str = "INFO"):
     root_logger = logging.getLogger()
     if not root_logger.handlers:
@@ -30,12 +34,12 @@ def configure_logging(level: str = "INFO"):
     else:
         root_logger.setLevel(getattr(logging, level.upper(), logging.INFO))
 
-    has_filter = any(isinstance(existing_filter, ContextFilter) for existing_filter in root_logger.filters)
-    if not has_filter:
+    if not _has_context_filter(root_logger.filters):
         root_logger.addFilter(ContextFilter())
 
     for handler in root_logger.handlers:
-        handler.addFilter(ContextFilter())
+        if not _has_context_filter(handler.filters):
+            handler.addFilter(ContextFilter())
 
 
 def get_correlation_id() -> str:
