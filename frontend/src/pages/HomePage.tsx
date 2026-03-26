@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useMediaFilesQuery } from '../hooks/queries';
+import { getMediaSeasonNumber, getMediaTitle } from '../lib/mediaUtils';
 import { buildHomeStats, buildRecentMedia } from '../selectors/home';
 import type { ScannedFile } from '../types/api';
 
@@ -175,13 +176,13 @@ export default function HomePage() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-headline font-bold text-on-surface text-sm truncate" title={file.extracted_title || ''}>
-                  {file.extracted_title}
+                  {getMediaTitle(file, '')}
                 </p>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-xs text-on-surface-variant font-label">
                     {file.type === 'movie'
                       ? file.year || '—'
-                      : `S${String(file.season || 1).padStart(2, '0')} E${String(file.episode || 1).padStart(2, '0')}`}
+                      : `S${String(getMediaSeasonNumber(file.season)).padStart(2, '0')} E${String(file.episode || 1).padStart(2, '0')}`}
                     {' • '}
                     {file.type === 'movie' ? t('home.typeMovie') : t('home.typeSeries')}
                   </span>

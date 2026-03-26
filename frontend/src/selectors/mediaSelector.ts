@@ -1,3 +1,4 @@
+import { getMediaTitle, parseMediaYear } from '../lib/mediaUtils';
 import type { MediaSelection, ScannedFile } from '../types/api';
 
 export interface MediaSelectorItem {
@@ -11,6 +12,16 @@ export interface MediaSelectorItem {
   seasonEpisodes?: Record<number, number[]>;
 }
 
+function getSelectorTitle(file: ScannedFile): string {
+  return getMediaTitle(file);
+}
+
+function addUniqueNumber(numbers: number[], value: number): void {
+  if (!numbers.includes(value)) {
+    numbers.push(value);
+  }
+}
+
 export function buildMediaSelectorItems(
   rawData: ScannedFile[],
   mediaType: 'movie' | 'tv'
@@ -18,18 +29,17 @@ export function buildMediaSelectorItems(
   if (mediaType === 'movie') {
     return rawData.map(file => ({
       id: file.id,
-      title: file.extracted_title || file.filename,
+      title: getSelectorTitle(file),
       path: file.file_path,
       path_type: file.type as 'movie' | 'tv',
-      year: file.year ? parseInt(file.year, 10) : undefined,
+      year: file.year ? parseMediaYear(file.year) : undefined,
     }));
   }
 
   const grouped = new Map<string, MediaSelectorItem>();
 
   for (const file of rawData) {
-    const title = file.extracted_title || file.filename;
-    // 使用稳定字符串 key，避免原先按字符码求和带来的碰撞风险。
+    const title = getSelectorTitle(file);
     const itemId = `tv:${title}`;
 
     if (!grouped.has(title)) {
@@ -49,19 +59,14 @@ export function buildMediaSelectorItems(
     const episode = file.episode;
 
     if (season !== null && season !== undefined) {
-      // MediaSelector 只做展示聚合，不改动原始扫描结果顺序。
-      if (!item.seasons!.includes(season)) {
-        item.seasons!.push(season);
-      }
+      addUniqueNumber(item.seasons!, season);
 
       if (episode !== null && episode !== undefined) {
         if (!item.seasonEpisodes![season]) {
           item.seasonEpisodes![season] = [];
         }
 
-        if (!item.seasonEpisodes![season].includes(episode)) {
-          item.seasonEpisodes![season].push(episode);
-        }
+        addUniqueNumber(item.seasonEpisodes![season], episode);
       }
     }
 
@@ -88,8 +93,7 @@ export function buildMediaSelection(
   rawData: ScannedFile[],
   season?: number
 ): MediaSelection {
-  // 回查原始文件，保证返回给下载弹窗的仍是后端认可的真实文件 id/path。
-  const file = rawData.find(scannedFile => (scannedFile.extracted_title || scannedFile.filename) === item.title);
+  const file = rawData.find(scannedFile => getSelectorTitle(scannedFile) === item.title);
 
   return {
     id: file?.id || item.id,

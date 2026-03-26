@@ -1,3 +1,4 @@
+import { getMediaSeasonNumber, getMediaTitle, parseMediaYear } from '../lib/mediaUtils';
 import type { ScannedFile, FilterOption, SortOption, SortOrder } from '../types/api';
 
 export interface BaseMediaGroup {
@@ -19,6 +20,38 @@ export interface TvGroup extends BaseMediaGroup {
   seasons: Record<number, ScannedFile[]>;
 }
 
+function getSubtitleRatio(group: BaseMediaGroup): number {
+  if (group.totalCount === 0) {
+    return 0;
+  }
+
+  return group.hasSubCount / group.totalCount;
+}
+
+function buildMediaTitle(file: ScannedFile, unknownLabel: string): string {
+  return getMediaTitle(file, unknownLabel);
+}
+
+function addFileToSeasonGroup(seasons: Record<number, ScannedFile[]>, file: ScannedFile): void {
+  const season = getMediaSeasonNumber(file.season);
+
+  if (!seasons[season]) {
+    seasons[season] = [];
+  }
+
+  seasons[season].push(file);
+  seasons[season].sort((a, b) => (a.episode || 0) - (b.episode || 0));
+}
+
+function applySearchAndFilter<T extends BaseMediaGroup>(
+  groups: T[],
+  searchTerm: string,
+  filterOption: FilterOption,
+): T[] {
+  const searchedGroups = groups.filter(group => matchesSearchTerm(group.title, searchTerm));
+  return filterGroups(searchedGroups, filterOption);
+}
+
 function sortGroups<T extends BaseMediaGroup>(
   groups: T[],
   sortOption: SortOption,
@@ -28,15 +61,14 @@ function sortGroups<T extends BaseMediaGroup>(
     let comparison = 0;
 
     if (sortOption === 'year') {
-      const yearA = parseInt(a.year || '0', 10);
-      const yearB = parseInt(b.year || '0', 10);
+      const yearA = parseMediaYear(a.year);
+      const yearB = parseMediaYear(b.year);
       comparison = yearA - yearB;
     } else if (sortOption === 'created') {
       comparison = (a.createdAt || '').localeCompare(b.createdAt || '');
     } else if (sortOption === 'status') {
-      // 用“已匹配占比”而不是绝对数量排序，避免多文件条目天然排在前面。
-      const ratioA = a.totalCount === 0 ? 0 : a.hasSubCount / a.totalCount;
-      const ratioB = b.totalCount === 0 ? 0 : b.hasSubCount / b.totalCount;
+      const ratioA = getSubtitleRatio(a);
+      const ratioB = getSubtitleRatio(b);
       comparison = ratioA - ratioB;
     } else {
       comparison = a.title.localeCompare(b.title);
@@ -62,7 +94,7 @@ export function buildMovieGroups(files: ScannedFile[], unknownLabel: string): Mo
   const groups = new Map<string, MovieGroup>();
 
   for (const file of files) {
-    const title = file.extracted_title || unknownLabel;
+    const title = buildMediaTitle(file, unknownLabel);
 
     if (!groups.has(title)) {
       groups.set(title, {
@@ -90,7 +122,7 @@ export function buildTvGroups(files: ScannedFile[], unknownLabel: string): TvGro
   const groups = new Map<string, TvGroup>();
 
   for (const file of files) {
-    const title = file.extracted_title || unknownLabel;
+    const title = buildMediaTitle(file, unknownLabel);
 
     if (!groups.has(title)) {
       groups.set(title, {
@@ -107,15 +139,7 @@ export function buildTvGroups(files: ScannedFile[], unknownLabel: string): TvGro
     }
 
     const group = groups.get(title)!;
-    // 兼容没有季号的旧扫描结果，默认归到第 1 季，保持现有展示方式不变。
-    const season = file.season || 1;
-
-    if (!group.seasons[season]) {
-      group.seasons[season] = [];
-    }
-
-    group.seasons[season].push(file);
-    group.seasons[season].sort((a, b) => (a.episode || 0) - (b.episode || 0));
+    addFileToSeasonGroup(group.seasons, file);
     group.totalCount += 1;
     if (file.has_subtitle) {
       group.hasSubCount += 1;
@@ -152,18 +176,10 @@ export function buildGroupedMedia(
   filterOption: FilterOption,
   unknownLabel: string
 ): MovieGroup[] | TvGroup[] {
-  if (type === 'movie') {
-    const groups = buildMovieGroups(files, unknownLabel);
-    const searchedGroups = groups.filter(group => matchesSearchTerm(group.title, searchTerm));
-    const filteredGroups = filterGroups(searchedGroups, filterOption);
-
-    return sortGroups(filteredGroups, sortOption, sortOrder);
-  }
-
-  const groups = buildTvGroups(files, unknownLabel);
-  // movie/tv 分支拆开返回，既方便类型收窄，也避免 controller 再重复写一套分组逻辑。
-  const searchedGroups = groups.filter(group => matchesSearchTerm(group.title, searchTerm));
-  const filteredGroups = filterGroups(searchedGroups, filterOption);
+  const groups = type === 'movie'
+    ? buildMovieGroups(files, unknownLabel)
+    : buildTvGroups(files, unknownLabel);
+  const filteredGroups = applySearchAndFilter(groups, searchTerm, filterOption);
 
   return sortGroups(filteredGroups, sortOption, sortOrder);
 }

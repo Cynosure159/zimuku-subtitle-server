@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { autoMatchFile, type ScannedFile, type TaskStatus } from '../api';
+import { getMediaTitle } from '../lib/mediaUtils';
 
 interface MediaItemProps {
   file: ScannedFile;
@@ -95,7 +96,7 @@ export function MediaItem({
   };
 
   const handleManualSearch = (): void => {
-    navigate(`/search?q=${encodeURIComponent(file.extracted_title || file.filename)}`);
+    navigate(`/search?q=${encodeURIComponent(getMediaTitle(file))}`);
   };
 
   return (

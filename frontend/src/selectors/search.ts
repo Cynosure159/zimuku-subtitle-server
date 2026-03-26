@@ -1,8 +1,11 @@
 import type { SearchResult } from '../types/api';
 
-export function getSearchFilterLabel(activeFilter: string, translate: (key: string, options?: object) => string) {
+type Translate = (key: string, options?: object) => string;
+
+export function getSearchFilterLabel(activeFilter: string, translate: Translate): string {
+  const allLabel = translate('searchFilter.all');
   const filterMap: Record<string, string> = {
-    [translate('searchFilter.all')]: translate('searchFilter.all'),
+    [allLabel]: allLabel,
     [translate('searchFilter.simplified')]: translate('searchFilter.simplified_short', { defaultValue: '简体' }),
     [translate('searchFilter.traditional')]: translate('searchFilter.traditional_short', { defaultValue: '繁体' }),
     [translate('searchFilter.english')]: translate('searchFilter.english_short', { defaultValue: '英文' }),

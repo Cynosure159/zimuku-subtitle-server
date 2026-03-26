@@ -12,22 +12,37 @@ export interface HomeStats {
   missingSeries: number;
 }
 
-export function buildHomeStats(movieFiles: ScannedFile[], tvFiles: ScannedFile[]): HomeStats {
-  const totalMovies = movieFiles.length;
-  const hasSubtitleMovies = movieFiles.filter(file => file.has_subtitle).length;
-  const totalSeries = tvFiles.length;
-  const hasSubtitleSeries = tvFiles.filter(file => file.has_subtitle).length;
+interface SubtitleStats {
+  total: number;
+  hasSubtitle: number;
+  missingSubtitle: number;
+}
+
+function buildSubtitleStats(files: ScannedFile[]): SubtitleStats {
+  const total = files.length;
+  const hasSubtitle = files.filter(file => file.has_subtitle).length;
 
   return {
-    totalFiles: totalMovies + totalSeries,
-    hasSubtitle: hasSubtitleMovies + hasSubtitleSeries,
-    missingSubtitle: totalMovies - hasSubtitleMovies + (totalSeries - hasSubtitleSeries),
-    totalMovies,
-    hasSubtitleMovies,
-    missingMovies: totalMovies - hasSubtitleMovies,
-    totalSeries,
-    hasSubtitleSeries,
-    missingSeries: totalSeries - hasSubtitleSeries,
+    total,
+    hasSubtitle,
+    missingSubtitle: total - hasSubtitle,
+  };
+}
+
+export function buildHomeStats(movieFiles: ScannedFile[], tvFiles: ScannedFile[]): HomeStats {
+  const movieStats = buildSubtitleStats(movieFiles);
+  const tvStats = buildSubtitleStats(tvFiles);
+
+  return {
+    totalFiles: movieStats.total + tvStats.total,
+    hasSubtitle: movieStats.hasSubtitle + tvStats.hasSubtitle,
+    missingSubtitle: movieStats.missingSubtitle + tvStats.missingSubtitle,
+    totalMovies: movieStats.total,
+    hasSubtitleMovies: movieStats.hasSubtitle,
+    missingMovies: movieStats.missingSubtitle,
+    totalSeries: tvStats.total,
+    hasSubtitleSeries: tvStats.hasSubtitle,
+    missingSeries: tvStats.missingSubtitle,
   };
 }
 

@@ -1,4 +1,5 @@
 import { getMediaPosterUrl } from '../api';
+import { parseMediaYear } from '../lib/mediaUtils';
 import type { MediaMetadata, SidebarItem, SortOption, SortOrder, TaskStatus } from '../types/api';
 import type { MovieGroup, TvGroup } from './mediaGrouping';
 
@@ -50,8 +51,8 @@ export function orderSidebarEntriesByDisplayYear<TGroup extends MovieGroup | TvG
   sortOrder: SortOrder
 ): SidebarEntry<TGroup>[] {
   return [...entries].sort((a, b) => {
-    const yearA = parseInt(a.item.year || a.group.year || '0', 10);
-    const yearB = parseInt(b.item.year || b.group.year || '0', 10);
+    const yearA = parseMediaYear(a.item.year || a.group.year);
+    const yearB = parseMediaYear(b.item.year || b.group.year);
     const comparison = yearA - yearB;
 
     return sortOrder === 'asc' ? comparison : -comparison;
@@ -97,9 +98,7 @@ export function getSelectionFromUrl<TGroup extends { title: string }>(
     return null;
   }
 
-  const selection: { title: string | null; season?: number } = {
-    title: titleFromUrl,
-  };
+  const selection: { title: string | null; season?: number } = { title: titleFromUrl };
 
   if (seasonFromUrl) {
     selection.season = Number(seasonFromUrl);
