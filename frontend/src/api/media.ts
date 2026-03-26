@@ -1,61 +1,52 @@
-import { API_ENDPOINTS } from '../lib/config';
 import { API_BASE } from '../lib/config';
-import { apiClient } from '../lib/apiClient';
+import { API_ENDPOINTS } from '../lib/config';
 import type { MediaMetadata, MediaPath, ScannedFile, TaskStatus } from '../types/api';
+import { getData, postData, deleteData } from './shared';
 
-export const fetchMediaMetadata = async (fileId: number): Promise<MediaMetadata> => {
-  const response = await apiClient.get(API_ENDPOINTS.MEDIA_METADATA(fileId));
-  return response.data;
-};
+export async function fetchMediaMetadata(fileId: number): Promise<MediaMetadata> {
+  return getData(API_ENDPOINTS.MEDIA_METADATA(fileId));
+}
 
-export const listMediaPaths = async (): Promise<MediaPath[]> => {
-  const response = await apiClient.get(API_ENDPOINTS.MEDIA_PATHS);
-  return response.data;
-};
+export async function listMediaPaths(): Promise<MediaPath[]> {
+  return getData(API_ENDPOINTS.MEDIA_PATHS);
+}
 
-export const addMediaPath = async (path: string, pathType: 'movie' | 'tv'): Promise<void> => {
-  const response = await apiClient.post(API_ENDPOINTS.MEDIA_PATHS, null, {
+export async function addMediaPath(path: string, pathType: 'movie' | 'tv'): Promise<void> {
+  return postData(API_ENDPOINTS.MEDIA_PATHS, null, {
     params: { path, path_type: pathType },
   });
-  return response.data;
-};
+}
 
-export const deleteMediaPath = async (pathId: number): Promise<void> => {
-  const response = await apiClient.delete(`${API_ENDPOINTS.MEDIA_PATHS}/${pathId}`);
-  return response.data;
-};
+export async function deleteMediaPath(pathId: number): Promise<void> {
+  return deleteData(`${API_ENDPOINTS.MEDIA_PATHS}/${pathId}`);
+}
 
-export const listScannedFiles = async (pathType?: 'movie' | 'tv'): Promise<ScannedFile[]> => {
-  const response = await apiClient.get(API_ENDPOINTS.MEDIA_FILES, {
+export async function listScannedFiles(pathType?: 'movie' | 'tv'): Promise<ScannedFile[]> {
+  return getData(API_ENDPOINTS.MEDIA_FILES, {
     params: { path_type: pathType },
   });
-  return response.data;
-};
+}
 
-export const triggerMediaMatch = async (pathType?: 'movie' | 'tv'): Promise<void> => {
-  const response = await apiClient.post(API_ENDPOINTS.MEDIA_MATCH, null, {
+export async function triggerMediaMatch(pathType?: 'movie' | 'tv'): Promise<void> {
+  return postData(API_ENDPOINTS.MEDIA_MATCH, null, {
     params: { path_type: pathType },
   });
-  return response.data;
-};
+}
 
-export const autoMatchFile = async (fileId: number): Promise<void> => {
-  const response = await apiClient.post(API_ENDPOINTS.MEDIA_AUTO_MATCH(fileId));
-  return response.data;
-};
+export async function autoMatchFile(fileId: number): Promise<void> {
+  return postData(API_ENDPOINTS.MEDIA_AUTO_MATCH(fileId));
+}
 
-export const matchTVSeason = async (title: string, season: number): Promise<void> => {
-  const response = await apiClient.post(
+export async function matchTVSeason(title: string, season: number): Promise<void> {
+  return postData(
     `${API_ENDPOINTS.MEDIA_TV_MATCH_SEASON}?title=${encodeURIComponent(title)}&season=${season}`
   );
-  return response.data;
-};
+}
 
-export const getTaskStatus = async (): Promise<TaskStatus> => {
-  const response = await apiClient.get(API_ENDPOINTS.MEDIA_TASK_STATUS);
-  return response.data;
-};
+export async function getTaskStatus(): Promise<TaskStatus> {
+  return getData(API_ENDPOINTS.MEDIA_TASK_STATUS);
+}
 
-export const getMediaPosterUrl = (posterPath: string): string => {
+export function getMediaPosterUrl(posterPath: string): string {
   return `${API_BASE}${API_ENDPOINTS.MEDIA_POSTER}?path=${encodeURIComponent(posterPath)}`;
-};
+}

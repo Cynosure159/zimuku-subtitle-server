@@ -1,28 +1,24 @@
 import { API_ENDPOINTS } from '../lib/config';
-import { apiClient } from '../lib/apiClient';
 import type { Task } from '../types/api';
+import { deleteData, getData, postData } from './shared';
 
-export const listTasks = async (): Promise<{ items: Task[] }> => {
-  const response = await apiClient.get(API_ENDPOINTS.TASKS);
-  return response.data;
-};
+export async function listTasks(): Promise<{ items: Task[] }> {
+  return getData(API_ENDPOINTS.TASKS);
+}
 
-export const deleteTask = async (taskId: number): Promise<void> => {
-  const response = await apiClient.delete(`${API_ENDPOINTS.TASKS}${taskId}`);
-  return response.data;
-};
+export async function deleteTask(taskId: number): Promise<void> {
+  return deleteData(`${API_ENDPOINTS.TASKS}${taskId}`);
+}
 
-export const retryTask = async (taskId: number): Promise<void> => {
-  const response = await apiClient.post(API_ENDPOINTS.TASK_RETRY(taskId));
-  return response.data;
-};
+export async function retryTask(taskId: number): Promise<void> {
+  return postData(API_ENDPOINTS.TASK_RETRY(taskId));
+}
 
-export const clearCompletedTasks = async (): Promise<void> => {
-  const response = await apiClient.post(API_ENDPOINTS.TASK_CLEAR_COMPLETED);
-  return response.data;
-};
+export async function clearCompletedTasks(): Promise<void> {
+  return postData(API_ENDPOINTS.TASK_CLEAR_COMPLETED);
+}
 
-export const createDownloadTask = async (
+export async function createDownloadTask(
   title: string,
   sourceUrl: string,
   targetPath?: string,
@@ -30,8 +26,8 @@ export const createDownloadTask = async (
   season?: number,
   episode?: number,
   language?: string
-): Promise<void> => {
-  const response = await apiClient.post(API_ENDPOINTS.TASKS, null, {
+): Promise<void> {
+  return postData(API_ENDPOINTS.TASKS, null, {
     params: {
       title,
       source_url: sourceUrl,
@@ -42,5 +38,4 @@ export const createDownloadTask = async (
       language,
     },
   });
-  return response.data;
-};
+}

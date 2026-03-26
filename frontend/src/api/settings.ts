@@ -1,17 +1,15 @@
 import { API_ENDPOINTS } from '../lib/config';
-import { apiClient } from '../lib/apiClient';
 import type { Setting } from '../types/api';
+import { getData, postData } from './shared';
 
-export const listSettings = async (): Promise<Setting[]> => {
-  const response = await apiClient.get(API_ENDPOINTS.SETTINGS);
-  return response.data;
-};
+export async function listSettings(): Promise<Setting[]> {
+  return getData(API_ENDPOINTS.SETTINGS);
+}
 
-export const updateSetting = async (
+export async function updateSetting(
   key: string,
   value: string,
   description?: string
-): Promise<void> => {
-  const response = await apiClient.post(API_ENDPOINTS.SETTINGS, { key, value, description });
-  return response.data;
-};
+): Promise<void> {
+  return postData(API_ENDPOINTS.SETTINGS, { key, value, description });
+}

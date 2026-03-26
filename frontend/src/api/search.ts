@@ -1,8 +1,7 @@
 import { API_ENDPOINTS } from '../lib/config';
-import { apiClient } from '../lib/apiClient';
 import type { SearchResult } from '../types/api';
+import { getData } from './shared';
 
-export const searchSubtitles = async (query: string): Promise<SearchResult[]> => {
-  const response = await apiClient.get(API_ENDPOINTS.SEARCH, { params: { q: query } });
-  return response.data;
-};
+export async function searchSubtitles(query: string): Promise<SearchResult[]> {
+  return getData(API_ENDPOINTS.SEARCH, { params: { q: query } });
+}
