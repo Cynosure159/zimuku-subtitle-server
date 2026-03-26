@@ -8,6 +8,22 @@ import type { ScannedFile } from '../types/api';
 
 const EMPTY_FILES: ScannedFile[] = [];
 
+function getCoveragePercent(hasSubtitle: number, total: number): number {
+  if (total === 0) {
+    return 0;
+  }
+
+  return Math.round((hasSubtitle / total) * 100);
+}
+
+function getCoverageWidth(hasSubtitle: number, total: number): string {
+  if (total === 0) {
+    return '0%';
+  }
+
+  return `${(hasSubtitle / total) * 100}%`;
+}
+
 export default function HomePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -19,9 +35,21 @@ export default function HomePage() {
 
   const stats = useMemo(() => buildHomeStats(movieFiles, tvFiles), [movieFiles, tvFiles]);
   const recentFiles = useMemo(() => buildRecentMedia(movieFiles, tvFiles), [movieFiles, tvFiles]);
+  const coveragePercent = getCoveragePercent(stats.hasSubtitle, stats.totalFiles);
 
-  const coveragePercent =
-    stats.totalFiles > 0 ? Math.round((stats.hasSubtitle / stats.totalFiles) * 100) : 0;
+  const handleRecentFileClick = (file: ScannedFile): void => {
+    const searchParams = new URLSearchParams();
+    searchParams.set('title', file.extracted_title || '');
+
+    if (file.type === 'tv' && file.season) {
+      searchParams.set('season', file.season.toString());
+    }
+
+    navigate({
+      pathname: file.type === 'movie' ? '/movies' : '/series',
+      search: searchParams.toString(),
+    });
+  };
 
   return (
     <div className="flex flex-col w-full h-full max-w-[1400px] mx-auto overflow-y-auto custom-scrollbar px-8 py-10 gap-10">
@@ -76,13 +104,13 @@ export default function HomePage() {
               <div className="flex justify-between text-[11px] font-label text-on-surface-variant">
                 <span>{t('home.coverageRate')}</span>
                 <span className="text-primary font-bold">
-                  {stats.totalMovies > 0 ? Math.round((stats.hasSubtitleMovies / stats.totalMovies) * 100) : 0}%
+                  {getCoveragePercent(stats.hasSubtitleMovies, stats.totalMovies)}%
                 </span>
               </div>
               <div className="h-1.5 rounded-full bg-surface-container-high overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-primary to-primary-container rounded-full transition-all duration-1000"
-                  style={{ width: `${stats.totalMovies > 0 ? (stats.hasSubtitleMovies / stats.totalMovies) * 100 : 0}%` }}
+                  style={{ width: getCoverageWidth(stats.hasSubtitleMovies, stats.totalMovies) }}
                 />
               </div>
             </div>
@@ -103,13 +131,13 @@ export default function HomePage() {
               <div className="flex justify-between text-[11px] font-label text-on-surface-variant">
                 <span>{t('home.coverageRate')}</span>
                 <span className="text-tertiary font-bold">
-                  {stats.totalSeries > 0 ? Math.round((stats.hasSubtitleSeries / stats.totalSeries) * 100) : 0}%
+                  {getCoveragePercent(stats.hasSubtitleSeries, stats.totalSeries)}%
                 </span>
               </div>
               <div className="h-1.5 rounded-full bg-surface-container-high overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-tertiary to-tertiary-container rounded-full transition-all duration-1000"
-                  style={{ width: `${stats.totalSeries > 0 ? (stats.hasSubtitleSeries / stats.totalSeries) * 100 : 0}%` }}
+                  style={{ width: getCoverageWidth(stats.hasSubtitleSeries, stats.totalSeries) }}
                 />
               </div>
             </div>
@@ -150,17 +178,7 @@ export default function HomePage() {
           {recentFiles.map(file => (
             <div
               key={`${file.type}-${file.id}`}
-              onClick={() => {
-                const searchParams = new URLSearchParams();
-                searchParams.set('title', file.extracted_title || '');
-                if (file.type === 'tv' && file.season) {
-                  searchParams.set('season', file.season.toString());
-                }
-                navigate({
-                  pathname: file.type === 'movie' ? '/movies' : '/series',
-                  search: searchParams.toString(),
-                });
-              }}
+              onClick={() => handleRecentFileClick(file)}
               className="group flex items-center gap-4 p-4 rounded-2xl bg-surface-container border border-outline-variant/5 cursor-pointer hover:bg-surface-container-highest hover:-translate-y-1 transition-all duration-300"
             >
               <div className="w-12 h-12 rounded-xl bg-surface-container-low flex items-center justify-center shrink-0">

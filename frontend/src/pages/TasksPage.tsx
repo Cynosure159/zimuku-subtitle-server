@@ -8,7 +8,7 @@ import {
   useTasksQuery,
 } from '../hooks/queries';
 
-function TaskSkeleton() {
+function TaskSkeleton(): React.JSX.Element {
   return (
     <div className="bg-surface-container rounded-2xl p-5 flex items-center justify-between border border-outline-variant/5 animate-pulse">
       <div className="flex items-center gap-5 flex-1">
@@ -26,6 +26,48 @@ function TaskSkeleton() {
   );
 }
 
+function StatusIcon({ status }: { status: Task['status'] }): React.JSX.Element {
+  switch (status) {
+    case 'completed':
+      return (
+        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary-dim shadow-inner">
+          <CheckCircle2 className="w-6 h-6" />
+        </div>
+      );
+    case 'failed':
+      return (
+        <div className="w-12 h-12 rounded-xl bg-error-dim/10 flex items-center justify-center text-error-dim shadow-inner">
+          <XCircle className="w-6 h-6" />
+        </div>
+      );
+    case 'downloading':
+      return (
+        <div className="w-12 h-12 rounded-xl bg-secondary-dim/10 flex items-center justify-center text-secondary-dim shadow-inner">
+          <RefreshCw className="w-6 h-6 animate-spin" />
+        </div>
+      );
+    default:
+      return (
+        <div className="w-12 h-12 rounded-xl bg-surface-container-highest flex items-center justify-center text-on-surface-variant shadow-inner">
+          <Clock className="w-6 h-6" />
+        </div>
+      );
+  }
+}
+
+function getTaskStatusDotClass(status: Task['status']): string {
+  switch (status) {
+    case 'completed':
+      return 'bg-primary';
+    case 'failed':
+      return 'bg-error-dim';
+    case 'downloading':
+      return 'bg-secondary';
+    default:
+      return 'bg-outline';
+  }
+}
+
 export default function TasksPage() {
   const { t } = useTranslation();
   const tasksQuery = useTasksQuery({
@@ -37,47 +79,18 @@ export default function TasksPage() {
   const tasks = tasksQuery.data?.items ?? [];
   const loading = tasksQuery.isLoading;
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: number): Promise<void> => {
     if (!window.confirm(t('confirm.deleteTask'))) return;
     await deleteTaskMutation.mutateAsync(id);
   };
 
-  const handleRetry = async (id: number) => {
+  const handleRetry = async (id: number): Promise<void> => {
     await retryTaskMutation.mutateAsync(id);
   };
 
-  const handleClear = async () => {
+  const handleClear = async (): Promise<void> => {
     if (!window.confirm(t('confirm.clearCompleted'))) return;
     await clearCompletedTasksMutation.mutateAsync();
-  };
-
-  const StatusIcon = ({ status }: { status: Task['status'] }) => {
-    switch (status) {
-      case 'completed':
-        return (
-          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary-dim shadow-inner">
-            <CheckCircle2 className="w-6 h-6" />
-          </div>
-        );
-      case 'failed':
-        return (
-          <div className="w-12 h-12 rounded-xl bg-error-dim/10 flex items-center justify-center text-error-dim shadow-inner">
-            <XCircle className="w-6 h-6" />
-          </div>
-        );
-      case 'downloading':
-        return (
-          <div className="w-12 h-12 rounded-xl bg-secondary-dim/10 flex items-center justify-center text-secondary-dim shadow-inner">
-            <RefreshCw className="w-6 h-6 animate-spin" />
-          </div>
-        );
-      default:
-        return (
-          <div className="w-12 h-12 rounded-xl bg-surface-container-highest flex items-center justify-center text-on-surface-variant shadow-inner">
-            <Clock className="w-6 h-6" />
-          </div>
-        );
-    }
   };
 
   return (
@@ -128,11 +141,7 @@ export default function TasksPage() {
                     </h3>
                     <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
                       <div className="flex items-center gap-2">
-                        <div className={`w-1.5 h-1.5 rounded-full ${
-                          task.status === 'completed' ? 'bg-primary' : 
-                          task.status === 'failed' ? 'bg-error-dim' : 
-                          task.status === 'downloading' ? 'bg-secondary' : 'bg-outline'
-                        }`} />
+                        <div className={`w-1.5 h-1.5 rounded-full ${getTaskStatusDotClass(task.status)}`} />
                         <span className="text-[10px] font-label uppercase tracking-[0.15em] font-extrabold text-on-surface-variant">
                           {t(`page.tasks.status.${task.status}`)}
                         </span>

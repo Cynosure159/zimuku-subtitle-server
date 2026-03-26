@@ -28,7 +28,21 @@ export default function SettingsPage() {
   const triggerMediaMatchMutation = useTriggerMediaMatchMutation();
   const settings = settingsQuery.data ?? [];
 
-  const handleSaveSetting = async (key: string) => {
+  const pathInputs = {
+    movie: newMoviePath,
+    tv: newTvPath,
+  } as const;
+
+  const refreshMediaPaths = async (type: 'movie' | 'tv'): Promise<void> => {
+    if (type === 'movie') {
+      await fetchMoviePaths();
+      return;
+    }
+
+    await fetchTvPaths();
+  };
+
+  const handleSaveSetting = async (key: string): Promise<void> => {
     try {
       const setting = settings.find(s => s.key === key);
       const newValue = formValues[key] ?? setting?.value ?? '';
@@ -44,38 +58,34 @@ export default function SettingsPage() {
     }
   };
 
-  const handleLanguageChange = (lang: string) => {
+  const handleLanguageChange = (lang: string): void => {
     changeLanguage(lang);
   };
 
-  const handleAddPath = async (type: 'movie' | 'tv', path: string) => {
+  const handleAddPath = async (type: 'movie' | 'tv', path: string): Promise<void> => {
     if (!path) return;
     try {
       await addMediaPathMutation.mutateAsync({ path, pathType: type });
       if (type === 'movie') {
         setNewMoviePath('');
-        fetchMoviePaths();
       } else {
         setNewTvPath('');
-        fetchTvPaths();
       }
+
+      await refreshMediaPaths(type);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       alert(t('mediaConfig.addFailed') + ': ' + message);
     }
   };
 
-  const handleDeletePath = async (id: number, type: 'movie' | 'tv') => {
+  const handleDeletePath = async (id: number, type: 'movie' | 'tv'): Promise<void> => {
     if (!window.confirm(t('confirm.deletePath'))) return;
     await deleteMediaPathMutation.mutateAsync({ id, pathType: type });
-    if (type === 'movie') {
-      fetchMoviePaths();
-    } else {
-      fetchTvPaths();
-    }
+    await refreshMediaPaths(type);
   };
 
-  const handleRefreshLibrary = async (type: 'movie' | 'tv') => {
+  const handleRefreshLibrary = async (type: 'movie' | 'tv'): Promise<void> => {
     try {
       setIsScanningOptimistic(true);
       setTimeout(() => setIsScanningOptimistic(false), 3000);
@@ -209,11 +219,11 @@ export default function SettingsPage() {
                   placeholder={t('mediaConfig.inputPathPlaceholder')}
                   value={newMoviePath}
                   onChange={e => setNewMoviePath(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleAddPath('movie', newMoviePath)}
+                  onKeyDown={e => e.key === 'Enter' && handleAddPath('movie', pathInputs.movie)}
                   className="flex-1 bg-surface-container border border-outline-variant/10 rounded-lg p-2.5 text-sm text-on-surface outline-none focus:border-primary/50 transition-colors"
                 />
                 <button
-                  onClick={() => handleAddPath('movie', newMoviePath)}
+                  onClick={() => handleAddPath('movie', pathInputs.movie)}
                   className="bg-primary/10 hover:bg-primary/20 text-primary px-4 py-2.5 rounded-lg text-sm font-bold transition-all"
                 >
                   {t('page.settings.add')}
@@ -268,11 +278,11 @@ export default function SettingsPage() {
                   placeholder={t('mediaConfig.inputTvPathPlaceholder')}
                   value={newTvPath}
                   onChange={e => setNewTvPath(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleAddPath('tv', newTvPath)}
+                  onKeyDown={e => e.key === 'Enter' && handleAddPath('tv', pathInputs.tv)}
                   className="flex-1 bg-surface-container border border-outline-variant/10 rounded-lg p-2.5 text-sm text-on-surface outline-none focus:border-primary/50 transition-colors"
                 />
                 <button
-                  onClick={() => handleAddPath('tv', newTvPath)}
+                  onClick={() => handleAddPath('tv', pathInputs.tv)}
                   className="bg-primary/10 hover:bg-primary/20 text-primary px-4 py-2.5 rounded-lg text-sm font-bold transition-all"
                 >
                   {t('page.settings.add')}

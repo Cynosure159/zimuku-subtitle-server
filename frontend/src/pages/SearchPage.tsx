@@ -8,18 +8,27 @@ import DownloadModal from '../components/DownloadModal';
 import { useSubtitleSearchQuery } from '../hooks/queries';
 import { filterSearchResults, getSearchFilterLabel } from '../selectors/search';
 
+interface SearchFilterOption {
+  icon: string;
+  label: string;
+}
+
+function buildSearchFilters(t: ReturnType<typeof useTranslation>['t']): SearchFilterOption[] {
+  return [
+    { icon: 'language', label: t('searchFilter.all') },
+    { icon: 'translate', label: t('searchFilter.simplified') },
+    { icon: 'history_edu', label: t('searchFilter.traditional') },
+    { icon: 'abc', label: t('searchFilter.english') },
+    { icon: 'layers', label: t('searchFilter.bilingual') },
+  ];
+}
+
 export default function SearchPage() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialQuery = searchParams.get('q') ?? '';
   const [activeFilter, setActiveFilter] = useState(t('searchFilter.all'));
-  const filters = [
-    t('searchFilter.all'),
-    t('searchFilter.simplified'),
-    t('searchFilter.traditional'),
-    t('searchFilter.english'),
-    t('searchFilter.bilingual'),
-  ];
+  const filters = buildSearchFilters(t);
 
   const [query, setQuery] = useState(() => initialQuery);
   const [submittedQuery, setSubmittedQuery] = useState(() => initialQuery);
@@ -39,21 +48,17 @@ export default function SearchPage() {
     }
   }, [initialQuery, setSearchParams]);
 
-  const handleSearch = () => {
+  const handleSearch = (): void => {
     if (!query.trim()) return;
     setSubmittedQuery(query.trim());
   };
 
-  const handleDownload = (item: SearchResult) => {
+  const handleDownload = (item: SearchResult): void => {
     setSelectedSubtitle(item);
     setModalOpen(true);
   };
 
-  const handleDownloadConfirm = () => {
-    // The actual download is handled in DownloadModal
-  };
-
-  const handleModalClose = () => {
+  const handleModalClose = (): void => {
     setModalOpen(false);
     setSelectedSubtitle(null);
   };
@@ -99,23 +104,19 @@ export default function SearchPage() {
 
           <div className="flex flex-wrap justify-center items-center gap-2 mt-6">
             {filters.map(filter => {
-              const isActive = activeFilter === filter;
+              const isActive = activeFilter === filter.label;
               return (
                 <button
-                  key={filter}
-                  onClick={() => setActiveFilter(filter)}
+                  key={filter.label}
+                  onClick={() => setActiveFilter(filter.label)}
                   className={`flex items-center gap-2 px-4 py-1.5 rounded-full font-label font-medium text-xs transition-all ${
                     isActive
                       ? 'bg-primary-container text-on-primary-container shadow-sm'
                       : 'bg-surface-container-highest border border-outline-variant/15 text-on-surface-variant hover:text-primary hover:bg-surface-bright'
                   }`}
                 >
-                  {filter === t('searchFilter.all') && <span className="material-symbols-outlined text-xs">language</span>}
-                  {filter === t('searchFilter.simplified') && <span className="material-symbols-outlined text-xs">translate</span>}
-                  {filter === t('searchFilter.traditional') && <span className="material-symbols-outlined text-xs">history_edu</span>}
-                  {filter === t('searchFilter.english') && <span className="material-symbols-outlined text-xs">abc</span>}
-                  {filter === t('searchFilter.bilingual') && <span className="material-symbols-outlined text-xs">layers</span>}
-                  <span>{filter}</span>
+                  <span className="material-symbols-outlined text-xs">{filter.icon}</span>
+                  <span>{filter.label}</span>
                 </button>
               );
             })}
@@ -155,7 +156,7 @@ export default function SearchPage() {
         </div>
       </section>
 
-      <DownloadModal isOpen={modalOpen} onClose={handleModalClose} subtitle={selectedSubtitle} onDownload={handleDownloadConfirm} />
+      <DownloadModal isOpen={modalOpen} onClose={handleModalClose} subtitle={selectedSubtitle} />
     </div>
   );
 }
