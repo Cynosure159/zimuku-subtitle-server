@@ -1,9 +1,11 @@
+from typing import NoReturn
+
 from fastapi import HTTPException
 
 from ..services.errors import ConflictError, ExternalServiceError
 
 
-def raise_for_service_error(exc: Exception) -> None:
+def raise_for_service_error(exc: Exception) -> NoReturn:
     if isinstance(exc, HTTPException):
         raise exc
     if isinstance(exc, ConflictError):

@@ -3,17 +3,26 @@ from typing import Any, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class TaskTriggerResponse(BaseModel):
+class StatusResponse(BaseModel):
     status: str = "ok"
+
+
+class TaskTriggerResponse(StatusResponse):
     message: str
     task_kind: str
     target: Optional[str] = None
 
 
-class ActionResponse(BaseModel):
-    status: str = "ok"
+class ActionResponse(StatusResponse):
     message: str
     cleared_count: Optional[int] = None
+
+
+class TaskListResponse(BaseModel):
+    total: int
+    offset: int
+    limit: int
+    items: list[Any]
 
 
 class TaskCreateRequest(BaseModel):
@@ -29,6 +38,12 @@ class TaskCreateRequest(BaseModel):
 class SeasonMatchRequest(BaseModel):
     title: str = Field(min_length=1)
     season: int = Field(ge=1)
+
+
+class SettingUpdateRequest(BaseModel):
+    key: str
+    value: str
+    description: Optional[str] = None
 
 
 class MediaMetadataResponse(BaseModel):

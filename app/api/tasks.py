@@ -1,4 +1,3 @@
-import logging
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, Query
@@ -8,10 +7,9 @@ from ..db.models import SubtitleTask
 from ..db.session import get_session
 from ..services.task_service import TaskService
 from .errors import raise_for_service_error
-from .schemas import ActionResponse, TaskCreateRequest
+from .schemas import ActionResponse, TaskCreateRequest, TaskListResponse
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
-logger = logging.getLogger(__name__)
 
 
 def _resolve_task_create_request(
@@ -39,6 +37,20 @@ def _resolve_task_create_request(
     )
 
 
+def _require_task(task: SubtitleTask | None, detail: str = "Task not found") -> SubtitleTask:
+    if task is None:
+        raise_for_service_error(LookupError(detail))
+
+    return task
+
+
+def _require_task_id(task: SubtitleTask) -> int:
+    if task.id is None:
+        raise_for_service_error(RuntimeError("Task ID missing after persistence"))
+
+    return task.id
+
+
 @router.post("/", response_model=SubtitleTask)
 async def create_download_task(
     background_tasks: BackgroundTasks,
@@ -51,7 +63,7 @@ async def create_download_task(
     season: Optional[int] = Query(default=None, ge=1),
     episode: Optional[int] = Query(default=None, ge=1),
     language: Optional[str] = Query(default=None),
-):
+) -> SubtitleTask:
     """创建下载任务"""
     try:
         request = _resolve_task_create_request(
@@ -70,33 +82,30 @@ async def create_download_task(
     except Exception as exc:
         raise_for_service_error(exc)
 
-    background_tasks.add_task(TaskService.run_download_task, task.id)
+    background_tasks.add_task(TaskService.run_download_task, _require_task_id(task))
     return task
 
 
 @router.get("/{task_id}", response_model=SubtitleTask)
-async def get_task_status(task_id: int, session: Session = Depends(get_session)):
+async def get_task_status(task_id: int, session: Session = Depends(get_session)) -> SubtitleTask:
     """查询任务状态"""
-    task = TaskService.get_task(session, task_id)
-    if not task:
-        raise_for_service_error(LookupError("Task not found"))
-    return task
+    return _require_task(TaskService.get_task(session, task_id))
 
 
-@router.get("/")
+@router.get("/", response_model=TaskListResponse)
 async def list_tasks(
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=10, ge=1, le=100),
     status: Optional[str] = Query(default=None),
     session: Session = Depends(get_session),
-):
+) -> TaskListResponse:
     """分页列出任务"""
     items, total = TaskService.list_tasks(session, offset, limit, status)
-    return {"total": total, "offset": offset, "limit": limit, "items": items}
+    return TaskListResponse(total=total, offset=offset, limit=limit, items=items)
 
 
 @router.delete("/{task_id}", response_model=ActionResponse)
-async def delete_task(task_id: int, delete_files: bool = False, session: Session = Depends(get_session)):
+async def delete_task(task_id: int, delete_files: bool = False, session: Session = Depends(get_session)) -> ActionResponse:
     """删除任务"""
     success = TaskService.delete_task(session, task_id, delete_files)
     if not success:
@@ -105,22 +114,22 @@ async def delete_task(task_id: int, delete_files: bool = False, session: Session
 
 
 @router.post("/{task_id}/retry", response_model=SubtitleTask)
-async def retry_task(task_id: int, background_tasks: BackgroundTasks, session: Session = Depends(get_session)):
+async def retry_task(
+    task_id: int, background_tasks: BackgroundTasks, session: Session = Depends(get_session)
+) -> SubtitleTask:
     """重试失败的任务"""
-    existing_task = TaskService.get_task(session, task_id)
-    if not existing_task:
-        raise_for_service_error(LookupError("Task not found"))
+    _require_task(TaskService.get_task(session, task_id))
 
     task = TaskService.retry_task(session, task_id)
     if not task:
         raise_for_service_error(ValueError("Only failed tasks can be retried"))
 
-    background_tasks.add_task(TaskService.run_download_task, task.id)
+    background_tasks.add_task(TaskService.run_download_task, _require_task_id(task))
     return task
 
 
 @router.post("/clear-completed", response_model=ActionResponse)
-async def clear_completed_tasks(session: Session = Depends(get_session)):
+async def clear_completed_tasks(session: Session = Depends(get_session)) -> ActionResponse:
     """清理已完成的任务记录"""
     cleared = TaskService.clear_completed(session)
     return ActionResponse(message=f"Cleared {cleared} completed tasks", cleared_count=cleared)

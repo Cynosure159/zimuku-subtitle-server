@@ -1,5 +1,4 @@
-import logging
-from typing import List, Optional
+from typing import List, Optional, TypeVar
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, Query
 from fastapi.responses import FileResponse
@@ -10,24 +9,31 @@ from ..db.session import get_session
 from ..services.media_service import MediaService, global_task_status
 from ..services.metadata_service import MetadataService
 from .errors import raise_for_service_error
-from .schemas import MediaMetadataResponse, SeasonMatchRequest, TaskTriggerResponse
+from .schemas import ActionResponse, MediaMetadataResponse, SeasonMatchRequest, TaskTriggerResponse
 
 router = APIRouter(prefix="/media", tags=["Media"])
-logger = logging.getLogger(__name__)
+T = TypeVar("T")
 
 
 def _build_trigger_response(message: str, task_kind: str, target: Optional[str] = None) -> TaskTriggerResponse:
     return TaskTriggerResponse(message=message, task_kind=task_kind, target=target)
 
 
+def _require_resource(resource: T | None, detail: str) -> T:
+    if resource is None:
+        raise_for_service_error(LookupError(detail))
+
+    return resource
+
+
 @router.get("/task-status")
-async def get_task_status():
+async def get_task_status() -> dict:
     """获取当前的后台任务状态"""
     return global_task_status.to_dict()
 
 
 @router.get("/paths", response_model=List[MediaPath])
-async def list_media_paths(session: Session = Depends(get_session)):
+async def list_media_paths(session: Session = Depends(get_session)) -> List[MediaPath]:
     """获取所有媒体库扫描路径"""
     return MediaService.list_paths(session)
 
@@ -37,7 +43,7 @@ async def add_media_path(
     path: str,
     path_type: str = Query(default="movie", pattern="^(movie|tv)$"),
     session: Session = Depends(get_session),
-):
+) -> MediaPath:
     """添加媒体库扫描路径"""
     try:
         return MediaService.add_path(session, path, path_type)
@@ -45,13 +51,13 @@ async def add_media_path(
         raise_for_service_error(exc)
 
 
-@router.delete("/paths/{path_id}")
-async def delete_media_path(path_id: int, session: Session = Depends(get_session)):
+@router.delete("/paths/{path_id}", response_model=ActionResponse)
+async def delete_media_path(path_id: int, session: Session = Depends(get_session)) -> ActionResponse:
     """删除媒体库扫描路径"""
     success = MediaService.delete_path(session, path_id)
     if not success:
         raise_for_service_error(LookupError("Path not found"))
-    return {"status": "ok", "message": f"Path {path_id} and its associated files deleted"}
+    return ActionResponse(message=f"Path {path_id} and its associated files deleted")
 
 
 @router.patch("/paths/{path_id}", response_model=MediaPath)
@@ -60,7 +66,7 @@ async def update_media_path(
     enabled: Optional[bool] = None,
     path_type: Optional[str] = Query(default=None, pattern="^(movie|tv)$"),
     session: Session = Depends(get_session),
-):
+) -> MediaPath:
     """更新媒体库扫描路径配置"""
     updated = MediaService.update_path(session, path_id, enabled, path_type)
     if not updated:
@@ -74,7 +80,7 @@ async def list_scanned_files(
     offset: int = Query(default=0, ge=0),
     limit: Optional[int] = Query(default=None, ge=1, le=1000),
     session: Session = Depends(get_session),
-):
+) -> List[ScannedFile]:
     """获取已扫描的媒体文件列表"""
     return MediaService.list_files_paginated(session, path_type, offset, limit)
 
@@ -82,11 +88,9 @@ async def list_scanned_files(
 @router.post("/files/{file_id}/auto-match", response_model=TaskTriggerResponse)
 async def auto_match_single_file(
     file_id: int, background_tasks: BackgroundTasks, session: Session = Depends(get_session)
-):
+) -> TaskTriggerResponse:
     """针对单个视频文件触发全自动搜索、下载与归档逻辑"""
-    file_record = MediaService.get_file(session, file_id)
-    if not file_record:
-        raise_for_service_error(LookupError("File not found"))
+    file_record = _require_resource(MediaService.get_file(session, file_id), "File not found")
 
     background_tasks.add_task(MediaService.run_auto_match_process, file_id)
     return _build_trigger_response(
@@ -102,7 +106,7 @@ async def match_tv_season(
     payload: Optional[SeasonMatchRequest] = Body(default=None),
     title: Optional[str] = Query(default=None, min_length=1),
     season: Optional[int] = Query(default=None, ge=1),
-):
+) -> TaskTriggerResponse:
     """触发特定剧集的特定季全自动补全字幕"""
     try:
         request = payload or SeasonMatchRequest(title=title or "", season=season or 0)
@@ -121,7 +125,7 @@ async def trigger_match(
     background_tasks: BackgroundTasks,
     path_type: Optional[str] = Query(default=None, pattern="^(movie|tv)$"),
     session: Session = Depends(get_session),
-):
+) -> TaskTriggerResponse:
     """手动触发媒体库与字幕的自动化匹配"""
     background_tasks.add_task(MediaService.run_media_scan_and_match, path_type)
     return _build_trigger_response(
@@ -132,10 +136,10 @@ async def trigger_match(
 
 
 @router.get("/metadata/{file_id}", response_model=MediaMetadataResponse)
-async def get_file_metadata(file_id: int, session: Session = Depends(get_session)):
+async def get_file_metadata(file_id: int, session: Session = Depends(get_session)) -> MediaMetadataResponse:
     """获取媒体文件的元数据（NFO、海报、TXT）。"""
     try:
-        return MetadataService.get_file_metadata(session, file_id)
+        return MediaMetadataResponse.model_validate(MetadataService.get_file_metadata(session, file_id))
     except Exception as exc:
         raise_for_service_error(exc)
 
