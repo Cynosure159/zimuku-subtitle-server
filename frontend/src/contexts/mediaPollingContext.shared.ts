@@ -1,19 +1,14 @@
 import { createContext } from 'react';
 import type { MediaPath, ScannedFile, TaskStatus } from '../api';
 
-interface MovieState {
-  paths: MediaPath[];
-  files: ScannedFile[];
-}
-
-interface TvState {
+interface MediaCollectionState {
   paths: MediaPath[];
   files: ScannedFile[];
 }
 
 interface MediaPollingState {
-  movie: MovieState;
-  tv: TvState;
+  movie: MediaCollectionState;
+  tv: MediaCollectionState;
   status: TaskStatus;
 }
 

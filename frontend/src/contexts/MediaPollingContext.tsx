@@ -4,7 +4,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type { TaskStatus } from '../api';
 import { queryKeys } from '../lib/queryKeys';
 import { MediaPollingContext, type MediaPollingContextValue } from './mediaPollingContext.shared';
@@ -22,6 +22,7 @@ interface OptimisticStatusState {
 
 const ACTIVE_POLL_INTERVAL = 2000;
 const IDLE_POLL_INTERVAL = 30000;
+type MediaType = 'movie' | 'tv';
 
 const initialOptimisticStatus: OptimisticStatusState = {
   isScanning: null,
@@ -29,7 +30,7 @@ const initialOptimisticStatus: OptimisticStatusState = {
   matchingSeasons: new Map<string, { title: string; season: number }>(),
 };
 
-function hasActiveTasks(status: TaskStatus | undefined) {
+function hasActiveTasks(status: TaskStatus | undefined): boolean {
   if (!status) {
     return false;
   }
@@ -41,11 +42,14 @@ function hasActiveTasks(status: TaskStatus | undefined) {
   );
 }
 
-function getSeasonKey(title: string, season: number) {
+function getSeasonKey(title: string, season: number): string {
   return `${title}::${season}`;
 }
 
-function mergeStatus(baseStatus: TaskStatus | undefined, optimisticStatus: OptimisticStatusState): TaskStatus {
+function mergeStatus(
+  baseStatus: TaskStatus | undefined,
+  optimisticStatus: OptimisticStatusState,
+): TaskStatus {
   const mergedMatchingFiles = new Set(baseStatus?.matching_files ?? []);
   const mergedMatchingSeasons = new Map<string, { title: string; season: number }>();
 
@@ -68,6 +72,22 @@ function mergeStatus(baseStatus: TaskStatus | undefined, optimisticStatus: Optim
   };
 }
 
+async function invalidateMediaData(queryClient: QueryClient, type: MediaType | 'all'): Promise<void> {
+  const fileQueries =
+    type === 'all'
+      ? [
+          queryClient.invalidateQueries({ queryKey: queryKeys.media.files('movie') }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.media.files('tv') }),
+        ]
+      : [queryClient.invalidateQueries({ queryKey: queryKeys.media.files(type) })];
+
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: queryKeys.media.paths() }),
+    ...fileQueries,
+    queryClient.invalidateQueries({ queryKey: queryKeys.media.taskStatus() }),
+  ]);
+}
+
 export function MediaPollingProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [optimisticStatus, setOptimisticStatus] = useState<OptimisticStatusState>(initialOptimisticStatus);
@@ -83,39 +103,26 @@ export function MediaPollingProvider({ children }: { children: ReactNode }) {
     refetchIntervalInBackground: false,
   });
 
-  const refreshMovie = useCallback(async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.media.paths() }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.media.files('movie') }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.media.taskStatus() }),
-    ]);
+  const refreshMovie = useCallback(async (): Promise<void> => {
+    await invalidateMediaData(queryClient, 'movie');
   }, [queryClient]);
 
-  const refreshTv = useCallback(async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.media.paths() }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.media.files('tv') }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.media.taskStatus() }),
-    ]);
+  const refreshTv = useCallback(async (): Promise<void> => {
+    await invalidateMediaData(queryClient, 'tv');
   }, [queryClient]);
 
-  const refreshAll = useCallback(async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.media.paths() }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.media.files('movie') }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.media.files('tv') }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.media.taskStatus() }),
-    ]);
+  const refreshAll = useCallback(async (): Promise<void> => {
+    await invalidateMediaData(queryClient, 'all');
   }, [queryClient]);
 
-  const setIsScanningOptimistic = useCallback((value: boolean) => {
+  const setIsScanningOptimistic = useCallback((value: boolean): void => {
     setOptimisticStatus(prev => ({
       ...prev,
       isScanning: value,
     }));
   }, []);
 
-  const setMatchingFileOptimistic = useCallback((fileId: number, isMatching: boolean) => {
+  const setMatchingFileOptimistic = useCallback((fileId: number, isMatching: boolean): void => {
     setOptimisticStatus(prev => {
       const matchingFiles = new Set(prev.matchingFiles);
 
@@ -132,23 +139,26 @@ export function MediaPollingProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const setMatchingSeasonOptimistic = useCallback((title: string, season: number, isMatching: boolean) => {
-    setOptimisticStatus(prev => {
-      const matchingSeasons = new Map(prev.matchingSeasons);
-      const seasonKey = getSeasonKey(title, season);
+  const setMatchingSeasonOptimistic = useCallback(
+    (title: string, season: number, isMatching: boolean): void => {
+      setOptimisticStatus(prev => {
+        const matchingSeasons = new Map(prev.matchingSeasons);
+        const seasonKey = getSeasonKey(title, season);
 
-      if (isMatching) {
-        matchingSeasons.set(seasonKey, { title, season });
-      } else {
-        matchingSeasons.delete(seasonKey);
-      }
+        if (isMatching) {
+          matchingSeasons.set(seasonKey, { title, season });
+        } else {
+          matchingSeasons.delete(seasonKey);
+        }
 
-      return {
-        ...prev,
-        matchingSeasons,
-      };
-    });
-  }, []);
+        return {
+          ...prev,
+          matchingSeasons,
+        };
+      });
+    },
+    [],
+  );
 
   const value = useMemo<MediaPollingContextValue>(() => {
     const status = mergeStatus(statusQuery.data, optimisticStatus);
