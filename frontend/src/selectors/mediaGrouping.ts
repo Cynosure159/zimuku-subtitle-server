@@ -176,9 +176,14 @@ export function buildGroupedMedia(
   filterOption: FilterOption,
   unknownLabel: string
 ): MovieGroup[] | TvGroup[] {
-  const groups = type === 'movie'
-    ? buildMovieGroups(files, unknownLabel)
-    : buildTvGroups(files, unknownLabel);
+  if (type === 'movie') {
+    const groups = buildMovieGroups(files, unknownLabel);
+    const filteredGroups = applySearchAndFilter(groups, searchTerm, filterOption);
+
+    return sortGroups(filteredGroups, sortOption, sortOrder);
+  }
+
+  const groups = buildTvGroups(files, unknownLabel);
   const filteredGroups = applySearchAndFilter(groups, searchTerm, filterOption);
 
   return sortGroups(filteredGroups, sortOption, sortOrder);
