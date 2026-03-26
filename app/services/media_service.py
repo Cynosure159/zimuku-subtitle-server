@@ -1,7 +1,7 @@
 import logging
 from typing import List, Optional, Set, Tuple
 
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from ..db.models import MediaPath, ScannedFile
 from ..db.session import session_scope
@@ -32,7 +32,14 @@ global_task_status = MediaTaskStatus()
 class MediaService:
     @staticmethod
     def list_paths(session: Session) -> List[MediaPath]:
-        return session.exec(select(MediaPath)).all()
+        return list(session.exec(select(MediaPath)).all())
+
+    @staticmethod
+    def _build_files_statement(path_type: Optional[str] = None):
+        statement = select(ScannedFile)
+        if path_type:
+            statement = statement.where(ScannedFile.type == path_type)
+        return statement.order_by(col(ScannedFile.created_at).desc())
 
     @staticmethod
     def add_path(session: Session, path: str, path_type: str) -> MediaPath:
@@ -52,20 +59,14 @@ class MediaService:
         if not path:
             return False
 
-        # 删除相关扫描记录
         statement = select(ScannedFile).where(ScannedFile.path_id == path_id)
         file_records = session.exec(statement).all()
         for file_record in file_records:
             session.delete(file_record)
-        session.commit()
 
-        # 删除路径
-        db_path = session.get(MediaPath, path_id)
-        if db_path:
-            session.delete(db_path)
-            session.commit()
-            return True
-        return False
+        session.delete(path)
+        session.commit()
+        return True
 
     @staticmethod
     def update_path(
@@ -87,11 +88,8 @@ class MediaService:
 
     @staticmethod
     def list_files(session: Session, path_type: Optional[str] = None) -> List[ScannedFile]:
-        statement = select(ScannedFile)
-        if path_type:
-            statement = statement.where(ScannedFile.type == path_type)
-        statement = statement.order_by(ScannedFile.created_at.desc())
-        return session.exec(statement).all()
+        statement = MediaService._build_files_statement(path_type)
+        return list(session.exec(statement).all())
 
     @staticmethod
     def list_files_paginated(
@@ -100,20 +98,17 @@ class MediaService:
         offset: int = 0,
         limit: Optional[int] = None,
     ) -> List[ScannedFile]:
-        statement = select(ScannedFile)
-        if path_type:
-            statement = statement.where(ScannedFile.type == path_type)
-        statement = statement.order_by(ScannedFile.created_at.desc()).offset(offset)
+        statement = MediaService._build_files_statement(path_type).offset(offset)
         if limit is not None:
             statement = statement.limit(limit)
-        return session.exec(statement).all()
+        return list(session.exec(statement).all())
 
     @staticmethod
     def get_file(session: Session, file_id: int) -> Optional[ScannedFile]:
         return session.get(ScannedFile, file_id)
 
     @staticmethod
-    async def run_media_scan_and_match(path_type: Optional[str] = None):
+    async def run_media_scan_and_match(path_type: Optional[str] = None) -> None:
         """执行后台媒体扫描与匹配逻辑"""
         global_task_status.is_scanning = True
         try:
@@ -123,11 +118,11 @@ class MediaService:
             global_task_status.is_scanning = False
 
     @staticmethod
-    async def run_auto_match_process(file_id: int):
+    async def run_auto_match_process(file_id: int) -> bool:
         return await MediaService._run_auto_match_internal(file_id)
 
     @staticmethod
-    async def _run_auto_match_internal(file_id: int):
+    async def _run_auto_match_internal(file_id: int) -> bool:
         global_task_status.matching_files.add(file_id)
         try:
             service = AutoMatchWorkflow(session_factory=session_scope)
@@ -139,7 +134,7 @@ class MediaService:
             global_task_status.matching_files.discard(file_id)
 
     @staticmethod
-    async def run_season_match_process(title: str, season: int):
+    async def run_season_match_process(title: str, season: int) -> None:
         global_task_status.matching_seasons.add((title, season))
         try:
             service = SeasonMatchWorkflow(

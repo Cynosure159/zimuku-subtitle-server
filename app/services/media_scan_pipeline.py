@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence
 
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from ..core.utils import check_has_subtitle, parse_media_filename
 from ..db.models import MediaPath, ScannedFile
@@ -54,10 +54,9 @@ class MediaScanPipeline:
 
     def cleanup_orphan_records(self) -> None:
         path_ids = [path_id for path_id in self.session.exec(select(MediaPath.id)).all() if path_id is not None]
+        statement = select(ScannedFile)
         if path_ids:
-            statement = select(ScannedFile).where(ScannedFile.path_id.not_in(path_ids))
-        else:
-            statement = select(ScannedFile)
+            statement = statement.where(col(ScannedFile.path_id).notin_(path_ids))
         orphan_files = self.session.exec(statement).all()
 
         for orphan_file in orphan_files:
@@ -86,14 +85,14 @@ class MediaScanPipeline:
         statement = select(MediaPath).where(MediaPath.enabled)
         if self.path_type:
             statement = statement.where(MediaPath.type == self.path_type)
-        return self.session.exec(statement).all()
+        return list(self.session.exec(statement).all())
 
     def load_existing_records(self, media_paths: Sequence[MediaPath]) -> Dict[str, ScannedFile]:
         path_ids = [media_path.id for media_path in media_paths if media_path.id is not None]
         if not path_ids:
             return {}
 
-        statement = select(ScannedFile).where(ScannedFile.path_id.in_(path_ids))
+        statement = select(ScannedFile).where(col(ScannedFile.path_id).in_(path_ids))
         return {record.file_path: record for record in self.session.exec(statement).all()}
 
     def discover_path(self, media_path: MediaPath) -> List[DiscoveredMediaFile]:
@@ -108,26 +107,35 @@ class MediaScanPipeline:
         discovered_files: List[DiscoveredMediaFile] = []
         try:
             for root_dir in self.iter_scan_roots(scan_dir):
-                extracted_title = root_dir.name
-                series_root_path = str(root_dir.absolute()) if media_path.type == "tv" else None
-                for file_path in self.iter_video_files(root_dir, media_path.type):
-                    discovered_files.append(
-                        self.build_discovered_file(
-                            media_path=media_path,
-                            file_path=file_path,
-                            extracted_title=extracted_title,
-                            series_root_path=series_root_path,
-                        )
-                    )
+                discovered_files.extend(self.discover_root_files(media_path, root_dir))
         except Exception as exc:
             logger.error(f"扫描 {media_path.path} 出错: {exc}")
         return discovered_files
+
+    def discover_root_files(self, media_path: MediaPath, root_dir: Path) -> List[DiscoveredMediaFile]:
+        extracted_title = root_dir.name
+        series_root_path = self.build_series_root_path(media_path.type, root_dir)
+        return [
+            self.build_discovered_file(
+                media_path=media_path,
+                file_path=file_path,
+                extracted_title=extracted_title,
+                series_root_path=series_root_path,
+            )
+            for file_path in self.iter_video_files(root_dir, media_path.type)
+        ]
 
     def iter_scan_roots(self, scan_dir: Path) -> Iterable[Path]:
         for child in scan_dir.iterdir():
             logger.debug(f"处理子目录: {child}")
             if child.is_dir():
                 yield child
+
+    @staticmethod
+    def build_series_root_path(media_type: str, root_dir: Path) -> Optional[str]:
+        if media_type != "tv":
+            return None
+        return str(root_dir.absolute())
 
     def iter_video_files(self, root_dir: Path, media_type: str) -> Iterable[Path]:
         iterator = root_dir.rglob("*") if media_type == "tv" else root_dir.iterdir()
@@ -165,27 +173,35 @@ class MediaScanPipeline:
         for discovered in discovered_files:
             existing_file = existing_records.get(discovered.file_path)
             if existing_file is None:
-                existing_file = ScannedFile(
-                    path_id=discovered.path_id,
-                    type=discovered.media_type,
-                    file_path=discovered.file_path,
-                    filename=discovered.filename,
-                    extracted_title=discovered.extracted_title,
-                    year=discovered.year,
-                    season=discovered.season,
-                    episode=discovered.episode,
-                    has_subtitle=discovered.has_subtitle,
-                    series_root_path=discovered.series_root_path,
-                )
+                existing_file = self.create_scanned_file(discovered)
             else:
-                existing_file.path_id = discovered.path_id
-                existing_file.type = discovered.media_type
-                existing_file.filename = discovered.filename
-                existing_file.extracted_title = discovered.extracted_title
-                existing_file.year = discovered.year
-                existing_file.season = discovered.season
-                existing_file.episode = discovered.episode
-                existing_file.has_subtitle = discovered.has_subtitle
-                existing_file.series_root_path = discovered.series_root_path
+                self.apply_discovered_fields(existing_file, discovered)
 
             self.session.add(existing_file)
+
+    @staticmethod
+    def create_scanned_file(discovered: DiscoveredMediaFile) -> ScannedFile:
+        return ScannedFile(
+            path_id=discovered.path_id,
+            type=discovered.media_type,
+            file_path=discovered.file_path,
+            filename=discovered.filename,
+            extracted_title=discovered.extracted_title,
+            year=discovered.year,
+            season=discovered.season,
+            episode=discovered.episode,
+            has_subtitle=discovered.has_subtitle,
+            series_root_path=discovered.series_root_path,
+        )
+
+    @staticmethod
+    def apply_discovered_fields(existing_file: ScannedFile, discovered: DiscoveredMediaFile) -> None:
+        existing_file.path_id = discovered.path_id
+        existing_file.type = discovered.media_type
+        existing_file.filename = discovered.filename
+        existing_file.extracted_title = discovered.extracted_title
+        existing_file.year = discovered.year
+        existing_file.season = discovered.season
+        existing_file.episode = discovered.episode
+        existing_file.has_subtitle = discovered.has_subtitle
+        existing_file.series_root_path = discovered.series_root_path

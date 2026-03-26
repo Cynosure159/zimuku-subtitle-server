@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Awaitable, Callable, List, Optional
 
-from sqlmodel import Session, or_, select
+from sqlmodel import Session, col, or_, select
 
 from ..core.archive import ArchiveManager
 from ..core.config import get_temp_path
@@ -18,6 +18,10 @@ from ..db.models import ScannedFile
 logger = logging.getLogger(__name__)
 
 SUBTITLE_EXTENSIONS = (".srt", ".ass", ".ssa", ".vtt", ".sub")
+
+
+def normalize_media_title(title: str) -> str:
+    return re.sub(r"\s*\(\d{4}\)", "", title).strip()
 
 
 @dataclass
@@ -101,14 +105,19 @@ class AutoMatchWorkflow:
             session.add(file_record)
             session.commit()
 
+    @staticmethod
+    def _resolve_episode_context(file_context: FileMatchContext) -> tuple[Optional[int], Optional[int]]:
+        if file_context.media_type != "tv":
+            return None, None
+        return file_context.season, file_context.episode
+
     async def run_for_file(self, file_id: int) -> bool:
         file_context = self.load_file_context(file_id)
         if not file_context:
             return False
 
-        query = re.sub(r"\s*\(\d{4}\)", "", file_context.extracted_title).strip()
-        season = file_context.season if file_context.media_type == "tv" else None
-        episode = file_context.episode if file_context.media_type == "tv" else None
+        query = normalize_media_title(file_context.extracted_title)
+        season, episode = self._resolve_episode_context(file_context)
 
         with log_context(correlation_id=f"auto-{file_id}", job_name="auto-match", entity_id=str(file_id)):
             logger.info("开始自动匹配: %s", file_context.filename)
@@ -158,10 +167,11 @@ class AutoMatchWorkflow:
             with open(archive_path, "wb") as file_obj:
                 file_obj.write(content)
 
+            season, episode = self._resolve_episode_context(file_context)
             candidates = self._collect_candidates(
                 downloaded_path=archive_path,
-                season=file_context.season if file_context.media_type == "tv" else None,
-                episode=file_context.episode if file_context.media_type == "tv" else None,
+                season=season,
+                episode=episode,
             )
             if not candidates:
                 return False
@@ -222,7 +232,7 @@ class SeasonMatchWorkflow:
         self._sleep = sleep_func
 
     def load_pending_file_ids(self, title: str, season: int) -> List[int]:
-        query_title = re.sub(r"\s*\(\d{4}\)", "", title).strip()
+        query_title = normalize_media_title(title)
 
         with self._session_factory() as session:
             statement = select(ScannedFile).where(
@@ -232,7 +242,7 @@ class SeasonMatchWorkflow:
                 ),
                 ScannedFile.type == "tv",
                 ScannedFile.season == season,
-                ScannedFile.has_subtitle.is_(False),
+                col(ScannedFile.has_subtitle).is_(False),
             )
             files = session.exec(statement).all()
             return [file_record.id for file_record in files if file_record.id is not None]

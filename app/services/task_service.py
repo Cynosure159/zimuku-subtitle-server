@@ -4,7 +4,7 @@ import shutil
 from datetime import datetime
 from typing import List, Optional, Tuple
 
-from sqlmodel import Session, desc, func, select
+from sqlmodel import Session, col, func, select
 
 from ..core.observability import log_context
 from ..db.models import SubtitleTask
@@ -15,6 +15,19 @@ logger = logging.getLogger(__name__)
 
 
 class TaskService:
+    @staticmethod
+    def _build_list_statement(status: Optional[str] = None):
+        statement = select(SubtitleTask)
+        if status:
+            statement = statement.where(SubtitleTask.status == status)
+        return statement
+
+    @staticmethod
+    def _save_task(session: Session, task: SubtitleTask) -> None:
+        task.updated_at = datetime.now()
+        session.add(task)
+        session.commit()
+
     @staticmethod
     def create_task(
         session: Session,
@@ -49,16 +62,11 @@ class TaskService:
     def list_tasks(
         session: Session, offset: int = 0, limit: int = 10, status: Optional[str] = None
     ) -> Tuple[List[SubtitleTask], int]:
-        statement = select(SubtitleTask).order_by(desc(SubtitleTask.created_at))
-        if status:
-            statement = statement.where(SubtitleTask.status == status)
-
-        count_statement = select(func.count()).select_from(SubtitleTask)
-        if status:
-            count_statement = count_statement.where(SubtitleTask.status == status)
+        statement = TaskService._build_list_statement(status).order_by(col(SubtitleTask.created_at).desc())
+        count_statement = select(func.count()).select_from(TaskService._build_list_statement(status).subquery())
         total = session.exec(count_statement).one()
 
-        items = session.exec(statement.offset(offset).limit(limit)).all()
+        items = list(session.exec(statement.offset(offset).limit(limit)).all())
         return items, total
 
     @staticmethod
@@ -88,16 +96,14 @@ class TaskService:
 
         task.status = "pending"
         task.error_msg = None
-        task.updated_at = datetime.now()
-        session.add(task)
-        session.commit()
+        TaskService._save_task(session, task)
         session.refresh(task)
         return task
 
     @staticmethod
     def clear_completed(session: Session) -> int:
         statement = select(SubtitleTask).where(SubtitleTask.status == "completed")
-        tasks = session.exec(statement).all()
+        tasks = list(session.exec(statement).all())
         count = len(tasks)
         for task in tasks:
             session.delete(task)
@@ -108,9 +114,7 @@ class TaskService:
     def _mark_task_started(session: Session, task: SubtitleTask):
         task.status = "downloading"
         task.error_msg = None
-        task.updated_at = datetime.now()
-        session.add(task)
-        session.commit()
+        TaskService._save_task(session, task)
 
     @staticmethod
     def _finalize_success(task: SubtitleTask, filename: str, save_path: str):
@@ -168,6 +172,4 @@ class TaskService:
                         elif final_error is not None:
                             TaskService._finalize_failure(task, final_error)
 
-                        task.updated_at = datetime.now()
-                        session.add(task)
-                        session.commit()
+                        TaskService._save_task(session, task)
