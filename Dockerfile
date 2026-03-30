@@ -39,11 +39,10 @@ RUN addgroup -g 1000 -S appgroup && \
 WORKDIR /app
 
 COPY app ./app
-COPY run_mcp.py .
 
 RUN mkdir -p /app/storage && chown -R appuser:appgroup /app
 
-EXPOSE 8000
+EXPOSE 8000 8001
 
 FROM runtime-base AS runtime
 

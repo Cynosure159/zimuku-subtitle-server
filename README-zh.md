@@ -169,9 +169,26 @@ docker compose up frontend
 Zimuku Subtitle Server 通过 [Model Context Protocol](https://modelcontextprotocol.io/) 将其功能暴露为 AI 可调用的工具：
 
 ```bash
-# 启动 MCP 服务器
-python run_mcp.py
+# 本机客户端通过 stdio 接入
+python -m app.mcp.run_stdio
+
+# 通过后端服务同端口暴露 MCP（默认挂载到 /mcp）
+uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
+
+默认 HTTP MCP 地址为 `http://127.0.0.1:8000/mcp`，可通过以下环境变量调整：
+
+- `MCP_HTTP_PATH`：MCP 路径，默认 `/mcp`
+
+如果使用 Compose 部署，MCP 会直接挂载在后端服务的同一端口下，例如 `http://<服务器IP>:8000/mcp`。
+
+当前 MCP 已覆盖：
+
+- 字幕搜索与下载
+- 媒体库路径管理、文件列表查看、媒体库扫描与自动匹配
+- 下载任务创建、查询、分页、重试、删除、清理
+- 系统设置查看与更新
+- 系统统计信息与最近日志查看
 
 这使得 AI 代理可以通过编程方式搜索和下载字幕，实现自动化字幕管理。
 

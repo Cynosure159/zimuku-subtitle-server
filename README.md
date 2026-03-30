@@ -169,9 +169,26 @@ When using Docker-mounted media libraries, configure media paths in the app as `
 Zimuku Subtitle Server exposes its capabilities as AI-callable tools through the [Model Context Protocol](https://modelcontextprotocol.io/):
 
 ```bash
-# Start the MCP server
-python run_mcp.py
+# Local client via stdio
+python -m app.mcp.run_stdio
+
+# Expose MCP on the same backend server/port (mounted at /mcp by default)
+uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
+
+The default HTTP MCP endpoint is `http://127.0.0.1:8000/mcp`. You can override it with:
+
+- `MCP_HTTP_PATH`: MCP path, default `/mcp`
+
+When using Compose deployment, MCP is mounted directly on the backend service port, for example `http://<server-ip>:8000/mcp`.
+
+The current MCP coverage includes:
+
+- Subtitle search and download
+- Media library path management, scanned file listing, library scan, and auto-match
+- Download task creation, lookup, pagination, retry, deletion, and cleanup
+- Settings listing and updates
+- System stats and recent log retrieval
 
 This allows AI agents to programmatically search for and download subtitles.
 

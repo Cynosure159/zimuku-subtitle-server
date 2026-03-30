@@ -116,7 +116,7 @@ Swagger 文档：`http://127.0.0.1:8000/docs`
 MCP 服务器将搜索和下载功能暴露为 AI 可调用的工具。运行方式：
 
 ```bash
-python run_mcp.py
+python -m app.mcp.run_stdio
 ```
 
 ## 开发注意事项

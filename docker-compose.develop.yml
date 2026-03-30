@@ -25,4 +25,3 @@ services:
       - ${MEDIA_TV_BIND:-./media/tv}:/media/tv:ro
       # 开发模式下额外挂载后端源码，便于调试和热重载。
       - ./app:/app/app
-      - ./run_mcp.py:/app/run_mcp.py
