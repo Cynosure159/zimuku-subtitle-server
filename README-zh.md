@@ -109,28 +109,20 @@ npm run dev
 生产环境推荐使用 Docker 一键部署：
 
 ```bash
-# 构建并启动所有服务
-docker compose up --build
+# 拉取前后端镜像
+docker pull cynosure159/zimuku-subtitle-server-backend:latest
+docker pull cynosure159/zimuku-subtitle-server-frontend:latest
 
 # 仅校验 compose 配置
 docker compose config
 
-# 仅构建正式版后端镜像（无后缀 tag）
-docker build --file Dockerfile --target runtime --tag zimuku-subtitle-server-backend:latest .
-
-# 仅构建 develop 后端镜像（-develop tag）
-docker build --file Dockerfile --target develop --tag zimuku-subtitle-server-backend:develop .
-
-# 仅构建前端镜像
-docker build --file frontend/Dockerfile --tag zimuku-subtitle-server-frontend:latest ./frontend
-
 # 使用生产环境变量模板启动
-docker compose --env-file .env.production up -d --build
+docker compose --env-file .env.production up -d
 
 # 使用测试环境变量模板启动
-docker compose --env-file .env.test up --build
+docker compose --env-file .env.test up -d
 
-# 使用 develop 覆盖文件启动开发版后端
+# 使用 develop 覆盖文件构建并启动开发版后端
 docker compose -f docker-compose.yml -f docker-compose.develop.yml --env-file .env.test up --build
 ```
 
@@ -144,11 +136,9 @@ docker compose -f docker-compose.yml -f docker-compose.develop.yml --env-file .e
 
 ```bash
 # 仅后端
-docker compose build backend
 docker compose up backend
 
 # 仅前端
-docker compose build frontend
 docker compose up frontend
 ```
 
@@ -159,10 +149,9 @@ docker compose up frontend
 > - 电影和剧集媒体库会以只读方式挂载到 `/media/movies` 和 `/media/tv`
 > - 后端以非 root 用户运行，确保安全性
 > - 前端会将 `/api/*` 请求代理到后端，并可通过 `BACKEND_UPSTREAM` 覆盖代理目标
-> - 后端正式版镜像使用 `runtime` target 和 `requirements.prod.txt` 中锁定的生产依赖，默认 tag 为 `zimuku-subtitle-server-backend:latest`
-> - 后端 develop 镜像使用 `develop` target，保留开发依赖，推荐 tag 为 `zimuku-subtitle-server-backend:develop`
-> - 前端正式版镜像默认 tag 为 `zimuku-subtitle-server-frontend:latest`
-> - 本地验证 Docker 改动时，可先执行 `docker compose config` 和 `docker compose build`
+> - 默认生产镜像为 `cynosure159/zimuku-subtitle-server-backend:latest` 和 `cynosure159/zimuku-subtitle-server-frontend:latest`
+> - develop 覆盖文件会将后端切换到本地 `develop` target 构建，并使用 `cynosure159/zimuku-subtitle-server-backend:develop` 作为默认 tag
+> - 本地验证 Docker 改动时，可先执行 `docker compose config` 和 `docker compose -f docker-compose.yml -f docker-compose.develop.yml config`
 > - 可基于 `.env.production.example` / `.env.test.example` 生成 Compose 环境变量文件
 
 ### Docker 镜像规则
@@ -170,8 +159,8 @@ docker compose up frontend
 - 正式版后端镜像使用无后缀 tag，例如 `latest` 或 `1.0.0`
 - develop 版后端镜像使用 `-develop` 后缀，例如 `develop` 或 `1.0.0-develop`
 - 正式版前端镜像使用无后缀 tag，例如 `latest` 或 `1.0.0`
-- 默认 [`docker-compose.yml`](/Users/cy/Projects/zimuku-subtitle-server/docker-compose.yml#L1) 构建 `runtime` target
-- [`docker-compose.develop.yml`](/Users/cy/Projects/zimuku-subtitle-server/docker-compose.develop.yml#L1) 会覆盖为 `develop` target，并挂载后端源码目录用于开发调试
+- 默认 [`docker-compose.yml`](/Users/cy/Projects/zimuku-subtitle-server/docker-compose.yml#L1) 直接使用 DockerHub 镜像
+- [`docker-compose.develop.yml`](/Users/cy/Projects/zimuku-subtitle-server/docker-compose.develop.yml#L1) 会覆盖为 `develop` target，本地构建后端镜像，并挂载后端源码目录用于开发调试
 
 如果使用 Docker 挂载的媒体库，请在应用中配置媒体路径为 `/media/movies` 和 `/media/tv`，不要填写宿主机原始路径。
 

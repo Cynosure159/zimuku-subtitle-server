@@ -109,28 +109,20 @@ npm run dev
 The easiest way to get started in production:
 
 ```bash
-# Build and start all services
-docker compose up --build
+# Pull backend and frontend images
+docker pull cynosure159/zimuku-subtitle-server-backend:latest
+docker pull cynosure159/zimuku-subtitle-server-frontend:latest
 
 # Validate compose config only
 docker compose config
 
-# Build the production backend image (no suffix tag)
-docker build --file Dockerfile --target runtime --tag zimuku-subtitle-server-backend:latest .
-
-# Build the develop backend image (-develop tag)
-docker build --file Dockerfile --target develop --tag zimuku-subtitle-server-backend:develop .
-
-# Build the frontend image
-docker build --file frontend/Dockerfile --tag zimuku-subtitle-server-frontend:latest ./frontend
-
 # Start with the production env template
-docker compose --env-file .env.production up -d --build
+docker compose --env-file .env.production up -d
 
 # Start with the test env template
-docker compose --env-file .env.test up --build
+docker compose --env-file .env.test up -d
 
-# Start the develop backend variant with the override file
+# Build and start the develop backend variant with the override file
 docker compose -f docker-compose.yml -f docker-compose.develop.yml --env-file .env.test up --build
 ```
 
@@ -144,11 +136,9 @@ docker compose -f docker-compose.yml -f docker-compose.develop.yml --env-file .e
 
 ```bash
 # Backend only
-docker compose build backend
 docker compose up backend
 
 # Frontend only
-docker compose build frontend
 docker compose up frontend
 ```
 
@@ -159,10 +149,9 @@ docker compose up frontend
 > - Movie and TV libraries can be mounted read-only into `/media/movies` and `/media/tv`
 > - Backend runs as a non-root user for security
 > - Frontend proxies `/api/*` requests to the backend, and the upstream can be overridden with `BACKEND_UPSTREAM`
-> - The production backend image uses the `runtime` target with locked packages from `requirements.prod.txt`, and defaults to the `zimuku-subtitle-server-backend:latest` tag
-> - The develop backend image uses the `develop` target, keeps development dependencies, and should use the `zimuku-subtitle-server-backend:develop` tag
-> - The production frontend image defaults to the `zimuku-subtitle-server-frontend:latest` tag
-> - Local Docker verification can start with `docker compose config` and `docker compose build`
+> - The default production images are `cynosure159/zimuku-subtitle-server-backend:latest` and `cynosure159/zimuku-subtitle-server-frontend:latest`
+> - The develop override switches the backend to a local `develop` target build and uses `cynosure159/zimuku-subtitle-server-backend:develop` as the default tag
+> - Local Docker verification can start with `docker compose config` and `docker compose -f docker-compose.yml -f docker-compose.develop.yml config`
 > - Use `.env.production.example` / `.env.test.example` as Compose environment templates
 
 ### Docker Image Rules
@@ -170,8 +159,8 @@ docker compose up frontend
 - Production backend images use tags without a suffix, such as `latest` or `1.0.0`
 - Develop backend images use the `-develop` suffix, such as `develop` or `1.0.0-develop`
 - Production frontend images use tags without a suffix, such as `latest` or `1.0.0`
-- The default [`docker-compose.yml`](/Users/cy/Projects/zimuku-subtitle-server/docker-compose.yml#L1) builds the `runtime` target
-- [`docker-compose.develop.yml`](/Users/cy/Projects/zimuku-subtitle-server/docker-compose.develop.yml#L1) switches the backend to the `develop` target and bind-mounts backend source files for development
+- The default [`docker-compose.yml`](/Users/cy/Projects/zimuku-subtitle-server/docker-compose.yml#L1) uses DockerHub images directly
+- [`docker-compose.develop.yml`](/Users/cy/Projects/zimuku-subtitle-server/docker-compose.develop.yml#L1) switches the backend to the `develop` target, builds locally, and bind-mounts backend source files for development
 
 When using Docker-mounted media libraries, configure media paths in the app as `/media/movies` and `/media/tv`, not as the original host paths.
 

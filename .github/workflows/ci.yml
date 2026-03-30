@@ -131,6 +131,15 @@ jobs:
             type=semver,pattern={{version}}
             type=raw,value=latest
 
+      - name: Extract backend develop metadata
+        id: backend-develop-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKERHUB_NAMESPACE }}/${{ env.BACKEND_IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}-develop
+            type=raw,value=develop
+
       - name: Extract frontend metadata
         id: frontend-meta
         uses: docker/metadata-action@v5
@@ -149,6 +158,16 @@ jobs:
           push: true
           tags: ${{ steps.backend-meta.outputs.tags }}
           labels: ${{ steps.backend-meta.outputs.labels }}
+
+      - name: Build and push backend develop image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          target: develop
+          push: true
+          tags: ${{ steps.backend-develop-meta.outputs.tags }}
+          labels: ${{ steps.backend-develop-meta.outputs.labels }}
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v6
