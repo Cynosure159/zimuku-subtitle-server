@@ -72,7 +72,7 @@ function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden relative">
       <Sidebar />
-      <main className="ml-28 lg:ml-32 mr-6 lg:mr-8 my-6 h-[calc(100vh-3rem)] flex w-full relative">
+      <main className="ml-28 lg:ml-32 mr-6 lg:mr-8 my-6 h-[calc(100vh-3rem)] min-h-0 flex w-full relative">
         {children}
       </main>
     </div>

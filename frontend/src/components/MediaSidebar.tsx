@@ -112,7 +112,7 @@ export function MediaSidebar({
         className={`
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-[120%] opacity-0'}
           fixed lg:sticky top-0 lg:top-auto
-          z-40 h-full lg:h-auto
+          z-40 h-full lg:h-full min-h-0
           w-[320px] sm:w-[380px]
           bg-surface-container-low rounded-2xl p-6 flex flex-col gap-5 overflow-hidden border border-outline-variant/5 shrink-0
           transition-all duration-300 ease-in-out

@@ -64,10 +64,10 @@ export default function SeriesPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6 w-full h-full max-w-[1800px]">
-      <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-120px)] w-full">
+    <div className="flex flex-col gap-6 w-full h-full max-w-[1800px] min-h-0">
+      <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-120px)] w-full min-h-0">
         <div
-          className={`flex flex-col shrink-0 lg:transition-all lg:duration-300 lg:ease-in-out lg:overflow-hidden ${sidebarOpen ? 'lg:w-[380px] lg:opacity-100 lg:mr-6' : 'lg:w-0 lg:opacity-0 lg:mr-0'}`}
+          className={`flex flex-col shrink-0 min-h-0 lg:transition-all lg:duration-300 lg:ease-in-out lg:overflow-hidden ${sidebarOpen ? 'lg:w-[380px] lg:opacity-100 lg:mr-6' : 'lg:w-0 lg:opacity-0 lg:mr-0'}`}
         >
           <MediaSidebar
             items={sidebarItems}
@@ -89,7 +89,7 @@ export default function SeriesPage() {
         </div>
 
         {selectedSeries ? (
-          <section className="flex-1 flex flex-col bg-surface-container-low rounded-2xl overflow-hidden relative border border-outline-variant/5 max-w-full">
+          <section className="flex-1 flex flex-col min-h-0 bg-surface-container-low rounded-2xl overflow-hidden relative border border-outline-variant/5 max-w-full">
             <MediaInfoCard
               fileId={selectedSeries.firstFileId}
               title={selectedSeries.title}
@@ -98,7 +98,7 @@ export default function SeriesPage() {
               count={totalEpisodesCount}
             />
 
-            <div className="flex-1 p-10 pt-6 space-y-8 overflow-y-auto custom-scrollbar">
+            <div className="flex-1 min-h-0 p-10 pt-6 space-y-8 overflow-y-auto custom-scrollbar">
               <div className="flex justify-between items-center bg-surface-container/50 p-4 rounded-xl border border-outline-variant/10">
                 <div className="flex items-center gap-3">
                   <span className="material-symbols-outlined text-on-surface-variant">folder_open</span>
