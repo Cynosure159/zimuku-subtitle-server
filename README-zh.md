@@ -121,6 +121,9 @@ docker build --file Dockerfile --target runtime --tag zimuku-subtitle-server-bac
 # 仅构建 develop 后端镜像（-develop tag）
 docker build --file Dockerfile --target develop --tag zimuku-subtitle-server-backend:develop .
 
+# 仅构建前端镜像
+docker build --file frontend/Dockerfile --tag zimuku-subtitle-server-frontend:latest ./frontend
+
 # 使用生产环境变量模板启动
 docker compose --env-file .env.production up -d --build
 
@@ -155,9 +158,10 @@ docker compose up frontend
 > - 后端存储挂载到宿主机的 `./storage` 目录
 > - 电影和剧集媒体库会以只读方式挂载到 `/media/movies` 和 `/media/tv`
 > - 后端以非 root 用户运行，确保安全性
-> - 前端将 `/api/*` 请求代理到后端
+> - 前端会将 `/api/*` 请求代理到后端，并可通过 `BACKEND_UPSTREAM` 覆盖代理目标
 > - 后端正式版镜像使用 `runtime` target 和 `requirements.prod.txt` 中锁定的生产依赖，默认 tag 为 `zimuku-subtitle-server-backend:latest`
 > - 后端 develop 镜像使用 `develop` target，保留开发依赖，推荐 tag 为 `zimuku-subtitle-server-backend:develop`
+> - 前端正式版镜像默认 tag 为 `zimuku-subtitle-server-frontend:latest`
 > - 本地验证 Docker 改动时，可先执行 `docker compose config` 和 `docker compose build`
 > - 可基于 `.env.production.example` / `.env.test.example` 生成 Compose 环境变量文件
 
@@ -165,6 +169,7 @@ docker compose up frontend
 
 - 正式版后端镜像使用无后缀 tag，例如 `latest` 或 `1.0.0`
 - develop 版后端镜像使用 `-develop` 后缀，例如 `develop` 或 `1.0.0-develop`
+- 正式版前端镜像使用无后缀 tag，例如 `latest` 或 `1.0.0`
 - 默认 [`docker-compose.yml`](/Users/cy/Projects/zimuku-subtitle-server/docker-compose.yml#L1) 构建 `runtime` target
 - [`docker-compose.develop.yml`](/Users/cy/Projects/zimuku-subtitle-server/docker-compose.develop.yml#L1) 会覆盖为 `develop` target，并挂载后端源码目录用于开发调试
 

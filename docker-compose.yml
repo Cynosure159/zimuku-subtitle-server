@@ -45,6 +45,7 @@ services:
     restart: unless-stopped
 
   frontend:
+    image: ${FRONTEND_IMAGE:-zimuku-subtitle-server-frontend:latest}
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -56,5 +57,6 @@ services:
         condition: service_healthy
     environment:
       TZ: ${TZ:-Asia/Shanghai}
+      BACKEND_UPSTREAM: ${BACKEND_UPSTREAM:-http://backend:8000}
     logging: *default-logging
     restart: unless-stopped

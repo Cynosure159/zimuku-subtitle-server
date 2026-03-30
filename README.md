@@ -121,6 +121,9 @@ docker build --file Dockerfile --target runtime --tag zimuku-subtitle-server-bac
 # Build the develop backend image (-develop tag)
 docker build --file Dockerfile --target develop --tag zimuku-subtitle-server-backend:develop .
 
+# Build the frontend image
+docker build --file frontend/Dockerfile --tag zimuku-subtitle-server-frontend:latest ./frontend
+
 # Start with the production env template
 docker compose --env-file .env.production up -d --build
 
@@ -155,9 +158,10 @@ docker compose up frontend
 > - Backend storage is mounted to `./storage` on the host
 > - Movie and TV libraries can be mounted read-only into `/media/movies` and `/media/tv`
 > - Backend runs as a non-root user for security
-> - Frontend proxies `/api/*` requests to the backend
+> - Frontend proxies `/api/*` requests to the backend, and the upstream can be overridden with `BACKEND_UPSTREAM`
 > - The production backend image uses the `runtime` target with locked packages from `requirements.prod.txt`, and defaults to the `zimuku-subtitle-server-backend:latest` tag
 > - The develop backend image uses the `develop` target, keeps development dependencies, and should use the `zimuku-subtitle-server-backend:develop` tag
+> - The production frontend image defaults to the `zimuku-subtitle-server-frontend:latest` tag
 > - Local Docker verification can start with `docker compose config` and `docker compose build`
 > - Use `.env.production.example` / `.env.test.example` as Compose environment templates
 
@@ -165,6 +169,7 @@ docker compose up frontend
 
 - Production backend images use tags without a suffix, such as `latest` or `1.0.0`
 - Develop backend images use the `-develop` suffix, such as `develop` or `1.0.0-develop`
+- Production frontend images use tags without a suffix, such as `latest` or `1.0.0`
 - The default [`docker-compose.yml`](/Users/cy/Projects/zimuku-subtitle-server/docker-compose.yml#L1) builds the `runtime` target
 - [`docker-compose.develop.yml`](/Users/cy/Projects/zimuku-subtitle-server/docker-compose.develop.yml#L1) switches the backend to the `develop` target and bind-mounts backend source files for development
 
