@@ -133,21 +133,27 @@ async def test_mcp_media_path_management_tools():
 @pytest.mark.anyio
 async def test_mcp_task_and_settings_tools():
     """验证任务、设置与系统工具。"""
-    with patch(
-        "app.mcp.server.TaskService.list_tasks",
-        return_value=([type("Task", (), {"model_dump": lambda self: {"id": 1, "status": "failed"}})()], 1),
-    ), patch(
-        "app.mcp.server.SettingsService.get_all_settings",
-        return_value=[Setting(id=1, key="proxy", value="http://127.0.0.1:7890", description="代理")],
-    ), patch(
-        "app.mcp.server.SettingsService.set_setting",
-        return_value=Setting(id=1, key="proxy", value="http://127.0.0.1:7890", description="代理"),
-    ), patch(
-        "app.mcp.server.SystemService.get_stats",
-        return_value={"tasks": {"total": 1}, "cache": {"total_entries": 2}},
-    ), patch(
-        "app.mcp.server.SystemService.get_logs",
-        return_value=["line1", "line2"],
+    with (
+        patch(
+            "app.mcp.server.TaskService.list_tasks",
+            return_value=([type("Task", (), {"model_dump": lambda self: {"id": 1, "status": "failed"}})()], 1),
+        ),
+        patch(
+            "app.mcp.server.SettingsService.get_all_settings",
+            return_value=[Setting(id=1, key="proxy", value="http://127.0.0.1:7890", description="代理")],
+        ),
+        patch(
+            "app.mcp.server.SettingsService.set_setting",
+            return_value=Setting(id=1, key="proxy", value="http://127.0.0.1:7890", description="代理"),
+        ),
+        patch(
+            "app.mcp.server.SystemService.get_stats",
+            return_value={"tasks": {"total": 1}, "cache": {"total_entries": 2}},
+        ),
+        patch(
+            "app.mcp.server.SystemService.get_logs",
+            return_value=["line1", "line2"],
+        ),
     ):
         tasks = await handle_call_tool("list_tasks", {"limit": 5})
         settings = await handle_call_tool("list_settings", {})
@@ -167,13 +173,14 @@ async def test_mcp_scan_and_retry_tools():
     """验证扫描和任务重试类工具。"""
     task_stub = type("Task", (), {"id": 1, "model_dump": lambda self: {"id": 1, "status": "completed"}})()
 
-    with patch("app.mcp.server.MediaService.run_media_scan_and_match", new=AsyncMock(return_value=None)), patch(
-        "app.mcp.server.MediaService.run_auto_match_process", new=AsyncMock(return_value=True)
-    ), patch("app.mcp.server.MediaService.run_season_match_process", new=AsyncMock(return_value=None)), patch(
-        "app.mcp.server.TaskService.retry_task", return_value=task_stub
-    ), patch(
-        "app.mcp.server.TaskService.run_download_task", new=AsyncMock(return_value=None)
-    ), patch("app.mcp.server.TaskService.get_task", return_value=task_stub):
+    with (
+        patch("app.mcp.server.MediaService.run_media_scan_and_match", new=AsyncMock(return_value=None)),
+        patch("app.mcp.server.MediaService.run_auto_match_process", new=AsyncMock(return_value=True)),
+        patch("app.mcp.server.MediaService.run_season_match_process", new=AsyncMock(return_value=None)),
+        patch("app.mcp.server.TaskService.retry_task", return_value=task_stub),
+        patch("app.mcp.server.TaskService.run_download_task", new=AsyncMock(return_value=None)),
+        patch("app.mcp.server.TaskService.get_task", return_value=task_stub),
+    ):
         scan = await handle_call_tool("scan_media_library", {"path_type": "tv"})
         auto_match = await handle_call_tool("auto_match_file", {"file_id": 12})
         season_match = await handle_call_tool("match_tv_season", {"title": "Lost", "season": 1})

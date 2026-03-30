@@ -232,9 +232,7 @@ def _media_tools() -> list[types.Tool]:
             description="执行媒体库扫描和字幕自动匹配",
             inputSchema={
                 "type": "object",
-                "properties": {
-                    "path_type": {"type": "string", "enum": ["movie", "tv"], "description": "扫描类型过滤"}
-                },
+                "properties": {"path_type": {"type": "string", "enum": ["movie", "tv"], "description": "扫描类型过滤"}},
             },
         ),
         types.Tool(
@@ -602,9 +600,7 @@ async def handle_list_tools() -> List[types.Tool]:
 
 
 @server.call_tool()
-async def handle_call_tool(
-    name: str, arguments: dict | None
-) -> MCPResponse:
+async def handle_call_tool(name: str, arguments: dict | None) -> MCPResponse:
     """处理工具调用"""
     arguments = arguments or {}
 
