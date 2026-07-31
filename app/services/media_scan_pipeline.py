@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence
+from typing import Dict, Iterable, List, Optional, Sequence, Set
 
 from sqlmodel import Session, col, select
 
@@ -43,12 +43,19 @@ class MediaScanPipeline:
 
         existing_records = self.load_existing_records(media_paths)
         discovered_files: List[DiscoveredMediaFile] = []
+        scanned_path_ids: Set[int] = set()
 
         for media_path in media_paths:
-            discovered_files.extend(self.discover_path(media_path))
+            path_files = self.discover_path(media_path)
+            if path_files is None:
+                continue
+            discovered_files.extend(path_files)
+            if media_path.id is not None:
+                scanned_path_ids.add(media_path.id)
             media_path.last_scanned_at = datetime.now()
             self.session.add(media_path)
 
+        self.cleanup_records_missing_from_discovery(discovered_files, existing_records, scanned_path_ids)
         self.reconcile_records(discovered_files, existing_records)
         self.session.commit()
 
@@ -95,7 +102,7 @@ class MediaScanPipeline:
         statement = select(ScannedFile).where(col(ScannedFile.path_id).in_(path_ids))
         return {record.file_path: record for record in self.session.exec(statement).all()}
 
-    def discover_path(self, media_path: MediaPath) -> List[DiscoveredMediaFile]:
+    def discover_path(self, media_path: MediaPath) -> Optional[List[DiscoveredMediaFile]]:
         scan_dir = Path(media_path.path)
         if not scan_dir.exists() or not scan_dir.is_dir():
             logger.debug(f"路径不存在或不是目录: {media_path.path}")
@@ -110,6 +117,7 @@ class MediaScanPipeline:
                 discovered_files.extend(self.discover_root_files(media_path, root_dir))
         except Exception as exc:
             logger.error(f"扫描 {media_path.path} 出错: {exc}")
+            return None
         return discovered_files
 
     def discover_root_files(self, media_path: MediaPath, root_dir: Path) -> List[DiscoveredMediaFile]:
@@ -178,6 +186,27 @@ class MediaScanPipeline:
                 self.apply_discovered_fields(existing_file, discovered)
 
             self.session.add(existing_file)
+
+    def cleanup_records_missing_from_discovery(
+        self,
+        discovered_files: Sequence[DiscoveredMediaFile],
+        existing_records: Dict[str, ScannedFile],
+        scanned_path_ids: Set[int],
+    ) -> None:
+        discovered_paths = {discovered.file_path for discovered in discovered_files}
+        removed_files = []
+
+        for existing_file in existing_records.values():
+            if existing_file.path_id not in scanned_path_ids:
+                continue
+            if existing_file.file_path in discovered_paths:
+                continue
+
+            self.session.delete(existing_file)
+            removed_files.append(existing_file)
+
+        if removed_files:
+            logger.info(f"清理了 {len(removed_files)} 条本次扫描未发现的旧文件记录")
 
     @staticmethod
     def create_scanned_file(discovered: DiscoveredMediaFile) -> ScannedFile:

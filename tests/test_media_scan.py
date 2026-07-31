@@ -86,6 +86,48 @@ async def test_cleanup_non_existent_files(temp_media_dir):
 
 
 @pytest.mark.anyio
+async def test_scan_removes_records_not_found_in_latest_discovery(tmp_path, monkeypatch):
+    movie_root = tmp_path / "movies"
+    movie_dir = movie_root / "Arrival"
+    movie_dir.mkdir(parents=True)
+    new_file = movie_dir / "Arrival.2016.1080p.mkv"
+    new_file.touch()
+    old_file = movie_dir / "arrival.2016.1080p.mkv"
+
+    original_exists = Path.exists
+
+    def fake_exists(path: Path):
+        if str(path) == str(old_file):
+            return True
+        return original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", fake_exists)
+
+    with Session(engine) as session:
+        media_path = MediaPath(path=str(movie_root), type="movie", enabled=True)
+        session.add(media_path)
+        session.commit()
+        session.refresh(media_path)
+        session.add(
+            ScannedFile(
+                path_id=media_path.id,
+                file_path=str(old_file),
+                filename=old_file.name,
+                extracted_title="Arrival",
+                type="movie",
+            )
+        )
+        session.commit()
+
+    await MediaService.run_media_scan_and_match("movie")
+
+    with Session(engine) as session:
+        files = session.exec(select(ScannedFile)).all()
+
+    assert [file_record.filename for file_record in files] == [new_file.name]
+
+
+@pytest.mark.anyio
 async def test_cleanup_orphan_records(temp_media_dir):
     with Session(engine) as session:
         session.add(
