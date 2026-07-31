@@ -126,10 +126,10 @@ async def trigger_match(
     path_type: Optional[str] = Query(default=None, pattern="^(movie|tv)$"),
     session: Session = Depends(get_session),
 ) -> TaskTriggerResponse:
-    """手动触发媒体库与字幕的自动化匹配"""
+    """手动刷新媒体库列表，不执行字幕搜索、下载或移动。"""
     background_tasks.add_task(MediaService.run_media_scan_and_match, path_type)
     return _build_trigger_response(
-        message=f"Media scan and match task ({path_type or 'all'}) started",
+        message=f"Media library refresh task ({path_type or 'all'}) started",
         task_kind="media_scan",
         target=path_type or "all",
     )

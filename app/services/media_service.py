@@ -109,7 +109,7 @@ class MediaService:
 
     @staticmethod
     async def run_media_scan_and_match(path_type: Optional[str] = None) -> None:
-        """执行后台媒体扫描与匹配逻辑"""
+        """刷新媒体库文件记录，不执行字幕搜索、下载或移动。"""
         global_task_status.is_scanning = True
         try:
             with session_scope() as session:

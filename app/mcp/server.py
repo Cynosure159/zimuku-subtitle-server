@@ -229,7 +229,7 @@ def _media_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="scan_media_library",
-            description="执行媒体库扫描和字幕自动匹配",
+            description="刷新媒体库列表：仅扫描电影/剧集目录并更新已扫描文件记录，不会自动搜索、下载或移动字幕",
             inputSchema={
                 "type": "object",
                 "properties": {"path_type": {"type": "string", "enum": ["movie", "tv"], "description": "扫描类型过滤"}},
@@ -458,7 +458,22 @@ async def _handle_media_tool(name: str, arguments: dict[str, Any]) -> List[types
         path_type = arguments.get("path_type")
         try:
             await MediaService.run_media_scan_and_match(path_type)
-            return _success("媒体库扫描与匹配已完成：", {"path_type": path_type or "all"})
+            return _success(
+                "媒体库列表刷新已完成：",
+                {
+                    "path_type": path_type or "all",
+                    "effects": [
+                        "scan_enabled_media_paths",
+                        "update_scanned_file_records",
+                        "refresh_has_subtitle_flags",
+                    ],
+                    "does_not": [
+                        "search_subtitles",
+                        "download_subtitles",
+                        "move_subtitle_files",
+                    ],
+                },
+            )
         except Exception as e:
             return _error(f"媒体库扫描出错: {str(e)}")
 
