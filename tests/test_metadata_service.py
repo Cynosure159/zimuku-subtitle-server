@@ -16,6 +16,9 @@ def test_parse_nfo_xml_content():
         f.write("""<?xml version="1.0" encoding="utf-8"?>
 <movie>
     <title>Test Movie</title>
+    <originaltitle>Original Test Movie</originaltitle>
+    <sorttitle>Test Movie, The</sorttitle>
+    <alias>TM</alias>
     <year>2024</year>
     <plot>A test plot</plot>
     <rating>8.5</rating>
@@ -30,6 +33,8 @@ def test_parse_nfo_xml_content():
 
         assert result is not None
         assert result["title"] == "Test Movie"
+        assert result["original_title"] == "Original Test Movie"
+        assert result["aliases"] == ["Test Movie, The", "TM"]
         assert result["year"] == "2024"
         assert result["plot"] == "A test plot"
         assert result["rating"] == "8.5"

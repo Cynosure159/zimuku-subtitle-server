@@ -55,3 +55,27 @@ class MediaMetadataResponse(BaseModel):
     poster_path: Optional[str] = None
     fanart_path: Optional[str] = None
     txt_info: Optional[dict[str, Any]] = None
+
+
+class MediaSummary(BaseModel):
+    media_key: str
+    level: str
+    media_type: str
+    title: str
+    nfo_title: Optional[str] = None
+    nfo_original_title: Optional[str] = None
+    nfo_aliases: list[str]
+    year: Optional[str] = None
+    season: Optional[int] = None
+    episode: Optional[int] = None
+    path_ids: list[int]
+    file_count: int
+    subtitle_file_count: int
+    missing_subtitle_file_count: int
+
+
+class MediaListResponse(BaseModel):
+    total: int
+    offset: int
+    limit: int
+    items: list[MediaSummary]

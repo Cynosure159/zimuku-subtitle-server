@@ -106,6 +106,50 @@ def test_media_task_status_api():
     assert "matching_seasons" in data
 
 
+def test_media_library_api_returns_aggregated_show_results():
+    with Session(engine) as session:
+        media_path = MediaPath(path="/library-api-tv", type="tv", enabled=True)
+        session.add(media_path)
+        session.commit()
+        session.refresh(media_path)
+        session.add_all(
+            [
+                ScannedFile(
+                    path_id=media_path.id,
+                    type="tv",
+                    file_path="/library-api-tv/Andor/S01E01.mkv",
+                    filename="Andor.S01E01.mkv",
+                    extracted_title="Andor",
+                    nfo_title="安多",
+                    nfo_original_title="Andor",
+                    nfo_aliases='["星球大战：安多"]',
+                    season=1,
+                    episode=1,
+                ),
+                ScannedFile(
+                    path_id=media_path.id,
+                    type="tv",
+                    file_path="/library-api-tv/Andor/S01E02.mkv",
+                    filename="Andor.S01E02.mkv",
+                    extracted_title="Andor",
+                    season=1,
+                    episode=2,
+                    has_subtitle=True,
+                ),
+            ]
+        )
+        session.commit()
+
+    response = client.get("/media/library", params={"level": "show", "query": "安多"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 1
+    assert data["items"][0]["title"] == "Andor"
+    assert data["items"][0]["file_count"] == 2
+    assert data["items"][0]["missing_subtitle_file_count"] == 1
+    assert data["items"][0]["nfo_aliases"] == ["星球大战：安多"]
+
+
 def test_media_metadata_api_moves_resolution_to_service(tmp_path):
     movie_dir = tmp_path / "Movie Title"
     movie_dir.mkdir(parents=True)

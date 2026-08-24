@@ -228,6 +228,26 @@ def _media_tools() -> list[types.Tool]:
             },
         ),
         types.Tool(
+            name="list_media",
+            description="按电影、剧、季或集聚合查询媒体库，支持文件名和 NFO 标题、原始标题、别名的模糊搜索",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "level": {
+                        "type": "string",
+                        "enum": ["movie", "show", "season", "episode"],
+                        "description": "返回层级；默认剧集层级 show",
+                    },
+                    "media_type": {"type": "string", "enum": ["movie", "tv"], "description": "媒体类型过滤"},
+                    "query": {"type": "string", "description": "文件名、年份或 NFO 标题、原始标题、别名的模糊关键词"},
+                    "title": {"type": "string", "description": "指定剧名后向下查询季或集"},
+                    "season": {"type": "integer", "minimum": 1, "description": "指定季后查询该季的集"},
+                    "offset": {"type": "integer", "minimum": 0, "description": "偏移量"},
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 1000, "description": "数量限制"},
+                },
+            },
+        ),
+        types.Tool(
             name="scan_media_library",
             description="刷新媒体库列表：仅扫描电影/剧集目录并更新已扫描文件记录，不会自动搜索、下载或移动字幕",
             inputSchema={
@@ -453,6 +473,26 @@ async def _handle_media_tool(name: str, arguments: dict[str, Any]) -> List[types
         with Session(engine) as session:
             files = MediaService.list_files_paginated(session, path_type, offset, limit)
         return _success("已扫描文件列表：", _serialize_models(files))
+
+    if name == "list_media":
+        level = arguments.get("level", "show")
+        offset = arguments.get("offset", 0)
+        limit = arguments.get("limit", 50)
+        try:
+            with Session(engine) as session:
+                items, total = MediaService.list_media_paginated(
+                    session,
+                    level=level,
+                    media_type=arguments.get("media_type"),
+                    query=arguments.get("query"),
+                    title=arguments.get("title"),
+                    season=arguments.get("season"),
+                    offset=offset,
+                    limit=limit,
+                )
+            return _success("媒体库列表：", {"total": total, "offset": offset, "limit": limit, "items": items})
+        except (KeyError, ValueError) as exc:
+            return _error(f"媒体库查询出错: {exc}")
 
     if name == "scan_media_library":
         path_type = arguments.get("path_type")

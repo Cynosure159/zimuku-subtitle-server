@@ -23,13 +23,37 @@ sqlite_url = _get_sqlite_url()
 # 连接池设置 (对于 SQLite 主要是为了在多线程/多协程下稳定运行)
 engine = create_engine(sqlite_url, connect_args={"check_same_thread": False})
 
+NFO_SEARCH_COLUMNS = {
+    "nfo_title": "VARCHAR",
+    "nfo_original_title": "VARCHAR",
+    "nfo_aliases": "VARCHAR",
+}
+
 
 def create_db_and_tables():
     """初始化数据库表"""
     SQLModel.metadata.create_all(engine)
+    _migrate_scanned_file_metadata_columns()
 
     # 初始化默认配置项
     _init_default_settings()
+
+
+def _migrate_scanned_file_metadata_columns():
+    """为已有 SQLite 数据库补充扫描媒体的 NFO 搜索字段。"""
+    if engine.dialect.name != "sqlite":
+        return
+
+    with engine.begin() as connection:
+        existing_columns = {row[1] for row in connection.exec_driver_sql("PRAGMA table_info(scannedfile)")}
+        for name, column_type in NFO_SEARCH_COLUMNS.items():
+            if name not in existing_columns:
+                connection.exec_driver_sql(f"ALTER TABLE scannedfile ADD COLUMN {name} {column_type}")
+
+        connection.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_scannedfile_nfo_title ON scannedfile (nfo_title)")
+        connection.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_scannedfile_nfo_original_title ON scannedfile (nfo_original_title)"
+        )
 
 
 def _init_default_settings():

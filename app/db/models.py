@@ -66,6 +66,9 @@ class ScannedFile(SQLModel, table=True):
     filename: str
     extracted_title: Optional[str] = None
     year: Optional[str] = None
+    nfo_title: Optional[str] = Field(default=None, index=True)
+    nfo_original_title: Optional[str] = Field(default=None, index=True)
+    nfo_aliases: Optional[str] = None  # JSON-encoded NFO aliases
     season: Optional[int] = None
     episode: Optional[int] = None
     has_subtitle: bool = Field(default=False)

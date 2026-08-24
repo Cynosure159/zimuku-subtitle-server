@@ -1,4 +1,4 @@
-from typing import List, Optional, TypeVar
+from typing import List, Literal, Optional, TypeVar
 
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, Query
 from fastapi.responses import FileResponse
@@ -9,7 +9,7 @@ from ..db.session import get_session
 from ..services.media_service import MediaService, global_task_status
 from ..services.metadata_service import MetadataService
 from .errors import raise_for_service_error
-from .schemas import ActionResponse, MediaMetadataResponse, SeasonMatchRequest, TaskTriggerResponse
+from .schemas import ActionResponse, MediaListResponse, MediaMetadataResponse, SeasonMatchRequest, TaskTriggerResponse
 
 router = APIRouter(prefix="/media", tags=["Media"])
 T = TypeVar("T")
@@ -83,6 +83,34 @@ async def list_scanned_files(
 ) -> List[ScannedFile]:
     """获取已扫描的媒体文件列表"""
     return MediaService.list_files_paginated(session, path_type, offset, limit)
+
+
+@router.get("/library", response_model=MediaListResponse)
+async def list_media_library(
+    level: Literal["movie", "show", "season", "episode"] = Query(default="show"),
+    media_type: Optional[Literal["movie", "tv"]] = Query(default=None),
+    query: Optional[str] = Query(default=None, min_length=1),
+    title: Optional[str] = Query(default=None, min_length=1),
+    season: Optional[int] = Query(default=None, ge=1),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=1000),
+    session: Session = Depends(get_session),
+) -> MediaListResponse:
+    """按电影、剧、季或集聚合媒体库，并支持元数据模糊检索。"""
+    try:
+        items, total = MediaService.list_media_paginated(
+            session,
+            level=level,
+            media_type=media_type,
+            query=query,
+            title=title,
+            season=season,
+            offset=offset,
+            limit=limit,
+        )
+    except ValueError as exc:
+        raise_for_service_error(exc)
+    return MediaListResponse(total=total, offset=offset, limit=limit, items=items)
 
 
 @router.post("/files/{file_id}/auto-match", response_model=TaskTriggerResponse)

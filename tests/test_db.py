@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import pytest
 from sqlmodel import Session, SQLModel, create_engine, select
 
+import app.db.session as db_session
 from app.db.models import SearchCache, Setting, SubtitleTask
 
 # 使用内存数据库进行测试
@@ -69,3 +70,19 @@ def test_subtitle_task(session: Session):
 
     db_task = session.exec(select(SubtitleTask).where(SubtitleTask.title == "Avengers")).first()
     assert db_task.status == "pending"
+
+
+def test_database_initialization_migrates_nfo_search_columns(monkeypatch):
+    legacy_engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
+    with legacy_engine.begin() as connection:
+        connection.exec_driver_sql("CREATE TABLE scannedfile (id INTEGER PRIMARY KEY)")
+
+    monkeypatch.setattr(db_session, "engine", legacy_engine)
+    db_session.create_db_and_tables()
+
+    with legacy_engine.connect() as connection:
+        columns = {row[1] for row in connection.exec_driver_sql("PRAGMA table_info(scannedfile)")}
+        indexes = {row[1] for row in connection.exec_driver_sql("PRAGMA index_list(scannedfile)")}
+
+    assert {"nfo_title", "nfo_original_title", "nfo_aliases"}.issubset(columns)
+    assert {"ix_scannedfile_nfo_title", "ix_scannedfile_nfo_original_title"}.issubset(indexes)

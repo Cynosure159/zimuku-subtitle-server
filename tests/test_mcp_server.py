@@ -23,6 +23,7 @@ async def test_mcp_list_tools():
     assert "search_subtitles" in tool_names
     assert "download_subtitle" in tool_names
     assert "list_media_paths" in tool_names
+    assert "list_media" in tool_names
     assert "scan_media_library" in tool_names
     assert "list_tasks" in tool_names
     assert "update_setting" in tool_names
@@ -128,6 +129,16 @@ async def test_mcp_media_path_management_tools():
     assert "/media/tv" in listed[0].text
     assert '"enabled": false' in updated[0].text
     assert "已删除" in deleted[0].text
+
+
+@pytest.mark.anyio
+async def test_mcp_list_media_tool_returns_paginated_aggregates():
+    with patch("app.mcp.server.MediaService.list_media_paginated", return_value=([{"title": "Lost"}], 1)):
+        result = await handle_call_tool("list_media", {"level": "show", "query": "lost"})
+
+    assert "媒体库列表" in result[0].text
+    assert '"total": 1' in result[0].text
+    assert "Lost" in result[0].text
 
 
 @pytest.mark.anyio

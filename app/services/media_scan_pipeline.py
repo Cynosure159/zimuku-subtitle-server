@@ -1,3 +1,4 @@
+import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime
@@ -6,6 +7,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Set
 
 from sqlmodel import Session, col, select
 
+from ..core.metadata import find_nfo_file, parse_nfo
 from ..core.utils import check_has_subtitle, parse_media_filename
 from ..db.models import MediaPath, ScannedFile
 
@@ -22,6 +24,9 @@ class DiscoveredMediaFile:
     filename: str
     extracted_title: str
     year: Optional[str]
+    nfo_title: Optional[str]
+    nfo_original_title: Optional[str]
+    nfo_aliases: Optional[str]
     season: Optional[int]
     episode: Optional[int]
     has_subtitle: bool
@@ -123,15 +128,22 @@ class MediaScanPipeline:
     def discover_root_files(self, media_path: MediaPath, root_dir: Path) -> List[DiscoveredMediaFile]:
         extracted_title = root_dir.name
         series_root_path = self.build_series_root_path(media_path.type, root_dir)
+        root_nfo_data = self.load_root_nfo_data(media_path.type, root_dir)
         return [
             self.build_discovered_file(
                 media_path=media_path,
                 file_path=file_path,
                 extracted_title=extracted_title,
                 series_root_path=series_root_path,
+                root_nfo_data=root_nfo_data,
             )
             for file_path in self.iter_video_files(root_dir, media_path.type)
         ]
+
+    @staticmethod
+    def load_root_nfo_data(media_type: str, root_dir: Path) -> Optional[dict]:
+        nfo_path = root_dir / "tvshow.nfo" if media_type == "tv" else find_nfo_file(root_dir)
+        return parse_nfo(nfo_path) if nfo_path else None
 
     def iter_scan_roots(self, scan_dir: Path) -> Iterable[Path]:
         for child in scan_dir.iterdir():
@@ -157,9 +169,12 @@ class MediaScanPipeline:
         file_path: Path,
         extracted_title: str,
         series_root_path: Optional[str],
+        root_nfo_data: Optional[dict],
     ) -> DiscoveredMediaFile:
         filename = file_path.name
         parsed = parse_media_filename(filename)
+        nfo_data = root_nfo_data or self.load_file_nfo_data(file_path, filename)
+        nfo_title, nfo_original_title, nfo_aliases = self.extract_nfo_search_fields(nfo_data)
         return DiscoveredMediaFile(
             path_id=media_path.id or 0,
             media_type=media_path.type,
@@ -167,11 +182,28 @@ class MediaScanPipeline:
             filename=filename,
             extracted_title=extracted_title,
             year=parsed["year"],
+            nfo_title=nfo_title,
+            nfo_original_title=nfo_original_title,
+            nfo_aliases=nfo_aliases,
             season=parsed["season"],
             episode=parsed["episode"],
             has_subtitle=check_has_subtitle(file_path),
             series_root_path=series_root_path,
         )
+
+    @staticmethod
+    def load_file_nfo_data(file_path: Path, filename: str) -> Optional[dict]:
+        nfo_path = find_nfo_file(file_path.parent, filename)
+        return parse_nfo(nfo_path) if nfo_path else None
+
+    @staticmethod
+    def extract_nfo_search_fields(nfo_data: Optional[dict]) -> tuple[Optional[str], Optional[str], Optional[str]]:
+        if not nfo_data:
+            return None, None, None
+
+        aliases = nfo_data.get("aliases", [])
+        aliases_json = json.dumps(aliases, ensure_ascii=False) if aliases else None
+        return nfo_data.get("title"), nfo_data.get("original_title"), aliases_json
 
     def reconcile_records(
         self,
@@ -217,6 +249,9 @@ class MediaScanPipeline:
             filename=discovered.filename,
             extracted_title=discovered.extracted_title,
             year=discovered.year,
+            nfo_title=discovered.nfo_title,
+            nfo_original_title=discovered.nfo_original_title,
+            nfo_aliases=discovered.nfo_aliases,
             season=discovered.season,
             episode=discovered.episode,
             has_subtitle=discovered.has_subtitle,
@@ -230,6 +265,9 @@ class MediaScanPipeline:
         existing_file.filename = discovered.filename
         existing_file.extracted_title = discovered.extracted_title
         existing_file.year = discovered.year
+        existing_file.nfo_title = discovered.nfo_title
+        existing_file.nfo_original_title = discovered.nfo_original_title
+        existing_file.nfo_aliases = discovered.nfo_aliases
         existing_file.season = discovered.season
         existing_file.episode = discovered.episode
         existing_file.has_subtitle = discovered.has_subtitle

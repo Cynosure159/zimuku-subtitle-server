@@ -59,6 +59,35 @@ async def test_run_media_scan_logic(temp_media_dir):
 
 
 @pytest.mark.anyio
+async def test_scan_persists_nfo_search_fields(tmp_path):
+    movie_root = tmp_path / "movies"
+    movie_dir = movie_root / "Internal Name"
+    movie_dir.mkdir(parents=True)
+    (movie_dir / "Internal.Name.2024.mkv").touch()
+    (movie_dir / "movie.nfo").write_text(
+        """<movie>
+<title>中文片名</title>
+<originaltitle>Original Movie Title</originaltitle>
+<alternativetitle>Alternate Movie Title</alternativetitle>
+</movie>""",
+        encoding="utf-8",
+    )
+
+    with Session(engine) as session:
+        session.add(MediaPath(path=str(movie_root), type="movie", enabled=True))
+        session.commit()
+
+    await MediaService.run_media_scan_and_match("movie")
+
+    with Session(engine) as session:
+        scanned_file = session.exec(select(ScannedFile).where(ScannedFile.filename == "Internal.Name.2024.mkv")).one()
+
+    assert scanned_file.nfo_title == "中文片名"
+    assert scanned_file.nfo_original_title == "Original Movie Title"
+    assert scanned_file.nfo_aliases == '["Alternate Movie Title"]'
+
+
+@pytest.mark.anyio
 async def test_cleanup_non_existent_files(temp_media_dir):
     fake_path = temp_media_dir / "non_existent.mkv"
 

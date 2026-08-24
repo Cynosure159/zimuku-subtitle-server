@@ -185,7 +185,7 @@ When using Compose deployment, MCP is mounted directly on the backend service po
 The current MCP coverage includes:
 
 - Subtitle search and download
-- Media library path management, scanned file listing, library scan, and auto-match
+- Media library path management, hierarchical media listing (movie/show/season/episode) with NFO title and alias search, scanned file listing, library scan, and auto-match
 - Download task creation, lookup, pagination, retry, deletion, and cleanup
 - Settings listing and updates
 - System stats and recent log retrieval
@@ -207,6 +207,9 @@ curl -X POST "http://127.0.0.1:8000/media/paths?path=/mnt/media/movies&path_type
 
 # Trigger library scan
 curl -X POST "http://127.0.0.1:8000/media/match?path_type=tv"
+
+# Search shows by title and return one aggregated record per show
+curl "http://127.0.0.1:8000/media/library?level=show&query=Foundation"
 ```
 
 ## 🧪 Development

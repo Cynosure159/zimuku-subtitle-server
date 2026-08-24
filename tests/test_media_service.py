@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from sqlmodel import Session, SQLModel, create_engine, select
 
@@ -161,3 +163,95 @@ def test_list_files_empty(session):
     """Test listing files when none exist"""
     files = MediaService.list_files(session)
     assert files == []
+
+
+def test_list_media_groups_tv_by_show_season_and_episode(session):
+    tv_path = MediaService.add_path(session, "/tv", "tv")
+    files = [
+        ScannedFile(
+            path_id=tv_path.id,
+            type="tv",
+            file_path="/tv/Foundation/S01E01.mkv",
+            filename="Foundation.S01E01.mkv",
+            extracted_title="Foundation",
+            nfo_title="基地",
+            nfo_original_title="Foundation",
+            nfo_aliases=json.dumps(["基地：起源"], ensure_ascii=False),
+            season=1,
+            episode=1,
+            has_subtitle=True,
+        ),
+        ScannedFile(
+            path_id=tv_path.id,
+            type="tv",
+            file_path="/tv/Foundation/S01E02.mkv",
+            filename="Foundation.S01E02.mkv",
+            extracted_title="Foundation",
+            season=1,
+            episode=2,
+        ),
+        ScannedFile(
+            path_id=tv_path.id,
+            type="tv",
+            file_path="/tv/Foundation/S02E01.mkv",
+            filename="Foundation.S02E01.mkv",
+            extracted_title="Foundation",
+            season=2,
+            episode=1,
+        ),
+    ]
+    session.add_all(files)
+    session.commit()
+
+    shows, total = MediaService.list_media_paginated(session, level="show", query="found")
+    assert total == 1
+    assert shows[0]["title"] == "Foundation"
+    assert shows[0]["file_count"] == 3
+    assert shows[0]["subtitle_file_count"] == 1
+    assert shows[0]["missing_subtitle_file_count"] == 2
+    assert shows[0]["nfo_title"] == "基地"
+    assert shows[0]["nfo_aliases"] == ["基地：起源"]
+
+    nfo_search_results, total = MediaService.list_media_paginated(session, level="show", query="起源")
+    assert total == 1
+    assert nfo_search_results[0]["title"] == "Foundation"
+
+    seasons, total = MediaService.list_media_paginated(session, level="season", title="Foundation")
+    assert total == 2
+    assert [item["season"] for item in seasons] == [1, 2]
+
+    episodes, total = MediaService.list_media_paginated(session, level="episode", title="Foundation", season=1)
+    assert total == 2
+    assert [item["episode"] for item in episodes] == [1, 2]
+    assert all("file_path" not in item for item in episodes)
+
+
+def test_list_media_groups_movies_and_paginates(session):
+    movie_path = MediaService.add_path(session, "/movies", "movie")
+    session.add_all(
+        [
+            ScannedFile(
+                path_id=movie_path.id,
+                type="movie",
+                file_path="/movies/Arrival/Arrival.2016.mkv",
+                filename="Arrival.2016.mkv",
+                extracted_title="Arrival",
+                year="2016",
+            ),
+            ScannedFile(
+                path_id=movie_path.id,
+                type="movie",
+                file_path="/movies/Arrival/Arrival.2016.uhd.mkv",
+                filename="Arrival.2016.uhd.mkv",
+                extracted_title="Arrival",
+                year="2016",
+                has_subtitle=True,
+            ),
+        ]
+    )
+    session.commit()
+
+    movies, total = MediaService.list_media_paginated(session, level="movie", query="2016", limit=1)
+    assert total == 1
+    assert movies[0]["media_key"] == "movie:Arrival:2016"
+    assert movies[0]["file_count"] == 2

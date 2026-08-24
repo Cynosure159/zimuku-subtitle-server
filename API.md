@@ -13,6 +13,7 @@
 | DELETE | `/media/paths/{id}` | 删除扫描路径 | path: `id` |
 | PATCH | `/media/paths/{id}` | 更新路径配置 | path: `id`, query: `enabled?`, `path_type?` |
 | GET | `/media/files` | 获取扫描的文件列表 | `path_type?` |
+| GET | `/media/library` | 按电影、剧、季、集聚合媒体库，支持 NFO 标题、原始标题、别名搜索 | `level?`, `media_type?`, `query?`, `title?`, `season?`, `offset?`, `limit?` |
 | POST | `/media/files/{id}/auto-match` | 单文件自动匹配 | path: `id` |
 | POST | `/media/tv/match-season` | 剧集季批量补全 | `title`, `season` |
 | POST | `/media/match` | 触发全局扫描 | `path_type?` |
@@ -70,6 +71,13 @@ curl -X POST "http://127.0.0.1:8000/media/paths?path=/mnt/media/movies&path_type
 
 # 触发扫描
 curl -X POST "http://127.0.0.1:8000/media/match?path_type=tv"
+
+# 按剧集层级模糊搜索，避免返回每一集文件
+curl "http://127.0.0.1:8000/media/library?level=show&query=Foundation"
+
+# 在指定剧集内查询季，再按季查询集
+curl "http://127.0.0.1:8000/media/library?level=season&title=Foundation"
+curl "http://127.0.0.1:8000/media/library?level=episode&title=Foundation&season=1"
 
 # 下载字幕
 curl -X POST "http://127.0.0.1:8000/tasks/?title=xxx&source_url=https://www.zimuku.cn/..."

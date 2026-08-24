@@ -18,6 +18,7 @@ FANART_NAMES = ["fanart.jpg", "fanart.png", "backdrop.jpg", "background.jpg"]
 IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png"]
 MEDIA_ROOT_TAGS = ["movie", "tvshow", "episodedetails"]
 TXT_METADATA_KEYS = {"title", "year", "plot", "description"}
+NFO_ALIAS_TAGS = ["sorttitle", "alternativetitle", "alternative_title", "alias", "aka"]
 
 
 def _is_searchable_folder(folder: Path) -> bool:
@@ -141,8 +142,15 @@ def _extract_nfo_metadata(content: str) -> dict:
         found = element.findall(tag)
         return [f.text.strip() for f in found if f.text and f.text.strip()]
 
+    aliases = []
+    for tag in NFO_ALIAS_TAGS:
+        aliases.extend(get_all_text(target, tag))
+    aliases = list(dict.fromkeys(alias for alias in aliases if alias))
+
     metadata = {
         "title": get_text(target, "title"),
+        "original_title": get_text(target, "originaltitle"),
+        "aliases": aliases,
         "year": get_text(target, "year"),
         "plot": get_text(target, "plot"),
         "rating": get_rating(target),
