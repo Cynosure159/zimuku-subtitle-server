@@ -73,5 +73,43 @@ class ScannedFile(SQLModel, table=True):
     season: Optional[int] = None
     episode: Optional[int] = None
     has_subtitle: bool = Field(default=False)
+    # 标记所属作品接受无字幕，批量/季补全时跳过，避免重复搜索资源
+    allow_no_subtitle: bool = Field(default=False)
     series_root_path: Optional[str] = Field(default=None)  # TV series root directory
     created_at: datetime = Field(default_factory=datetime.now)
+
+
+class SubtitleAlignmentState(SQLModel, table=True):
+    """字幕与音轨对齐状态表。
+
+    以文件签名（大小 + 修改时间）校验记录有效性：
+    字幕文件一旦被修改，签名不匹配，读取时状态自动回落为 unknown。
+    """
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    subtitle_path: str = Field(index=True, unique=True)
+    file_id: Optional[int] = Field(default=None, index=True, foreign_key="scannedfile.id")
+    status: str = Field(default="unknown")  # unknown, aligned, misaligned
+    max_shift_ms: Optional[float] = None
+    mean_shift_ms: Optional[float] = None
+    size_bytes: int = 0
+    mtime_ns: int = 0
+    checked_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+
+
+class SubtitleTrash(SQLModel, table=True):
+    """字幕回收站记录表（安全保存已回收的字幕文件与元数据，支持还原）"""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    file_id: Optional[int] = Field(default=None, index=True, foreign_key="scannedfile.id")
+    media_filename: Optional[str] = None
+    subtitle_filename: str
+    original_path: str = Field(index=True)
+    trash_path: str
+    backup_original_path: Optional[str] = None
+    backup_trash_path: Optional[str] = None
+    size_bytes: int = 0
+    trashed_at: datetime = Field(default_factory=datetime.now)
+    is_restored: bool = Field(default=False)
+    restored_at: Optional[datetime] = None

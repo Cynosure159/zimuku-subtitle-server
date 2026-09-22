@@ -10,6 +10,8 @@ export interface MediaMetadata {
     genres?: string[];
     director?: string;
     runtime?: string;
+    country?: string[];
+    original_language?: string;
   } | null;
   poster_path: string | null;
   fanart_path: string | null;
@@ -25,6 +27,7 @@ export interface ScannedFile {
   season?: number | null;
   episode?: number | null;
   has_subtitle: boolean;
+  allow_no_subtitle: boolean;
   series_root_path?: string;
   type: 'movie' | 'tv';
   created_at: string;
@@ -42,6 +45,8 @@ export interface TaskStatus {
   is_scanning: boolean;
   matching_files: number[];
   matching_seasons: { title: string; season: number }[];
+  aligning_series: string[];
+  aligning_files: number[];
 }
 
 // Task Types
@@ -96,6 +101,14 @@ export interface MediaSelection {
 }
 
 // Sidebar Types
+export type AlignmentStatus = 'unknown' | 'aligned' | 'misaligned';
+
+// 单个媒体文件的字幕汇总（/media/subtitle-summary 返回值）
+export interface SubtitleSummaryEntry {
+  alignment_status: AlignmentStatus;
+  languages: string[];
+}
+
 export interface SidebarItem {
   id: string;
   displayTitle: string;
@@ -104,8 +117,49 @@ export interface SidebarItem {
   hasSubCount: number;
   poster?: string | null;
   createdAt?: string;
+  alignmentStatus?: AlignmentStatus | null;
+  languages?: string[];
+  allowNoSubtitle?: boolean;
+  isAligning?: boolean;
 }
 
 export type SortOption = 'name' | 'year' | 'created' | 'status';
 export type FilterOption = 'all' | 'missing';
 export type SortOrder = 'asc' | 'desc';
+
+// Subtitle & Alignment Types
+export interface ExistingSubtitle {
+  filename: string;
+  file_path: string;
+  format: string;
+  size_bytes: number;
+  modified_at: string;
+  filename_language?: string | null;
+  is_binary: boolean;
+  detected_language: string;
+  detected_language_name: string;
+  is_bilingual: boolean;
+  encoding: string;
+  has_backup: boolean;
+  backup_filename?: string | null;
+  alignment_status: AlignmentStatus;
+  alignment_max_shift_ms?: number | null;
+  alignment_mean_shift_ms?: number | null;
+  alignment_checked_at?: string | null;
+}
+
+export interface AlignerStatus {
+  available: boolean;
+  engine?: string | null;
+  ffmpeg_available: boolean;
+  message: string;
+}
+
+export interface SubtitleAlignResponse {
+  status: string;
+  message: string;
+  file_id?: number | null;
+  subtitle_filename: string;
+  backup_filename?: string | null;
+  has_backup: boolean;
+}

@@ -8,19 +8,33 @@ export const API_ENDPOINTS = {
   MEDIA_POSTER: '/media/poster',
   MEDIA_MATCH: '/media/match',
   MEDIA_AUTO_MATCH: (fileId: number) => `/media/files/${fileId}/auto-match`,
+  MEDIA_ALLOW_NO_SUBTITLE: '/media/works/allow-no-subtitle',
   MEDIA_TV_MATCH_SEASON: '/media/tv/match-season',
+  MEDIA_SERIES_ALIGN_SUBTITLES: '/media/series/align-subtitles',
   MEDIA_TASK_STATUS: '/media/task-status',
+  MEDIA_SUBTITLES: (fileId: number) => `/media/files/${fileId}/subtitles`,
+  MEDIA_ALIGN_SUBTITLE: (fileId: number) => `/media/files/${fileId}/align-subtitle`,
+  MEDIA_RESTORE_SUBTITLE: (fileId: number) => `/media/files/${fileId}/restore-subtitle`,
+  MEDIA_ALIGNER_STATUS: '/media/aligner/status',
+  MEDIA_SUBTITLE_SUMMARY: '/media/subtitle-summary',
 
   // Tasks
   TASKS: '/tasks/',
   TASK_RETRY: (taskId: number) => `/tasks/${taskId}/retry`,
   TASK_CLEAR_COMPLETED: '/tasks/clear-completed',
+  TASK_ALIGN_SUBTITLE: (taskId: number) => `/tasks/${taskId}/align-subtitle`,
 
   // Search
   SEARCH: '/search/',
 
   // Settings
   SETTINGS: '/settings/',
+  SETTINGS_MEDIA_SERVER_TEST: '/settings/media-server/test',
+
+  // Schedule
+  SCHEDULE_STATUS: '/schedule/status',
+  SCHEDULE_RUN_NOW: '/schedule/run-now',
+  SCHEDULE_FEISHU_TEST: '/schedule/feishu/test',
 
   // System
   SUBTITLE_LANGUAGES: '/system/subtitle-languages',

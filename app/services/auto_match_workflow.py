@@ -1,9 +1,10 @@
 import asyncio
+import json
 import logging
 import re
 import shutil
 from contextlib import AbstractContextManager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Awaitable, Callable, List, Optional
 
@@ -11,6 +12,7 @@ from sqlmodel import Session, col, or_, select
 
 from ..core.archive import ArchiveManager
 from ..core.config import get_temp_path
+from ..core.mediaserver import UnwatchedIndex
 from ..core.observability import log_context
 from ..core.scraper import ZimukuAgent
 from ..db.models import ScannedFile
@@ -24,6 +26,51 @@ def normalize_media_title(title: str) -> str:
     return re.sub(r"\s*\(\d{4}\)", "", title).strip()
 
 
+_SEASON_LABEL_SUFFIX_PATTERN = re.compile(r"\s+S\d{2}$")
+
+
+def format_work_label(title: str, season: Optional[int]) -> str:
+    """作品显示标签：剧集按季展示（如 "剧名 S02"），电影或无季信息时用标题本身。"""
+    if season is None:
+        return title
+    return f"{title} S{season:02d}"
+
+
+def work_label_base_title(label: str) -> str:
+    """从作品显示标签还原媒体服务器查询用的基础标题（去除季后缀）。"""
+    return _SEASON_LABEL_SUFFIX_PATTERN.sub("", label)
+
+
+def build_search_queries(
+    extracted_title: Optional[str],
+    nfo_title: Optional[str] = None,
+    nfo_original_title: Optional[str] = None,
+    nfo_aliases: Optional[str] = None,
+) -> List[str]:
+    """构建按优先级排序、去重后的搜索词列表。
+
+    优先使用 NFO 元数据（nfo_title → nfo_original_title → aliases），
+    最后回退到目录名提取的 extracted_title。
+    """
+    aliases: List[str] = []
+    if nfo_aliases:
+        try:
+            parsed = json.loads(nfo_aliases)
+            if isinstance(parsed, list):
+                aliases = [str(alias) for alias in parsed]
+        except (ValueError, TypeError):
+            logger.debug("nfo_aliases JSON 解析失败，忽略: %s", nfo_aliases)
+
+    queries: List[str] = []
+    for candidate in [nfo_title, nfo_original_title, *aliases, extracted_title]:
+        if not candidate:
+            continue
+        normalized = normalize_media_title(candidate)
+        if normalized and normalized not in queries:
+            queries.append(normalized)
+    return queries
+
+
 @dataclass
 class FileMatchContext:
     file_path: str
@@ -32,6 +79,7 @@ class FileMatchContext:
     media_type: str
     season: Optional[int]
     episode: Optional[int]
+    search_queries: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -93,6 +141,12 @@ class AutoMatchWorkflow:
                 media_type=file_record.type,
                 season=file_record.season,
                 episode=file_record.episode,
+                search_queries=build_search_queries(
+                    extracted_title=file_record.extracted_title,
+                    nfo_title=file_record.nfo_title,
+                    nfo_original_title=file_record.nfo_original_title,
+                    nfo_aliases=file_record.nfo_aliases,
+                ),
             )
 
     def mark_file_has_subtitle(self, file_id: int):
@@ -116,27 +170,33 @@ class AutoMatchWorkflow:
         if not file_context:
             return False
 
-        query = normalize_media_title(file_context.extracted_title)
         season, episode = self._resolve_episode_context(file_context)
 
         with log_context(correlation_id=f"auto-{file_id}", job_name="auto-match", entity_id=str(file_id)):
             logger.info("开始自动匹配: %s", file_context.filename)
             agent = self._agent_factory()
             try:
-                results = await agent.search(query, season=season, episode=episode)
+                results = await self._search_with_fallback_queries(agent, file_context, season, episode)
                 if not results:
-                    logger.info("自动匹配无搜索结果 query=%s", query)
                     return False
 
                 for attempt_index, best_match in enumerate(results[:5]):
                     logger.info("尝试候选字幕 attempt=%s link=%s", attempt_index + 1, best_match.link)
-                    if await self._try_candidate(
-                        agent=agent,
-                        file_id=file_id,
-                        file_context=file_context,
-                        match_link=best_match.link,
-                        attempt_index=attempt_index,
-                    ):
+                    try:
+                        matched = await self._try_candidate(
+                            agent=agent,
+                            file_id=file_id,
+                            file_context=file_context,
+                            match_link=best_match.link,
+                            attempt_index=attempt_index,
+                        )
+                    except Exception as exc:
+                        # 单个候选处理失败（如下载到损坏压缩包）不应中断后续候选重试
+                        logger.warning(
+                            "候选字幕处理异常 attempt=%s link=%s: %s", attempt_index + 1, best_match.link, exc
+                        )
+                        continue
+                    if matched:
                         logger.info("成功为 %s 匹配字幕", file_context.filename)
                         return True
 
@@ -144,6 +204,24 @@ class AutoMatchWorkflow:
                 return False
             finally:
                 await agent.close()
+
+    async def _search_with_fallback_queries(
+        self,
+        agent: ZimukuAgent,
+        file_context: FileMatchContext,
+        season: Optional[int],
+        episode: Optional[int],
+    ):
+        """按优先级依次尝试搜索词，返回第一个有结果的搜索词对应的结果列表。"""
+        queries = file_context.search_queries or [normalize_media_title(file_context.extracted_title)]
+        for query in queries:
+            results = await agent.search(query, season=season, episode=episode)
+            if results:
+                if query != queries[0]:
+                    logger.info("回退搜索词命中 query=%s", query)
+                return results
+            logger.info("自动匹配无搜索结果 query=%s", query)
+        return []
 
     async def _try_candidate(
         self,
@@ -220,6 +298,21 @@ class AutoMatchWorkflow:
         return sorted(candidates, key=lambda candidate: candidate.score, reverse=True)
 
 
+@dataclass
+class BatchMatchStats:
+    """批量补全运行结果"""
+
+    total: int = 0
+    matched: int = 0
+    failed_files: List[str] = field(default_factory=list)
+    titles: List[str] = field(default_factory=list)
+    remaining_works: int = 0
+
+    @property
+    def failed(self) -> int:
+        return len(self.failed_files)
+
+
 class SeasonMatchWorkflow:
     def __init__(
         self,
@@ -243,6 +336,7 @@ class SeasonMatchWorkflow:
                 ScannedFile.type == "tv",
                 ScannedFile.season == season,
                 col(ScannedFile.has_subtitle).is_(False),
+                col(ScannedFile.allow_no_subtitle).is_(False),
             )
             files = session.exec(statement).all()
             return [file_record.id for file_record in files if file_record.id is not None]
@@ -263,3 +357,120 @@ class SeasonMatchWorkflow:
                 await self._auto_match_runner(file_id)
                 await self._sleep(2)
             logger.debug("季匹配完成: title=%s, season=%s", title, season)
+
+
+class LibraryMatchWorkflow:
+    """全库批量补全：对缺失字幕的作品执行自动匹配。
+
+    作品单位：剧集按「一季」计（同一标题的不同季是不同作品），电影按「一部」计。
+    按 ``max_works`` 限制每次运行处理的作品数量（0 表示不限），避免单次运行请求过多导致封禁。
+    作品优先级：媒体服务器（Jellyfin/Emby/Plex）未观看的作品最优先（需启用联动且拉取成功），
+    其次是有 NFO 元数据的作品，最后按缺字幕文件数降序、标题升序兜底。
+    """
+
+    def __init__(
+        self,
+        session_factory: Callable[[], AbstractContextManager[Session]],
+        auto_match_runner: Callable[[int], Awaitable[bool]],
+        sleep_func: Callable[[float], Awaitable[None]] = asyncio.sleep,
+        max_works: int = 0,
+        unwatched: Optional[UnwatchedIndex] = None,
+    ):
+        self._session_factory = session_factory
+        self._auto_match_runner = auto_match_runner
+        self._sleep = sleep_func
+        self._max_works = max_works
+        self._unwatched = unwatched
+
+    def load_pending_files(self) -> List[tuple[int, str]]:
+        with self._session_factory() as session:
+            statement = select(ScannedFile).where(
+                col(ScannedFile.has_subtitle).is_(False),
+                col(ScannedFile.allow_no_subtitle).is_(False),
+            )
+            files = session.exec(statement).all()
+            return [(file_record.id, file_record.filename) for file_record in files if file_record.id is not None]
+
+    def load_pending_groups(self) -> tuple[dict[tuple[str, Optional[int]], List[tuple[int, str]]], set[str]]:
+        """按作品分组缺失字幕的文件（跳过允许无字幕的作品）。
+
+        作品分组键为 (规范化标题, 季号)：剧集每一季是一个作品，电影（季号为 None）一部是一个作品。
+        返回 (分组, 含 NFO 元数据的作品标题集合)：任一缺字幕文件带 nfo_title
+        或 nfo_original_title 即视为该作品可检索到 NFO 元数据。
+        """
+        with self._session_factory() as session:
+            statement = select(ScannedFile).where(
+                col(ScannedFile.has_subtitle).is_(False),
+                col(ScannedFile.allow_no_subtitle).is_(False),
+            )
+            files = session.exec(statement).all()
+
+        groups: dict[tuple[str, Optional[int]], List[tuple[int, str]]] = {}
+        nfo_titles: set[str] = set()
+        for file_record in files:
+            if file_record.id is None:
+                continue
+            title = normalize_media_title(file_record.extracted_title or file_record.filename)
+            groups.setdefault((title, file_record.season), []).append((file_record.id, file_record.filename))
+            if file_record.nfo_title or file_record.nfo_original_title:
+                nfo_titles.add(title)
+        return groups, nfo_titles
+
+    def _unwatched_titles(self, groups: dict[tuple[str, Optional[int]], List[tuple[int, str]]]) -> set[str]:
+        """返回命中媒体服务器未观看索引的作品标题集合（未启用/拉取失败时为空）。"""
+        if not self._unwatched:
+            return set()
+        return {title for title, _season in groups if self._unwatched.matches(title)}
+
+    def select_works(
+        self,
+        groups: dict[tuple[str, Optional[int]], List[tuple[int, str]]],
+        nfo_titles: set[str],
+    ) -> tuple[List[tuple[tuple[str, Optional[int]], List]], int]:
+        """按媒体服务器未观看优先 → NFO 元数据优先 → 缺字幕文件数降序（标题、季号升序兜底）选择本次运行的作品，
+        返回 (选中项, 剩余作品数)。"""
+        unwatched_titles = self._unwatched_titles(groups)
+        if unwatched_titles:
+            logger.info("媒体服务器未观看作品优先补全: %s", sorted(unwatched_titles))
+        ordered = sorted(
+            groups.items(),
+            key=lambda item: (
+                item[0][0] not in unwatched_titles,
+                item[0][0] not in nfo_titles,
+                -len(item[1]),
+                item[0][0],
+                item[0][1] or 0,
+            ),
+        )
+        if self._max_works <= 0:
+            return ordered, 0
+        return ordered[: self._max_works], max(0, len(ordered) - self._max_works)
+
+    async def run(self) -> BatchMatchStats:
+        groups, nfo_titles = self.load_pending_groups()
+        selected, remaining = self.select_works(groups, nfo_titles)
+        stats = BatchMatchStats(
+            total=sum(len(files) for _, files in selected),
+            titles=[format_work_label(title, season) for (title, season), _ in selected],
+            remaining_works=remaining,
+        )
+        if not selected:
+            logger.debug("批量补全：没有缺失字幕的文件")
+            return stats
+
+        with log_context(correlation_id=f"library-{stats.total}", job_name="library-match"):
+            logger.info(
+                "批量补全开始：作品=%s，共 %s 个缺失字幕文件，剩余 %s 部作品待后续运行",
+                stats.titles,
+                stats.total,
+                remaining,
+            )
+            for _, files in selected:
+                for file_id, filename in files:
+                    if await self._auto_match_runner(file_id):
+                        stats.matched += 1
+                    else:
+                        stats.failed_files.append(filename)
+                    await self._sleep(2)
+            logger.info("批量补全完成：成功 %s / 失败 %s", stats.matched, stats.failed)
+        return stats

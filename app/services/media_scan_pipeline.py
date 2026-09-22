@@ -10,6 +10,7 @@ from sqlmodel import Session, col, select
 from ..core.metadata import find_nfo_file, parse_nfo
 from ..core.utils import check_has_subtitle, parse_media_filename
 from ..db.models import MediaPath, ScannedFile
+from .auto_match_workflow import normalize_media_title
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +41,10 @@ class MediaScanPipeline:
 
     def run(self) -> None:
         self.cleanup_orphan_records()
-        self.cleanup_missing_files()
 
         media_paths = self.load_enabled_paths()
+        self.cleanup_missing_files(media_paths)
+
         if not media_paths:
             return
 
@@ -61,8 +63,22 @@ class MediaScanPipeline:
             self.session.add(media_path)
 
         self.cleanup_records_missing_from_discovery(discovered_files, existing_records, scanned_path_ids)
-        self.reconcile_records(discovered_files, existing_records)
+        flagged_work_keys = self.load_flagged_work_keys()
+        self.reconcile_records(discovered_files, existing_records, flagged_work_keys)
         self.session.commit()
+
+    @staticmethod
+    def build_work_key(media_type: str, title: Optional[str], filename: str) -> tuple[str, str]:
+        """作品级标记键：媒体类型 + 规范化标题（与去年份标题的匹配口径一致）。"""
+        return (media_type, normalize_media_title(title or filename))
+
+    def load_flagged_work_keys(self) -> Set[tuple[str, str]]:
+        """加载所有被标记「允许无字幕」的作品键，供新扫描文件继承标记。"""
+        statement = select(ScannedFile).where(col(ScannedFile.allow_no_subtitle).is_(True))
+        return {
+            self.build_work_key(record.type, record.extracted_title, record.filename)
+            for record in self.session.exec(statement).all()
+        }
 
     def cleanup_orphan_records(self) -> None:
         path_ids = [path_id for path_id in self.session.exec(select(MediaPath.id)).all() if path_id is not None]
@@ -78,13 +94,33 @@ class MediaScanPipeline:
             logger.info(f"清理了 {len(orphan_files)} 条孤儿文件记录")
             self.session.commit()
 
-    def cleanup_missing_files(self) -> None:
+    @staticmethod
+    def is_path_accessible(media_path: MediaPath) -> bool:
+        scan_dir = Path(media_path.path)
+        return scan_dir.exists() and scan_dir.is_dir()
+
+    def cleanup_missing_files(self, media_paths: Sequence[MediaPath]) -> None:
+        # 挂载点缺失（如磁盘未挂载、容器挂载配置丢失）时，媒体根目录整体不可访问，
+        # 其下文件必然全部"不存在"，若照常清理会误删全部记录；此时跳过这些路径的清理
+        inaccessible_ids = {
+            media_path.id
+            for media_path in media_paths
+            if media_path.id is not None and not self.is_path_accessible(media_path)
+        }
+        if inaccessible_ids:
+            logger.warning(
+                "媒体路径不可访问，跳过其文件记录清理: %s",
+                [media_path.path for media_path in media_paths if media_path.id in inaccessible_ids],
+            )
+
         statement = select(ScannedFile)
         if self.path_type:
             statement = statement.where(ScannedFile.type == self.path_type)
 
         removed_files = []
         for scanned_file in self.session.exec(statement).all():
+            if scanned_file.path_id in inaccessible_ids:
+                continue
             if not Path(scanned_file.file_path).exists():
                 self.session.delete(scanned_file)
                 removed_files.append(scanned_file)
@@ -110,8 +146,9 @@ class MediaScanPipeline:
     def discover_path(self, media_path: MediaPath) -> Optional[List[DiscoveredMediaFile]]:
         scan_dir = Path(media_path.path)
         if not scan_dir.exists() or not scan_dir.is_dir():
-            logger.debug(f"路径不存在或不是目录: {media_path.path}")
-            return []
+            # 返回 None 让调用方跳过该路径的清理与扫描，避免挂载缺失时误删记录
+            logger.warning(f"媒体路径不可访问，跳过扫描: {media_path.path}")
+            return None
 
         logger.info(f"扫描路径: {media_path.path}")
         logger.debug(f"开始扫描路径: {media_path.path}")
@@ -209,11 +246,18 @@ class MediaScanPipeline:
         self,
         discovered_files: Sequence[DiscoveredMediaFile],
         existing_records: Dict[str, ScannedFile],
+        flagged_work_keys: Optional[Set[tuple[str, str]]] = None,
     ) -> None:
+        flagged_work_keys = flagged_work_keys or set()
         for discovered in discovered_files:
             existing_file = existing_records.get(discovered.file_path)
             if existing_file is None:
-                existing_file = self.create_scanned_file(discovered)
+                # 新文件继承同作品已有的「允许无字幕」标记，避免新增剧集/版本被重复补全
+                allow_no_subtitle = (
+                    self.build_work_key(discovered.media_type, discovered.extracted_title, discovered.filename)
+                    in flagged_work_keys
+                )
+                existing_file = self.create_scanned_file(discovered, allow_no_subtitle=allow_no_subtitle)
             else:
                 self.apply_discovered_fields(existing_file, discovered)
 
@@ -241,7 +285,7 @@ class MediaScanPipeline:
             logger.info(f"清理了 {len(removed_files)} 条本次扫描未发现的旧文件记录")
 
     @staticmethod
-    def create_scanned_file(discovered: DiscoveredMediaFile) -> ScannedFile:
+    def create_scanned_file(discovered: DiscoveredMediaFile, allow_no_subtitle: bool = False) -> ScannedFile:
         return ScannedFile(
             path_id=discovered.path_id,
             type=discovered.media_type,
@@ -255,6 +299,7 @@ class MediaScanPipeline:
             season=discovered.season,
             episode=discovered.episode,
             has_subtitle=discovered.has_subtitle,
+            allow_no_subtitle=allow_no_subtitle,
             series_root_path=discovered.series_root_path,
         )
 

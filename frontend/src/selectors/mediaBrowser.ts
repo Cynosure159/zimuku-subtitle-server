@@ -1,6 +1,14 @@
 import { getMediaPosterUrl } from '../api';
 import { parseMediaYear } from '../lib/mediaUtils';
-import type { MediaMetadata, SidebarItem, SortOption, SortOrder, TaskStatus } from '../types/api';
+import type {
+  AlignmentStatus,
+  MediaMetadata,
+  SidebarItem,
+  SortOption,
+  SortOrder,
+  SubtitleSummaryEntry,
+  TaskStatus,
+} from '../types/api';
 import type { MovieGroup, TvGroup } from './mediaGrouping';
 
 export interface SidebarEntry<TGroup extends MovieGroup | TvGroup> {
@@ -26,6 +34,51 @@ export function isMovieGroup(group: MovieGroup | TvGroup): group is MovieGroup {
   return 'files' in group;
 }
 
+// 单作品多文件聚合时的状态优先级（数值越大越差）
+const ALIGNMENT_SEVERITY: Record<AlignmentStatus, number> = {
+  aligned: 0,
+  unknown: 1,
+  misaligned: 2,
+};
+
+export interface GroupSubtitleSummary {
+  alignmentStatus: AlignmentStatus | null;
+  languages: string[];
+}
+
+export function getGroupSubtitleSummary(
+  group: MovieGroup | TvGroup,
+  summaryByFileId: Record<string, SubtitleSummaryEntry> | undefined
+): GroupSubtitleSummary {
+  // 只统计有字幕且未标记「允许无字幕」的文件；已标记的作品不展示对齐/语言标签，
+  // 与后端缺字幕统计口径一致（media_service 将 allow_no_subtitle 文件排除在缺失之外）。
+  const files = isMovieGroup(group) ? group.files : Object.values(group.seasons).flat();
+  const filesWithSubtitle = files.filter(file => file.has_subtitle && !file.allow_no_subtitle);
+
+  if (filesWithSubtitle.length === 0) {
+    return { alignmentStatus: null, languages: [] };
+  }
+
+  const statuses = filesWithSubtitle.map(
+    file => summaryByFileId?.[String(file.id)]?.alignment_status ?? 'unknown'
+  );
+  const alignmentStatus = statuses.reduce((worst, status) =>
+    ALIGNMENT_SEVERITY[status] > ALIGNMENT_SEVERITY[worst] ? status : worst
+  );
+
+  // 语言取所有文件字幕语言的并集，保持首次出现顺序
+  const languages: string[] = [];
+  for (const file of filesWithSubtitle) {
+    for (const language of summaryByFileId?.[String(file.id)]?.languages ?? []) {
+      if (!languages.includes(language)) {
+        languages.push(language);
+      }
+    }
+  }
+
+  return { alignmentStatus, languages };
+}
+
 export function buildSidebarItem(
   group: MovieGroup | TvGroup,
   metadata?: MediaMetadata
@@ -43,6 +96,7 @@ export function buildSidebarItem(
     hasSubCount: group.hasSubCount,
     poster: posterUrl,
     createdAt: group.createdAt,
+    allowNoSubtitle: group.allowNoSubtitle,
   };
 }
 
@@ -169,4 +223,15 @@ export function isSelectedSeasonMatching(
   return status.matching_seasons.some(
     season => season.title === selectedSeries.title && season.season === selectedSeason
   );
+}
+
+export function isSelectedSeriesAligning(
+  status: TaskStatus,
+  selectedSeries: TvGroup | undefined
+): boolean {
+  if (!selectedSeries) {
+    return false;
+  }
+
+  return status.aligning_series.includes(selectedSeries.title);
 }

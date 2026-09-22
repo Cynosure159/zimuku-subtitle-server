@@ -88,6 +88,39 @@ async def test_scan_persists_nfo_search_fields(tmp_path):
 
 
 @pytest.mark.anyio
+async def test_scan_preserves_records_when_media_root_inaccessible(tmp_path):
+    """媒体根目录不可访问（如挂载缺失）时，其下记录不得被清理，避免误删全库。"""
+    missing_root = tmp_path / "unmounted"
+    fake_path = missing_root / "Show" / "Show.S01E01.mkv"
+
+    with Session(engine) as session:
+        media_path = MediaPath(path=str(missing_root), type="tv", enabled=True)
+        session.add(media_path)
+        session.commit()
+        session.refresh(media_path)
+        session.add(
+            ScannedFile(
+                path_id=media_path.id,
+                file_path=str(fake_path),
+                filename=fake_path.name,
+                extracted_title="Show",
+                type="tv",
+                allow_no_subtitle=True,
+            )
+        )
+        session.commit()
+
+    await MediaService.run_media_scan_and_match("tv")
+
+    with Session(engine) as session:
+        files = session.exec(select(ScannedFile)).all()
+
+    assert len(files) == 1
+    assert files[0].filename == fake_path.name
+    assert files[0].allow_no_subtitle is True
+
+
+@pytest.mark.anyio
 async def test_cleanup_non_existent_files(temp_media_dir):
     fake_path = temp_media_dir / "non_existent.mkv"
 
@@ -214,6 +247,43 @@ async def test_scan_rules_are_explicit_for_movie_and_tv(tmp_path):
 
 
 @pytest.mark.anyio
+async def test_scan_new_files_inherit_allow_no_subtitle_flag(tmp_path):
+    tv_root = tmp_path / "tv"
+    show_dir = tv_root / "Severance"
+    show_dir.mkdir(parents=True)
+    (show_dir / "Severance.S01E01.mkv").touch()
+    (show_dir / "Severance.S01E02.mkv").touch()
+
+    with Session(engine) as session:
+        media_path = MediaPath(path=str(tv_root), type="tv", enabled=True)
+        session.add(media_path)
+        session.commit()
+        session.refresh(media_path)
+        session.add(
+            ScannedFile(
+                path_id=media_path.id,
+                file_path=str(show_dir / "Severance.S01E01.mkv"),
+                filename="Severance.S01E01.mkv",
+                extracted_title="Severance",
+                type="tv",
+                season=1,
+                episode=1,
+                allow_no_subtitle=True,
+            )
+        )
+        session.commit()
+
+    await MediaService.run_media_scan_and_match("tv")
+
+    with Session(engine) as session:
+        new_file = session.exec(select(ScannedFile).where(ScannedFile.filename == "Severance.S01E02.mkv")).one()
+        old_file = session.exec(select(ScannedFile).where(ScannedFile.filename == "Severance.S01E01.mkv")).one()
+
+    assert new_file.allow_no_subtitle is True
+    assert old_file.allow_no_subtitle is True
+
+
+@pytest.mark.anyio
 async def test_media_scan_avoids_per_file_database_lookups(tmp_path, monkeypatch):
     movie_root = tmp_path / "movies"
     movie_root.mkdir()
@@ -245,4 +315,5 @@ async def test_media_scan_avoids_per_file_database_lookups(tmp_path, monkeypatch
         files = session.exec(select(ScannedFile)).all()
 
     assert len(files) == 20
-    assert exec_calls <= 4
+    # 扫描主流程 4 次常量查询（含「允许无字幕」标记加载）+ 本测试自身 1 次校验查询
+    assert exec_calls <= 5

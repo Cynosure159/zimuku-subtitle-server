@@ -39,3 +39,9 @@ status-cache.json
 htmlcov/
 .mypy_cache/
 .eslintcache
+storage/trash/
+storage/*.db-shm
+storage/*.db-wal
+
+# runtime logs
+logs/

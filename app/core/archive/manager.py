@@ -1,5 +1,6 @@
 import logging
 import os
+import subprocess
 import zipfile
 from pathlib import Path
 from typing import List, Optional
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 class ArchiveManager:
     """压缩包管理器，支持解压并修复文件名乱码"""
 
-    SUPPORTED_ARCHIVE_EXTENSIONS = (".zip", ".7z")
+    SUPPORTED_ARCHIVE_EXTENSIONS = (".zip", ".7z", ".rar")
 
     @staticmethod
     def _resolve_safe_target(base_dir: str, relative_name: str) -> Path:
@@ -42,6 +43,22 @@ class ArchiveManager:
         return filename
 
     @staticmethod
+    def _sniff_format(file_path: str) -> Optional[str]:
+        """按文件头魔数识别压缩格式（站点上存在扩展名与实际格式不符的包，如 .zip 实为 RAR）。"""
+        try:
+            with open(file_path, "rb") as f:
+                magic = f.read(8)
+        except OSError:
+            return None
+        if magic.startswith(b"Rar!\x1a\x07"):
+            return "rar"
+        if magic.startswith(b"7z\xbc\xaf\x27\x1c"):
+            return "7z"
+        if magic[:2] == b"PK":
+            return "zip"
+        return None
+
+    @staticmethod
     def extract(
         file_path: str,
         extract_to: str,
@@ -55,10 +72,23 @@ class ArchiveManager:
 
         os.makedirs(extract_to, exist_ok=True)
 
-        if file_path.lower().endswith(".zip"):
+        archive_format = ArchiveManager._sniff_format(file_path)
+        if archive_format is None:
+            # 魔数无法识别时回退到扩展名判断（如空 ZIP 包）
+            lower_path = file_path.lower()
+            if lower_path.endswith(".zip"):
+                archive_format = "zip"
+            elif lower_path.endswith(".7z"):
+                archive_format = "7z"
+            elif lower_path.endswith(".rar"):
+                archive_format = "rar"
+
+        if archive_format == "zip":
             return ArchiveManager._extract_zip(file_path, extract_to, max_files, max_total_size)
-        if file_path.lower().endswith(".7z"):
+        if archive_format == "7z":
             return ArchiveManager._extract_7z(file_path, extract_to, max_files, max_total_size)
+        if archive_format == "rar":
+            return ArchiveManager._extract_rar(file_path, extract_to, max_files, max_total_size)
 
         logger.warning(f"Unsupported archive format: {file_path}")
         return []
@@ -138,6 +168,47 @@ class ArchiveManager:
                         raise ValueError(f"Archive is too large after extraction: {extracted_size} > {max_total_size}")
                     extracted_files.append(str(full_path))
                     logger.info(f"Extracted (7z): {name}")
+
+        return extracted_files
+
+    @staticmethod
+    def _extract_rar(
+        file_path: str,
+        extract_to: str,
+        max_files: Optional[int] = None,
+        max_total_size: Optional[int] = None,
+    ) -> List[str]:
+        # rarfile 库对 7zz/bsdtar 后端的输出解析在此场景不可靠，直接调用 bsdtar（libarchive）解压；
+        # 先列出条目做路径安全校验，再整体解压
+        list_proc = subprocess.run(["bsdtar", "-tf", file_path], capture_output=True, text=True)
+        if list_proc.returncode != 0:
+            raise ValueError(f"Failed to list RAR archive: {list_proc.stderr.strip()}")
+
+        names = [line.strip() for line in list_proc.stdout.splitlines() if line.strip()]
+        file_names = [name for name in names if not name.endswith("/")]
+        if max_files is not None and len(file_names) > max_files:
+            raise ValueError(f"Archive contains too many files: {len(file_names)} > {max_files}")
+
+        for name in names:
+            relative_name = ArchiveManager._normalize_archive_name(name)
+            if relative_name is None:
+                raise ValueError(f"Unsafe archive entry: {name}")
+            ArchiveManager._resolve_safe_target(extract_to, str(relative_name))
+
+        extract_proc = subprocess.run(["bsdtar", "-xf", file_path, "-C", extract_to], capture_output=True, text=True)
+        if extract_proc.returncode != 0:
+            raise ValueError(f"Failed to extract RAR archive: {extract_proc.stderr.strip()}")
+
+        extracted_files = []
+        extracted_size = 0
+        for name in file_names:
+            full_path = ArchiveManager._resolve_safe_target(extract_to, name)
+            if os.path.isfile(full_path):
+                extracted_size += os.path.getsize(full_path)
+                if max_total_size is not None and extracted_size > max_total_size:
+                    raise ValueError(f"Archive is too large after extraction: {extracted_size} > {max_total_size}")
+                extracted_files.append(str(full_path))
+                logger.info(f"Extracted (rar): {name}")
 
         return extracted_files
 

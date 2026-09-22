@@ -33,6 +33,13 @@ RUN pip install -r requirements.txt
 
 FROM python-base AS runtime-base
 
+# ffmpeg 用于音轨对齐；libarchive-tools（bsdtar）用于 RAR 字幕包解压
+RUN apk add --no-cache ffmpeg libarchive-tools
+
+# 音轨对齐引擎：alass 静态二进制（仅 x86_64；其他架构可通过 ZIMUKU_ALASS_PATH 外挂）
+COPY docker/binaries/alass /usr/local/bin/alass
+RUN chmod +x /usr/local/bin/alass
+
 RUN addgroup -g 1000 -S appgroup && \
     adduser -u 1000 -S -D -h /home/appuser -s /sbin/nologin -G appgroup appuser
 

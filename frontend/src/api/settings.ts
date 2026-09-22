@@ -13,3 +13,13 @@ export async function updateSetting(
 ): Promise<void> {
   return postData(API_ENDPOINTS.SETTINGS, { key, value, description });
 }
+
+export interface MediaServerTestResult {
+  status: string;
+  message: string;
+  connected: boolean;
+}
+
+export async function testMediaServerConnection(): Promise<MediaServerTestResult> {
+  return postData(API_ENDPOINTS.SETTINGS_MEDIA_SERVER_TEST);
+}

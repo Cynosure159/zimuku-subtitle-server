@@ -5,6 +5,8 @@ export const queryKeys = {
     files: (pathType?: 'movie' | 'tv') => [...queryKeys.media.all, 'files', pathType ?? 'all'] as const,
     metadata: (fileId: number | null) => [...queryKeys.media.all, 'metadata', fileId] as const,
     taskStatus: () => [...queryKeys.media.all, 'task-status'] as const,
+    subtitleSummary: (mediaType: 'movie' | 'tv') =>
+      [...queryKeys.media.all, 'subtitle-summary', mediaType] as const,
   },
   tasks: {
     all: ['tasks'] as const,
@@ -13,6 +15,10 @@ export const queryKeys = {
   settings: {
     all: ['settings'] as const,
     list: () => [...queryKeys.settings.all, 'list'] as const,
+  },
+  schedule: {
+    all: ['schedule'] as const,
+    status: () => [...queryKeys.schedule.all, 'status'] as const,
   },
   system: {
     all: ['system'] as const,

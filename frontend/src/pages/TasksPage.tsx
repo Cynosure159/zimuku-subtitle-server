@@ -1,12 +1,15 @@
+import { useState } from 'react';
 import { RefreshCw, Trash2, CheckCircle2, XCircle, Clock, Save, History, Terminal } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { Task } from '../api';
+import { alignTaskSubtitle, type Task } from '../api';
 import {
   useClearCompletedTasksMutation,
   useDeleteTaskMutation,
   useRetryTaskMutation,
   useTasksQuery,
 } from '../hooks/queries';
+import { useToast } from '../hooks/useToast';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 function TaskSkeleton(): React.JSX.Element {
   return (
@@ -70,6 +73,7 @@ function getTaskStatusDotClass(status: Task['status']): string {
 
 export default function TasksPage() {
   const { t } = useTranslation();
+  const { showToast } = useToast();
   const tasksQuery = useTasksQuery({
     refetchInterval: 3000,
   });
@@ -78,19 +82,45 @@ export default function TasksPage() {
   const clearCompletedTasksMutation = useClearCompletedTasksMutation();
   const tasks = tasksQuery.data?.items ?? [];
   const loading = tasksQuery.isLoading;
+  const [aligningTaskId, setAligningTaskId] = useState<number | null>(null);
 
-  const handleDelete = async (id: number): Promise<void> => {
-    if (!window.confirm(t('confirm.deleteTask'))) return;
-    await deleteTaskMutation.mutateAsync(id);
+  const handleAlignTask = async (id: number): Promise<void> => {
+    setAligningTaskId(id);
+    try {
+      const res = await alignTaskSubtitle(id);
+      showToast(res.message || t('subtitles.alignSuccess'), 'success');
+      await tasksQuery.refetch();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      showToast(t('mediaConfig.triggerFailed') + ': ' + msg, 'error');
+    } finally {
+      setAligningTaskId(null);
+    }
+  };
+
+  const [confirmAction, setConfirmAction] = useState<{ kind: 'delete' | 'clear'; id?: number } | null>(null);
+
+  const handleDelete = (id: number): void => {
+    setConfirmAction({ kind: 'delete', id });
   };
 
   const handleRetry = async (id: number): Promise<void> => {
     await retryTaskMutation.mutateAsync(id);
   };
 
-  const handleClear = async (): Promise<void> => {
-    if (!window.confirm(t('confirm.clearCompleted'))) return;
-    await clearCompletedTasksMutation.mutateAsync();
+  const handleClear = (): void => {
+    setConfirmAction({ kind: 'clear' });
+  };
+
+  const handleConfirmAction = async (): Promise<void> => {
+    const action = confirmAction;
+    setConfirmAction(null);
+    if (!action) return;
+    if (action.kind === 'delete' && action.id !== undefined) {
+      await deleteTaskMutation.mutateAsync(action.id);
+    } else if (action.kind === 'clear') {
+      await clearCompletedTasksMutation.mutateAsync();
+    }
   };
 
   return (
@@ -171,6 +201,20 @@ export default function TasksPage() {
                 </div>
 
                 <div className="flex items-center gap-3 relative z-10 ml-6">
+                  {task.status === 'completed' && (
+                    <button
+                      onClick={() => handleAlignTask(task.id)}
+                      disabled={aligningTaskId === task.id}
+                      className="w-10 h-10 flex items-center justify-center rounded-xl bg-primary/10 text-primary hover:bg-primary hover:text-on-primary transition-all duration-300 shadow-lg shadow-primary/10 disabled:opacity-50"
+                      title={t('subtitles.align')}
+                    >
+                      {aligningTaskId === task.id ? (
+                        <RefreshCw className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <span className="material-symbols-outlined text-xl">graphic_eq</span>
+                      )}
+                    </button>
+                  )}
                   {task.status === 'failed' && (
                     <button
                       onClick={() => handleRetry(task.id)}
@@ -196,6 +240,14 @@ export default function TasksPage() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={confirmAction !== null}
+        message={confirmAction?.kind === 'clear' ? t('confirm.clearCompleted') : t('confirm.deleteTask')}
+        danger
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={() => void handleConfirmAction()}
+      />
     </div>
   );
 }

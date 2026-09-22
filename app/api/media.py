@@ -4,22 +4,42 @@ from fastapi import APIRouter, BackgroundTasks, Body, Depends, Query
 from fastapi.responses import FileResponse
 from sqlmodel import Session
 
+from ..core.system_load import ensure_system_not_busy
 from ..db.models import MediaPath, ScannedFile, SubtitleTask
 from ..db.session import get_session
 from ..services.media_service import MediaService, global_task_status
 from ..services.metadata_service import MetadataService
-from ..services.subtitle_inspection_service import SubtitleInspectionService
+from ..services.subtitle_align_service import SubtitleAlignService
+from ..services.subtitle_inspection_service import SubtitleInspectionService, get_subtitle_summary_cached
+from ..services.subtitle_trash_service import SubtitleTrashService
 from ..services.task_service import TaskService
 from .errors import raise_for_service_error
 from .schemas import (
     ActionResponse,
+    AlignerStatusResponse,
     ExistingSubtitleResponse,
     FileSubtitleDownloadRequest,
     MediaListResponse,
     MediaMetadataResponse,
     SeasonMatchRequest,
+    SeriesAlignRequest,
+    SubtitleAlignmentCheckRequest,
+    SubtitleAlignmentCheckResponse,
+    SubtitleAlignRequest,
+    SubtitleAlignResponse,
     SubtitleContentResponse,
+    SubtitleRestoreRequest,
+    SubtitleSummaryResponse,
+    SubtitleTrashItem,
+    SubtitleTrashListResponse,
+    SubtitleTrashPurgeRequest,
+    SubtitleTrashPurgeResponse,
+    SubtitleTrashRequest,
+    SubtitleTrashResponse,
+    SubtitleTrashRestoreRequest,
+    SubtitleTrashRestoreResponse,
     TaskTriggerResponse,
+    WorkAllowNoSubtitleRequest,
 )
 
 router = APIRouter(prefix="/media", tags=["Media"])
@@ -96,6 +116,20 @@ async def list_scanned_files(
     return MediaService.list_files_paginated(session, path_type, offset, limit)
 
 
+@router.get("/subtitle-summary", response_model=dict[int, SubtitleSummaryResponse])
+def get_media_subtitle_summary(
+    media_type: Literal["movie", "tv"] = Query(default="tv"),
+    session: Session = Depends(get_session),
+) -> dict[int, SubtitleSummaryResponse]:
+    """按媒体文件汇总字幕信息（对齐状态 + 语言列表，{file_id: summary}），供卡片墙展示。
+
+    全量统计涉及磁盘遍历与字幕内容分析，慢时可达十几秒；声明为同步 def 让
+    FastAPI 在线程池中执行，避免阻塞事件循环导致全站接口卡死。
+    """
+    summary = get_subtitle_summary_cached(session, media_type)
+    return {file_id: SubtitleSummaryResponse(**info.to_dict()) for file_id, info in summary.items()}
+
+
 @router.get("/library", response_model=MediaListResponse)
 async def list_media_library(
     level: Literal["movie", "show", "season", "episode"] = Query(default="show"),
@@ -122,6 +156,25 @@ async def list_media_library(
     except ValueError as exc:
         raise_for_service_error(exc)
     return MediaListResponse(total=total, offset=offset, limit=limit, items=items)
+
+
+@router.post("/works/allow-no-subtitle", response_model=ActionResponse)
+async def set_work_allow_no_subtitle(
+    payload: WorkAllowNoSubtitleRequest,
+    session: Session = Depends(get_session),
+) -> ActionResponse:
+    """按作品（电影/剧集）设置「允许无字幕」标记，标记作品在批量/季补全中跳过"""
+    try:
+        updated = MediaService.set_work_allow_no_subtitle(
+            session,
+            media_type=payload.media_type,
+            title=payload.title,
+            allow=payload.allow,
+        )
+    except Exception as exc:
+        raise_for_service_error(exc)
+    state = "允许无字幕" if payload.allow else "需要字幕"
+    return ActionResponse(message=f"作品 '{payload.title}' 已标记为{state}（更新 {updated} 个文件）")
 
 
 @router.post("/files/{file_id}/auto-match", response_model=TaskTriggerResponse)
@@ -156,6 +209,31 @@ async def match_tv_season(
         message=f"Matching process for '{request.title}' Season {request.season} started",
         task_kind="season_match",
         target=f"{request.title}:S{request.season:02d}",
+    )
+
+
+@router.post("/series/align-subtitles", response_model=TaskTriggerResponse)
+async def align_series_subtitles(
+    background_tasks: BackgroundTasks,
+    payload: Optional[SeriesAlignRequest] = Body(default=None),
+    title: Optional[str] = Query(default=None, min_length=1),
+) -> TaskTriggerResponse:
+    """触发指定剧集全部视频文件的批量字幕音轨对齐（后台顺序执行，自动备份 .orig）"""
+    try:
+        request = payload or SeriesAlignRequest(title=title or "")
+    except Exception as exc:
+        raise_for_service_error(exc)
+    if not request.force:
+        # 启动前做资源守卫，系统繁忙直接 503，避免批量任务白跑
+        try:
+            ensure_system_not_busy()
+        except Exception as exc:
+            raise_for_service_error(exc)
+    background_tasks.add_task(MediaService.run_series_align_process, request.title, request.force)
+    return _build_trigger_response(
+        message=f"Subtitle alignment process for series '{request.title}' started",
+        task_kind="series_align",
+        target=request.title,
     )
 
 
@@ -252,3 +330,187 @@ async def download_subtitle_for_file(
 
     background_tasks.add_task(TaskService.run_download_task, task.id)
     return task
+
+
+@router.get("/aligner/status", response_model=AlignerStatusResponse)
+async def get_aligner_status() -> AlignerStatusResponse:
+    """获取音轨对齐工具组件的就绪状态"""
+    return SubtitleAlignService.get_status()
+
+
+@router.post("/files/{file_id}/align-subtitle", response_model=SubtitleAlignResponse)
+async def align_media_subtitle(
+    file_id: int,
+    payload: Optional[SubtitleAlignRequest] = Body(default=None),
+    session: Session = Depends(get_session),
+) -> SubtitleAlignResponse:
+    """对指定媒体文件的字幕执行音轨对齐"""
+    try:
+        filename = payload.filename if payload else None
+        split_penalty = payload.split_penalty if payload else 7.0
+        force = payload.force if payload else False
+        return await SubtitleAlignService.align_media_subtitle(
+            session=session,
+            file_id=file_id,
+            filename=filename,
+            split_penalty=split_penalty,
+            force=force,
+        )
+    except Exception as exc:
+        raise_for_service_error(exc)
+
+
+@router.post("/files/{file_id}/check-subtitle-alignment", response_model=SubtitleAlignmentCheckResponse)
+async def check_media_subtitle_alignment(
+    file_id: int,
+    payload: Optional[SubtitleAlignmentCheckRequest] = Body(default=None),
+    session: Session = Depends(get_session),
+) -> SubtitleAlignmentCheckResponse:
+    """检查指定媒体文件的字幕与音轨是否已对齐（不修改字幕文件）"""
+    try:
+        filename = payload.filename if payload else None
+        threshold_ms = payload.threshold_ms if payload else 100.0
+        force = payload.force if payload else False
+        return await SubtitleAlignService.check_media_subtitle_alignment(
+            session=session,
+            file_id=file_id,
+            filename=filename,
+            threshold_ms=threshold_ms,
+            force=force,
+        )
+    except Exception as exc:
+        raise_for_service_error(exc)
+
+
+@router.post("/files/{file_id}/restore-subtitle", response_model=SubtitleAlignResponse)
+async def restore_media_subtitle(
+    file_id: int,
+    payload: SubtitleRestoreRequest,
+    session: Session = Depends(get_session),
+) -> SubtitleAlignResponse:
+    """将已对齐的字幕还原为其原始备份版本"""
+    try:
+        return SubtitleAlignService.restore_media_subtitle(
+            session=session,
+            file_id=file_id,
+            filename=payload.filename,
+        )
+    except Exception as exc:
+        raise_for_service_error(exc)
+
+
+@router.post("/files/{file_id}/subtitles/trash", response_model=SubtitleTrashResponse)
+async def trash_media_subtitle_by_id(
+    file_id: int,
+    payload: Optional[SubtitleTrashRequest] = Body(default=None),
+    filename: Optional[str] = Query(default=None, description="字幕文件名（单字幕时可省略）"),
+    session: Session = Depends(get_session),
+) -> SubtitleTrashResponse:
+    """将指定媒体文件的字幕安全移入系统回收站（非永久删除，支持随时还原）"""
+    try:
+        sub_name = (payload.filename if payload and payload.filename else None) or filename
+        sub_path = payload.subtitle_path if payload else None
+        result = SubtitleTrashService.trash_subtitle(
+            session=session,
+            file_id=file_id,
+            filename=sub_name,
+            subtitle_path=sub_path,
+        )
+        return SubtitleTrashResponse.model_validate(result.to_dict())
+    except Exception as exc:
+        raise_for_service_error(exc)
+
+
+@router.post("/subtitles/trash", response_model=SubtitleTrashResponse)
+async def trash_subtitle(
+    payload: SubtitleTrashRequest,
+    session: Session = Depends(get_session),
+) -> SubtitleTrashResponse:
+    """通用字幕安全移入回收站接口（支持通过 file_id+filename 或绝对路径指定字幕）"""
+    try:
+        result = SubtitleTrashService.trash_subtitle(
+            session=session,
+            file_id=payload.file_id,
+            filename=payload.filename,
+            subtitle_path=payload.subtitle_path,
+        )
+        return SubtitleTrashResponse.model_validate(result.to_dict())
+    except Exception as exc:
+        raise_for_service_error(exc)
+
+
+@router.post("/subtitles/trash/restore", response_model=SubtitleTrashRestoreResponse)
+async def restore_trashed_subtitle(
+    payload: SubtitleTrashRestoreRequest,
+    session: Session = Depends(get_session),
+) -> SubtitleTrashRestoreResponse:
+    """从回收站中还原字幕文件至原视频目录"""
+    try:
+        result = SubtitleTrashService.restore_subtitle(
+            session=session,
+            trash_id=payload.trash_id,
+            file_id=payload.file_id,
+            filename=payload.filename,
+            subtitle_path=payload.subtitle_path,
+            overwrite=payload.overwrite,
+        )
+        return SubtitleTrashRestoreResponse.model_validate(result.to_dict())
+    except Exception as exc:
+        raise_for_service_error(exc)
+
+
+@router.post("/subtitles/trash/purge", response_model=SubtitleTrashPurgeResponse)
+async def purge_trashed_subtitles(
+    payload: Optional[SubtitleTrashPurgeRequest] = Body(default=None),
+    session: Session = Depends(get_session),
+) -> SubtitleTrashPurgeResponse:
+    """按保留策略彻底删除过期回收站条目（默认保留 trash_retention_days 配置的天数，默认 365 天）"""
+    try:
+        retention_days = payload.retention_days if payload else None
+        result = SubtitleTrashService.purge_expired(session=session, retention_days=retention_days)
+        return SubtitleTrashPurgeResponse.model_validate(result.to_dict())
+    except Exception as exc:
+        raise_for_service_error(exc)
+
+
+@router.get("/subtitles/trash", response_model=SubtitleTrashListResponse)
+async def list_trashed_subtitles(
+    file_id: Optional[int] = Query(default=None, description="按媒体文件 ID 过滤"),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
+    include_restored: bool = Query(default=False, description="是否包含已还原记录"),
+    session: Session = Depends(get_session),
+) -> SubtitleTrashListResponse:
+    """分页查询系统回收站中的字幕记录"""
+    try:
+        items, total = SubtitleTrashService.list_trashed(
+            session=session,
+            file_id=file_id,
+            offset=offset,
+            limit=limit,
+            include_restored=include_restored,
+        )
+        serialized_items = [
+            SubtitleTrashItem(
+                id=item.id or 0,
+                file_id=item.file_id,
+                media_filename=item.media_filename,
+                subtitle_filename=item.subtitle_filename,
+                original_path=item.original_path,
+                trash_path=item.trash_path,
+                backup_original_path=item.backup_original_path,
+                size_bytes=item.size_bytes,
+                trashed_at=item.trashed_at.isoformat() if item.trashed_at else "",
+                is_restored=item.is_restored,
+                restored_at=item.restored_at.isoformat() if item.restored_at else None,
+            )
+            for item in items
+        ]
+        return SubtitleTrashListResponse(
+            total=total,
+            offset=offset,
+            limit=limit,
+            items=serialized_items,
+        )
+    except Exception as exc:
+        raise_for_service_error(exc)

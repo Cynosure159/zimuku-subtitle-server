@@ -5,9 +5,16 @@ from unittest.mock import AsyncMock
 import pytest
 from sqlmodel import Session, delete
 
+from app.core.mediaserver import UnwatchedIndex
 from app.db.models import MediaPath, ScannedFile, SubtitleTask
 from app.db.session import create_db_and_tables, engine, session_scope
-from app.services.auto_match_workflow import AutoMatchWorkflow, SeasonMatchWorkflow, SubtitleCandidateScorer
+from app.services.auto_match_workflow import (
+    AutoMatchWorkflow,
+    LibraryMatchWorkflow,
+    SeasonMatchWorkflow,
+    SubtitleCandidateScorer,
+    build_search_queries,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -80,6 +87,168 @@ async def test_auto_match_retries_until_top_five_candidates(monkeypatch, tmp_pat
     assert (video_path.parent / "Show.S01E02.ass").exists()
 
 
+def test_build_search_queries_prefers_nfo_and_deduplicates():
+    queries = build_search_queries(
+        extracted_title="ModernFamily",
+        nfo_title="摩登家庭",
+        nfo_original_title="Modern Family",
+        nfo_aliases='["摩登家庭", "Modern Family (2009)"]',
+    )
+
+    assert queries == ["摩登家庭", "Modern Family", "ModernFamily"]
+
+
+def test_build_search_queries_tolerates_invalid_aliases_and_falls_back():
+    assert build_search_queries(extracted_title="Show (2024)", nfo_aliases="not-json") == ["Show"]
+    assert build_search_queries(extracted_title="Show", nfo_title="  ") == ["Show"]
+
+
+@pytest.mark.anyio
+async def test_auto_match_falls_back_to_nfo_title(monkeypatch, tmp_path):
+    video_path = tmp_path / "ModernFamily" / "摩登家庭S04E01.mkv"
+    video_path.parent.mkdir(parents=True)
+    video_path.write_text("video", encoding="utf-8")
+
+    scanned_file = ScannedFile(
+        path_id=1,
+        type="tv",
+        file_path=str(video_path),
+        filename=video_path.name,
+        extracted_title="ModernFamily",
+        nfo_title="摩登家庭",
+        nfo_original_title="Modern Family",
+        season=4,
+        episode=1,
+    )
+    with Session(engine) as session:
+        session.add(scanned_file)
+        session.commit()
+        session.refresh(scanned_file)
+
+    searched_queries = []
+
+    async def fake_search(query: str, season=None, episode=None):
+        searched_queries.append(query)
+        if query == "摩登家庭":
+            return [SimpleNamespace(link="http://example.com/0")]
+        return []
+
+    agent = SimpleNamespace(
+        search=AsyncMock(side_effect=fake_search),
+        get_download_page_links=AsyncMock(return_value=["http://example.com/0.zip"]),
+        download_file=AsyncMock(return_value=("Show.S04E01.chs.ass", b"subtitle")),
+        close=AsyncMock(return_value=None),
+    )
+
+    monkeypatch.setattr("app.services.auto_match_workflow.ZimukuAgent", lambda: agent)
+    monkeypatch.setattr("app.services.auto_match_workflow.get_temp_path", lambda: str(tmp_path / "storage" / "tmp"))
+
+    service = AutoMatchWorkflow(session_factory=session_scope)
+    matched = await service.run_for_file(scanned_file.id)
+
+    assert matched is True
+    # 优先使用 nfo_title 搜索，命中后不再尝试其他搜索词
+    assert searched_queries == ["摩登家庭"]
+    assert (video_path.parent / "摩登家庭S04E01.ass").exists()
+
+
+@pytest.mark.anyio
+async def test_auto_match_tries_extracted_title_when_nfo_queries_miss(monkeypatch, tmp_path):
+    video_path = tmp_path / "ModernFamily" / "摩登家庭S04E01.mkv"
+    video_path.parent.mkdir(parents=True)
+    video_path.write_text("video", encoding="utf-8")
+
+    scanned_file = ScannedFile(
+        path_id=1,
+        type="tv",
+        file_path=str(video_path),
+        filename=video_path.name,
+        extracted_title="ModernFamily",
+        nfo_title="不存在的名字",
+        season=4,
+        episode=1,
+    )
+    with Session(engine) as session:
+        session.add(scanned_file)
+        session.commit()
+        session.refresh(scanned_file)
+
+    searched_queries = []
+
+    async def fake_search(query: str, season=None, episode=None):
+        searched_queries.append(query)
+        if query == "ModernFamily":
+            return [SimpleNamespace(link="http://example.com/0")]
+        return []
+
+    agent = SimpleNamespace(
+        search=AsyncMock(side_effect=fake_search),
+        get_download_page_links=AsyncMock(return_value=["http://example.com/0.zip"]),
+        download_file=AsyncMock(return_value=("Show.S04E01.chs.ass", b"subtitle")),
+        close=AsyncMock(return_value=None),
+    )
+
+    monkeypatch.setattr("app.services.auto_match_workflow.ZimukuAgent", lambda: agent)
+    monkeypatch.setattr("app.services.auto_match_workflow.get_temp_path", lambda: str(tmp_path / "storage" / "tmp"))
+
+    service = AutoMatchWorkflow(session_factory=session_scope)
+    matched = await service.run_for_file(scanned_file.id)
+
+    assert matched is True
+    assert searched_queries == ["不存在的名字", "ModernFamily"]
+
+
+@pytest.mark.anyio
+async def test_auto_match_continues_after_corrupt_archive(monkeypatch, tmp_path):
+    """下载到损坏的压缩包时应跳过该候选继续重试，而不是整个文件匹配失败。"""
+    video_path = tmp_path / "Show" / "Show.S01E02.mkv"
+    video_path.parent.mkdir(parents=True)
+    video_path.write_text("video", encoding="utf-8")
+
+    scanned_file = ScannedFile(
+        path_id=1,
+        type="tv",
+        file_path=str(video_path),
+        filename=video_path.name,
+        extracted_title="Show",
+        season=1,
+        episode=2,
+    )
+    with Session(engine) as session:
+        session.add(scanned_file)
+        session.commit()
+        session.refresh(scanned_file)
+
+    search_results = [SimpleNamespace(link=f"http://example.com/{index}") for index in range(2)]
+    requested_links = []
+
+    async def fake_links(link: str):
+        requested_links.append(link)
+        return [f"{link}.zip"]
+
+    async def fake_download(_links, link: str):
+        if link.endswith("/0"):
+            return "broken.zip", b"not a real zip"
+        return "Show.S01E02.chs.ass", b"subtitle"
+
+    agent = SimpleNamespace(
+        search=AsyncMock(return_value=search_results),
+        get_download_page_links=AsyncMock(side_effect=fake_links),
+        download_file=AsyncMock(side_effect=fake_download),
+        close=AsyncMock(return_value=None),
+    )
+
+    monkeypatch.setattr("app.services.auto_match_workflow.ZimukuAgent", lambda: agent)
+    monkeypatch.setattr("app.services.auto_match_workflow.get_temp_path", lambda: str(tmp_path / "storage" / "tmp"))
+
+    service = AutoMatchWorkflow(session_factory=session_scope)
+    matched = await service.run_for_file(scanned_file.id)
+
+    assert matched is True
+    assert requested_links == ["http://example.com/0", "http://example.com/1"]
+    assert (video_path.parent / "Show.S01E02.ass").exists()
+
+
 @pytest.mark.anyio
 async def test_season_match_service_runs_sequentially_with_throttle():
     with Session(engine) as session:
@@ -131,3 +300,352 @@ async def test_season_match_service_runs_sequentially_with_throttle():
         ("match", second_file.id),
         ("sleep", 2),
     ]
+
+
+def _add_scanned_file(session, filename: str, has_subtitle: bool) -> ScannedFile:
+    record = ScannedFile(
+        path_id=1,
+        type="movie",
+        file_path=f"/library/{filename}",
+        filename=filename,
+        extracted_title="Movie",
+        has_subtitle=has_subtitle,
+    )
+    session.add(record)
+    session.commit()
+    session.refresh(record)
+    return record
+
+
+@pytest.mark.anyio
+async def test_library_match_only_processes_files_without_subtitle():
+    with Session(engine) as session:
+        pending_id = _add_scanned_file(session, "Pending.mkv", has_subtitle=False).id
+        _add_scanned_file(session, "Done.mkv", has_subtitle=True)
+
+    calls = []
+
+    async def fake_auto_match(file_id: int):
+        calls.append(("match", file_id))
+        return file_id == pending_id
+
+    async def fake_sleep(seconds: float):
+        calls.append(("sleep", seconds))
+
+    service = LibraryMatchWorkflow(
+        session_factory=session_scope,
+        auto_match_runner=fake_auto_match,
+        sleep_func=fake_sleep,
+    )
+
+    stats = await service.run()
+
+    assert calls == [("match", pending_id), ("sleep", 2)]
+    assert stats.total == 1
+    assert stats.matched == 1
+    assert stats.failed_files == []
+
+
+@pytest.mark.anyio
+async def test_library_match_collects_failures():
+    with Session(engine) as session:
+        _add_scanned_file(session, "FailOne.mkv", has_subtitle=False)
+        _add_scanned_file(session, "FailTwo.mkv", has_subtitle=False)
+
+    async def fake_auto_match(file_id: int):
+        return False
+
+    async def fake_sleep(seconds: float):
+        return None
+
+    service = LibraryMatchWorkflow(
+        session_factory=session_scope,
+        auto_match_runner=fake_auto_match,
+        sleep_func=fake_sleep,
+    )
+
+    stats = await service.run()
+
+    assert stats.total == 2
+    assert stats.matched == 0
+    assert stats.failed == 2
+    assert set(stats.failed_files) == {"FailOne.mkv", "FailTwo.mkv"}
+
+
+def _add_pending(session, title: str, filename: str, media_type: str = "tv", season: int | None = None) -> None:
+    session.add(
+        ScannedFile(
+            path_id=1,
+            type=media_type,
+            file_path=f"/library/{filename}",
+            filename=filename,
+            extracted_title=title,
+            season=season,
+            has_subtitle=False,
+        )
+    )
+    session.commit()
+
+
+@pytest.mark.anyio
+async def test_library_match_respects_max_works_and_prefers_largest_gap():
+    with Session(engine) as session:
+        for index in range(3):
+            _add_pending(session, "Big Show (2024)", f"BigShow.S01E0{index}.mkv", season=1)
+        _add_pending(session, "Small Show", "SmallShow.S01E01.mkv", season=1)
+        _add_pending(session, "Some Movie", "SomeMovie.2024.mkv", media_type="movie")
+
+    matched_ids = []
+
+    async def fake_auto_match(file_id: int):
+        matched_ids.append(file_id)
+        return True
+
+    async def fake_sleep(seconds: float):
+        return None
+
+    service = LibraryMatchWorkflow(
+        session_factory=session_scope,
+        auto_match_runner=fake_auto_match,
+        sleep_func=fake_sleep,
+        max_works=1,
+    )
+
+    stats = await service.run()
+
+    # 只补缺口最大的一季（3 集），且 "Big Show (2024)" 被归一化为 "Big Show"
+    assert stats.titles == ["Big Show S01"]
+    assert stats.total == 3
+    assert stats.matched == 3
+    assert stats.remaining_works == 2
+    assert len(matched_ids) == 3
+
+
+@pytest.mark.anyio
+async def test_library_match_treats_each_season_as_one_work():
+    """同一部剧的不同季按不同作品计数：max_works=1 时每次只补一季。"""
+    with Session(engine) as session:
+        for index in range(2):
+            _add_pending(session, "Big Show", f"BigShow.S01E0{index}.mkv", season=1)
+        _add_pending(session, "Big Show", "BigShow.S02E01.mkv", season=2)
+
+    matched_ids = []
+
+    async def fake_auto_match(file_id: int):
+        matched_ids.append(file_id)
+        return True
+
+    async def fake_sleep(seconds: float):
+        return None
+
+    service = LibraryMatchWorkflow(
+        session_factory=session_scope,
+        auto_match_runner=fake_auto_match,
+        sleep_func=fake_sleep,
+        max_works=1,
+    )
+
+    stats = await service.run()
+
+    # 只补缺口更大的第一季，第二季留待下次运行
+    assert stats.titles == ["Big Show S01"]
+    assert stats.total == 2
+    assert stats.matched == 2
+    assert stats.remaining_works == 1
+    assert len(matched_ids) == 2
+
+
+@pytest.mark.anyio
+async def test_library_match_prioritizes_works_with_nfo_metadata():
+    with Session(engine) as session:
+        for index in range(3):
+            _add_pending(session, "Big Show", f"BigShow.S01E0{index}.mkv", season=1)
+        nfo_file = ScannedFile(
+            path_id=1,
+            type="tv",
+            file_path="/library/NfoShow.S01E01.mkv",
+            filename="NfoShow.S01E01.mkv",
+            extracted_title="Nfo Show",
+            season=1,
+            nfo_title="NFO 剧集",
+            has_subtitle=False,
+        )
+        session.add(nfo_file)
+        session.commit()
+
+    async def fake_auto_match(file_id: int):
+        return True
+
+    async def fake_sleep(seconds: float):
+        return None
+
+    service = LibraryMatchWorkflow(
+        session_factory=session_scope,
+        auto_match_runner=fake_auto_match,
+        sleep_func=fake_sleep,
+        max_works=1,
+    )
+
+    stats = await service.run()
+
+    # 虽然 Big Show 缺口更大，但 Nfo Show 有 NFO 元数据，应优先处理
+    assert stats.titles == ["Nfo Show S01"]
+    assert stats.total == 1
+    assert stats.remaining_works == 1
+
+
+@pytest.mark.anyio
+async def test_library_match_prioritizes_unwatched_works_over_nfo():
+    with Session(engine) as session:
+        for index in range(3):
+            session.add(
+                ScannedFile(
+                    path_id=1,
+                    type="tv",
+                    file_path=f"/library/BigShow.S01E0{index}.mkv",
+                    filename=f"BigShow.S01E0{index}.mkv",
+                    extracted_title="Big Show",
+                    season=1,
+                    nfo_title="Big Show NFO",
+                    has_subtitle=False,
+                )
+            )
+        session.commit()
+        _add_pending(session, "Fresh Show (2024)", "FreshShow.S01E01.mkv", season=1)
+
+    async def fake_auto_match(file_id: int):
+        return True
+
+    async def fake_sleep(seconds: float):
+        return None
+
+    service = LibraryMatchWorkflow(
+        session_factory=session_scope,
+        auto_match_runner=fake_auto_match,
+        sleep_func=fake_sleep,
+        max_works=1,
+        unwatched=UnwatchedIndex(titles={"fresh show"}, item_count=1),
+    )
+
+    stats = await service.run()
+
+    # 虽然 Big Show 缺口更大且有 NFO 元数据，但 Fresh Show 未观看，应最优先
+    assert stats.titles == ["Fresh Show S01"]
+    assert stats.total == 1
+    assert stats.remaining_works == 1
+
+
+@pytest.mark.anyio
+async def test_library_match_max_works_zero_processes_all():
+    with Session(engine) as session:
+        _add_pending(session, "Show A", "ShowA.S01E01.mkv", season=1)
+        _add_pending(session, "Show A", "ShowA.S02E01.mkv", season=2)
+        _add_pending(session, "Movie B", "MovieB.2024.mkv", media_type="movie")
+
+    async def fake_auto_match(file_id: int):
+        return True
+
+    async def fake_sleep(seconds: float):
+        return None
+
+    service = LibraryMatchWorkflow(
+        session_factory=session_scope,
+        auto_match_runner=fake_auto_match,
+        sleep_func=fake_sleep,
+        max_works=0,
+    )
+
+    stats = await service.run()
+
+    # max_works=0 时不限数量：同一部剧的两季都处理
+    assert sorted(stats.titles) == ["Movie B", "Show A S01", "Show A S02"]
+    assert stats.total == 3
+    assert stats.remaining_works == 0
+
+
+@pytest.mark.anyio
+async def test_library_match_skips_works_allowing_no_subtitle():
+    with Session(engine) as session:
+        _add_pending(session, "Show A", "ShowA.S01E01.mkv", season=1)
+        flagged = ScannedFile(
+            path_id=1,
+            type="movie",
+            file_path="/library/Silent.2024.mkv",
+            filename="Silent.2024.mkv",
+            extracted_title="Silent Movie",
+            has_subtitle=False,
+            allow_no_subtitle=True,
+        )
+        session.add(flagged)
+        session.commit()
+        session.refresh(flagged)
+        flagged_id = flagged.id
+
+    matched_ids = []
+
+    async def fake_auto_match(file_id: int):
+        matched_ids.append(file_id)
+        return True
+
+    async def fake_sleep(seconds: float):
+        return None
+
+    service = LibraryMatchWorkflow(
+        session_factory=session_scope,
+        auto_match_runner=fake_auto_match,
+        sleep_func=fake_sleep,
+    )
+
+    stats = await service.run()
+
+    assert stats.titles == ["Show A S01"]
+    assert stats.total == 1
+    assert flagged_id not in matched_ids
+
+
+@pytest.mark.anyio
+async def test_season_match_skips_files_allowing_no_subtitle():
+    with Session(engine) as session:
+        pending = ScannedFile(
+            path_id=1,
+            type="tv",
+            file_path="/library/Show.S01E01.mkv",
+            filename="Show.S01E01.mkv",
+            extracted_title="Show",
+            season=1,
+            episode=1,
+            has_subtitle=False,
+        )
+        flagged = ScannedFile(
+            path_id=1,
+            type="tv",
+            file_path="/library/Show.S01E02.mkv",
+            filename="Show.S01E02.mkv",
+            extracted_title="Show",
+            season=1,
+            episode=2,
+            has_subtitle=False,
+            allow_no_subtitle=True,
+        )
+        session.add_all([pending, flagged])
+        session.commit()
+        session.refresh(pending)
+
+    calls = []
+
+    async def fake_auto_match(file_id: int):
+        calls.append(file_id)
+        return True
+
+    async def fake_sleep(seconds: float):
+        return None
+
+    service = SeasonMatchWorkflow(
+        session_factory=session_scope,
+        auto_match_runner=fake_auto_match,
+        sleep_func=fake_sleep,
+    )
+
+    await service.run_for_season("Show", 1)
+
+    assert calls == [pending.id]

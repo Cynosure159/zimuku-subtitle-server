@@ -1,7 +1,10 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { autoMatchFile, type ScannedFile, type TaskStatus } from '../api';
 import { getMediaTitle } from '../lib/mediaUtils';
+import { SubtitleManagerModal } from './SubtitleManagerModal';
+import { useToast } from '../hooks/useToast';
 
 interface MediaItemProps {
   file: ScannedFile;
@@ -45,10 +48,15 @@ function getBadgeClass(hasSubtitle: boolean, isMatching: boolean): string {
 function getBadgeLabel(
   hasSubtitle: boolean,
   isMatching: boolean,
+  isAligning: boolean,
   t: ReturnType<typeof useTranslation>['t'],
 ): string {
   if (isMatching) {
     return t('status.searching');
+  }
+
+  if (isAligning) {
+    return t('status.aligning');
   }
 
   if (hasSubtitle) {
@@ -67,12 +75,15 @@ export function MediaItem({
   setMatchingFileOptimistic,
 }: MediaItemProps): React.JSX.Element {
   const { t } = useTranslation();
+  const { showToast } = useToast();
   const navigate = useNavigate();
+  const [manageModalOpen, setManageModalOpen] = useState(false);
   const isMatching = status.matching_files.includes(file.id);
+  const isAligning = status.aligning_files.includes(file.id);
   const hasSubtitle = file.has_subtitle;
-  const { backgroundClass, borderClass, iconClass } = getMediaItemTone(hasSubtitle, isMatching);
-  const badgeClass = getBadgeClass(hasSubtitle, isMatching);
-  const badgeLabel = getBadgeLabel(hasSubtitle, isMatching, t);
+  const { backgroundClass, borderClass, iconClass } = getMediaItemTone(hasSubtitle, isMatching || isAligning);
+  const badgeClass = getBadgeClass(hasSubtitle, isMatching || isAligning);
+  const badgeLabel = getBadgeLabel(hasSubtitle, isMatching, isAligning, t);
   const episodeLabel = showEpisode ? `E${file.episode?.toString().padStart(2, '0') || '??'}` : null;
 
   const handleAutoSearch = async (): Promise<void> => {
@@ -88,7 +99,7 @@ export function MediaItem({
       await autoMatchFile(file.id);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      alert(t('mediaConfig.triggerFailed') + ': ' + message);
+      showToast(t('mediaConfig.triggerFailed') + ': ' + message, 'error');
       if (setMatchingFileOptimistic) {
         setMatchingFileOptimistic(file.id, false);
       }
@@ -107,7 +118,7 @@ export function MediaItem({
         <div
           className={`w-12 h-12 rounded-xl bg-surface-container flex items-center justify-center ${iconClass} shadow-sm shrink-0 ${!hasSubtitle && !isMatching ? 'opacity-80' : ''}`}
         >
-          {isMatching ? (
+          {isMatching || isAligning ? (
             <span className="material-symbols-outlined text-2xl animate-spin">sync</span>
           ) : (
             <span className="material-symbols-outlined text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>
@@ -136,6 +147,15 @@ export function MediaItem({
           >
             <span className="material-symbols-outlined text-xl">search</span>
           </button>
+          {hasSubtitle && (
+            <button
+              onClick={() => setManageModalOpen(true)}
+              className="w-10 h-10 flex items-center justify-center rounded-md hover:bg-surface-container-highest text-on-surface-variant hover:text-primary transition-colors tooltip"
+              title={t('subtitles.manageTitle')}
+            >
+              <span className="material-symbols-outlined text-xl">graphic_eq</span>
+            </button>
+          )}
           {!hasSubtitle && !isMatching && (
             <button
               onClick={handleAutoSearch}
@@ -151,6 +171,12 @@ export function MediaItem({
           {badgeLabel}
         </span>
       </div>
+
+      <SubtitleManagerModal
+        isOpen={manageModalOpen}
+        onClose={() => setManageModalOpen(false)}
+        file={file}
+      />
     </div>
   );
 }

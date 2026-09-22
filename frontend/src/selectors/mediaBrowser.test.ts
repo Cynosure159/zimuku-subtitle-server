@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
   buildSidebarItem,
   getCurrentSeasonFiles,
+  getGroupSubtitleSummary,
   getNextSelectedSeason,
   getNextSelectedTitle,
   getSelectionFromUrl,
   getTotalEpisodesCount,
   isSelectedSeasonMatching,
+  isSelectedSeriesAligning,
   orderSidebarEntriesByDisplayYear,
 } from './mediaBrowser';
 import type { MediaMetadata, TaskStatus } from '../types/api';
@@ -17,6 +19,7 @@ const seriesGroup: TvGroup = {
   year: '2020',
   totalCount: 2,
   hasSubCount: 1,
+  allowNoSubtitle: false,
   firstPath: '/tv/Series/S01E01.mkv',
   seriesRootPath: '/tv/Series',
   firstFileId: 11,
@@ -32,6 +35,7 @@ const seriesGroup: TvGroup = {
         season: 1,
         episode: 1,
         has_subtitle: true,
+        allow_no_subtitle: false,
         type: 'tv',
         created_at: '2026-03-21T09:00:00',
       },
@@ -46,6 +50,7 @@ const seriesGroup: TvGroup = {
         season: 2,
         episode: 1,
         has_subtitle: false,
+        allow_no_subtitle: false,
         type: 'tv',
         created_at: '2026-03-22T09:00:00',
       },
@@ -69,6 +74,8 @@ const status: TaskStatus = {
   is_scanning: false,
   matching_files: [],
   matching_seasons: [{ title: 'Series', season: 2 }],
+  aligning_series: ['Series'],
+  aligning_files: [11],
 };
 
 describe('mediaBrowser selectors', () => {
@@ -89,6 +96,60 @@ describe('mediaBrowser selectors', () => {
     expect(orderSidebarEntriesByDisplayYear(entries, 'desc').map(entry => entry.item.id)).toEqual(['A', 'B']);
   });
 
+  it('对齐状态只统计有字幕的文件，取最差状态', () => {
+    // seriesGroup 中 id=11 有字幕，id=12 无字幕
+    expect(
+      getGroupSubtitleSummary(seriesGroup, { '11': { alignment_status: 'aligned', languages: [] } }).alignmentStatus
+    ).toBe('aligned');
+    expect(
+      getGroupSubtitleSummary(seriesGroup, {
+        '11': { alignment_status: 'misaligned', languages: [] },
+        '12': { alignment_status: 'aligned', languages: [] },
+      }).alignmentStatus
+    ).toBe('misaligned');
+    // 无字幕文件缺失记录不影响聚合
+    expect(getGroupSubtitleSummary(seriesGroup, {}).alignmentStatus).toBe('unknown');
+    expect(getGroupSubtitleSummary(seriesGroup, undefined).alignmentStatus).toBe('unknown');
+  });
+
+  it('字幕语言取所有文件语言的并集并去重', () => {
+    const summary = getGroupSubtitleSummary(seriesGroup, {
+      '11': { alignment_status: 'aligned', languages: ['简英双语', '英语'] },
+    });
+
+    expect(summary.languages).toEqual(['简英双语', '英语']);
+  });
+
+  it('没有字幕文件的作品不展示对齐与语言标签', () => {
+    const noSubGroup: TvGroup = {
+      ...seriesGroup,
+      seasons: {
+        1: seriesGroup.seasons[2].map(file => ({ ...file, id: 21 })),
+      },
+    };
+
+    const summary = getGroupSubtitleSummary(noSubGroup, {
+      '21': { alignment_status: 'aligned', languages: ['英语'] },
+    });
+    expect(summary.alignmentStatus).toBeNull();
+    expect(summary.languages).toEqual([]);
+  });
+
+  it('「允许无字幕」的文件不参与对齐与语言标签聚合', () => {
+    const allowedGroup: TvGroup = {
+      ...seriesGroup,
+      seasons: {
+        1: seriesGroup.seasons[1].map(file => ({ ...file, allow_no_subtitle: true })),
+      },
+    };
+
+    const summary = getGroupSubtitleSummary(allowedGroup, {
+      '11': { alignment_status: 'misaligned', languages: ['简英双语'] },
+    });
+    expect(summary.alignmentStatus).toBeNull();
+    expect(summary.languages).toEqual([]);
+  });
+
   it('能解析 URL 选中项并回退默认选中', () => {
     expect(getSelectionFromUrl([seriesGroup], 'Series', '2')).toEqual({ title: 'Series', season: 2 });
     expect(getNextSelectedTitle([seriesGroup], null)).toBe('Series');
@@ -99,5 +160,13 @@ describe('mediaBrowser selectors', () => {
     expect(getCurrentSeasonFiles(seriesGroup, 2)).toHaveLength(1);
     expect(getTotalEpisodesCount(seriesGroup)).toBe(2);
     expect(isSelectedSeasonMatching(status, seriesGroup, 2)).toBe(true);
+  });
+
+  it('能判断剧集级批量对齐状态', () => {
+    expect(isSelectedSeriesAligning(status, seriesGroup)).toBe(true);
+    expect(isSelectedSeriesAligning(status, undefined)).toBe(false);
+    expect(
+      isSelectedSeriesAligning({ ...status, aligning_series: ['Other'] }, seriesGroup)
+    ).toBe(false);
   });
 });

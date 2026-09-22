@@ -1,13 +1,21 @@
-from dataclasses import asdict, dataclass
+import threading
+import time
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from ..core.subtitle_detector import LanguageAnalysisResult, SubtitleDetector
+from ..core.subtitle_languages import SUBTITLE_LANGUAGE_BY_CODE
 from ..core.utils import SUBTITLE_EXTENSIONS
-from ..db.models import ScannedFile
+from ..db.models import ScannedFile, SubtitleAlignmentState
+from ..db.session import session_scope
+
+ALIGNMENT_STATUS_UNKNOWN = "unknown"
+ALIGNMENT_STATUS_ALIGNED = "aligned"
+ALIGNMENT_STATUS_MISALIGNED = "misaligned"
 
 
 class SubtitleInspectionError(Exception):
@@ -20,6 +28,240 @@ class SubtitleNotFoundError(SubtitleInspectionError, LookupError):
 
 class SubtitleInvalidRequestError(SubtitleInspectionError, ValueError):
     """请求参数无效或不支持的操作。"""
+
+
+@dataclass(frozen=True)
+class AlignmentStateInfo:
+    """单个字幕文件的对齐状态视图。"""
+
+    status: str = ALIGNMENT_STATUS_UNKNOWN
+    max_shift_ms: Optional[float] = None
+    mean_shift_ms: Optional[float] = None
+    checked_at: Optional[str] = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def compute_file_signature(sub_path: Path) -> tuple[int, int]:
+    """计算字幕文件签名（大小 + 修改时间），用于检测文件是否被修改。"""
+    stat = sub_path.stat()
+    return stat.st_size, stat.st_mtime_ns
+
+
+def _resolve_alignment_from_record(record: SubtitleAlignmentState, sub_path: Path) -> AlignmentStateInfo:
+    """基于已有记录解析对齐状态；文件签名与记录不匹配时回落为 unknown。"""
+    try:
+        size_bytes, mtime_ns = compute_file_signature(sub_path)
+    except OSError:
+        return AlignmentStateInfo()
+
+    if record.size_bytes != size_bytes or record.mtime_ns != mtime_ns:
+        return AlignmentStateInfo()
+
+    return AlignmentStateInfo(
+        status=record.status,
+        max_shift_ms=record.max_shift_ms,
+        mean_shift_ms=record.mean_shift_ms,
+        checked_at=record.checked_at.isoformat(),
+    )
+
+
+def resolve_alignment_state(session: Session, sub_path: Path) -> AlignmentStateInfo:
+    """读取字幕的对齐状态；文件签名与记录不匹配时回落为 unknown。"""
+    record = session.exec(
+        select(SubtitleAlignmentState).where(SubtitleAlignmentState.subtitle_path == str(sub_path))
+    ).first()
+    if record is None:
+        return AlignmentStateInfo()
+
+    return _resolve_alignment_from_record(record, sub_path)
+
+
+# 单文件多字幕、单作品多文件聚合时的状态优先级（数值越大越差）
+_ALIGNMENT_SEVERITY = {
+    ALIGNMENT_STATUS_ALIGNED: 0,
+    ALIGNMENT_STATUS_UNKNOWN: 1,
+    ALIGNMENT_STATUS_MISALIGNED: 2,
+}
+
+
+@dataclass(frozen=True)
+class SubtitleSummaryInfo:
+    """单个媒体文件的字幕汇总视图（对齐状态 + 字幕语言列表），供卡片墙展示。"""
+
+    alignment_status: str = ALIGNMENT_STATUS_UNKNOWN
+    languages: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def _detect_subtitle_display_language(sub_path: Path) -> Optional[str]:
+    """检测字幕语言的展示名称：优先文件名语言标签，失败时回退到内容分析。"""
+    hint = SubtitleDetector.infer_language_from_filename(sub_path.name)
+    if hint:
+        lang_def = SUBTITLE_LANGUAGE_BY_CODE.get(hint)
+        return lang_def.display_name if lang_def else hint
+
+    try:
+        analysis = SubtitleDetector.analyze_file(sub_path)
+    except Exception:
+        return None
+
+    name = analysis.detected_language_name
+    return name if name and name != "未知" else None
+
+
+def get_subtitle_summary(session: Session, media_type: str) -> dict[int, SubtitleSummaryInfo]:
+    """按媒体文件汇总字幕信息（对齐状态 + 语言列表），供卡片墙展示。
+
+    仅统计 has_subtitle 的文件；单文件存在多个字幕时对齐状态取最差
+    （misaligned > unknown > aligned），语言取去重后的并集。返回 {file_id: SubtitleSummaryInfo}。
+    """
+    record_map = {record.subtitle_path: record for record in session.exec(select(SubtitleAlignmentState)).all()}
+
+    files = session.exec(
+        select(ScannedFile).where(ScannedFile.type == media_type, ScannedFile.has_subtitle.is_(True))
+    ).all()
+
+    summary: dict[int, SubtitleSummaryInfo] = {}
+    for media in files:
+        if media.id is None:
+            continue
+
+        statuses = []
+        languages: list[str] = []
+        for sub_path in SubtitleInspectionService._find_related_subtitle_files(Path(media.file_path)):
+            record = record_map.get(str(sub_path))
+            alignment = _resolve_alignment_from_record(record, sub_path) if record is not None else AlignmentStateInfo()
+            statuses.append(alignment.status)
+
+            language = _detect_subtitle_display_language(sub_path)
+            if language and language not in languages:
+                languages.append(language)
+
+        if statuses:
+            summary[media.id] = SubtitleSummaryInfo(
+                alignment_status=max(statuses, key=lambda s: _ALIGNMENT_SEVERITY.get(s, 1)),
+                languages=languages,
+            )
+
+    return summary
+
+
+# 字幕汇总卡片墙缓存：全量统计需要遍历媒体目录并对每个字幕做内容分析，
+# 在网络存储 / 高负载下单次可达十几秒。60s TTL + 对齐状态写入时主动失效，
+# 避免前端轮询反复触发全量扫描拖垮服务。
+SUMMARY_CACHE_TTL_SECONDS = 60.0
+_summary_cache: dict[str, tuple[float, dict[int, SubtitleSummaryInfo]]] = {}
+_summary_cache_lock = threading.Lock()
+_summary_compute_locks: dict[str, threading.Lock] = {}
+_summary_compute_locks_guard = threading.Lock()
+
+
+def invalidate_subtitle_summary_cache() -> None:
+    """使字幕汇总缓存失效（对齐状态写入/重置后调用）。"""
+    with _summary_cache_lock:
+        _summary_cache.clear()
+
+
+def get_subtitle_summary_cached(session: Session, media_type: str) -> dict[int, SubtitleSummaryInfo]:
+    """带 60s TTL 的字幕汇总查询，供 API 入口使用；服务内部与测试请用 get_subtitle_summary。
+
+    并发未命中时按 media_type 单飞计算（双重检查锁），避免前端同时发起多个
+    请求导致重复全量磁盘扫描。
+    """
+    now = time.monotonic()
+    with _summary_cache_lock:
+        hit = _summary_cache.get(media_type)
+        if hit is not None and now - hit[0] < SUMMARY_CACHE_TTL_SECONDS:
+            return hit[1]
+
+    with _summary_compute_locks_guard:
+        compute_lock = _summary_compute_locks.setdefault(media_type, threading.Lock())
+
+    with compute_lock:
+        now = time.monotonic()
+        with _summary_cache_lock:
+            hit = _summary_cache.get(media_type)
+            if hit is not None and now - hit[0] < SUMMARY_CACHE_TTL_SECONDS:
+                return hit[1]
+
+        result = get_subtitle_summary(session, media_type)
+
+        with _summary_cache_lock:
+            _summary_cache[media_type] = (now, result)
+        return result
+
+
+def record_alignment_result(
+    subtitle_path: Path | str,
+    file_id: Optional[int],
+    status: str,
+    max_shift_ms: Optional[float] = None,
+    mean_shift_ms: Optional[float] = None,
+    session: Optional[Session] = None,
+) -> None:
+    """写入/更新字幕的对齐状态（同时记录当前文件签名）。"""
+
+    def _save(target_session: Session) -> None:
+        sub_path = Path(subtitle_path)
+        size_bytes, mtime_ns = compute_file_signature(sub_path)
+        path_str = str(sub_path)
+        record = target_session.exec(
+            select(SubtitleAlignmentState).where(SubtitleAlignmentState.subtitle_path == path_str)
+        ).first()
+        now = datetime.now()
+        if record is None:
+            record = SubtitleAlignmentState(
+                subtitle_path=path_str,
+                file_id=file_id,
+                status=status,
+                max_shift_ms=max_shift_ms,
+                mean_shift_ms=mean_shift_ms,
+                size_bytes=size_bytes,
+                mtime_ns=mtime_ns,
+                checked_at=now,
+                updated_at=now,
+            )
+        else:
+            record.file_id = file_id
+            record.status = status
+            record.max_shift_ms = max_shift_ms
+            record.mean_shift_ms = mean_shift_ms
+            record.size_bytes = size_bytes
+            record.mtime_ns = mtime_ns
+            record.checked_at = now
+            record.updated_at = now
+        target_session.add(record)
+        target_session.commit()
+        invalidate_subtitle_summary_cache()
+
+    if session is not None:
+        _save(session)
+    else:
+        with session_scope() as new_session:
+            _save(new_session)
+
+
+def mark_alignment_unknown(subtitle_path: Path | str, session: Optional[Session] = None) -> None:
+    """将字幕对齐状态重置为 unknown（删除状态记录）。"""
+
+    def _delete(target_session: Session) -> None:
+        record = target_session.exec(
+            select(SubtitleAlignmentState).where(SubtitleAlignmentState.subtitle_path == str(subtitle_path))
+        ).first()
+        if record is not None:
+            target_session.delete(record)
+            target_session.commit()
+            invalidate_subtitle_summary_cache()
+
+    if session is not None:
+        _delete(session)
+    else:
+        with session_scope() as new_session:
+            _delete(new_session)
 
 
 @dataclass(frozen=True)
@@ -41,6 +283,12 @@ class ExistingSubtitleInfo:
     sample_dialogues: list[str]
     confidence: float
     details: dict[str, Any]
+    has_backup: bool = False
+    backup_filename: str | None = None
+    alignment_status: str = ALIGNMENT_STATUS_UNKNOWN
+    alignment_max_shift_ms: float | None = None
+    alignment_mean_shift_ms: float | None = None
+    alignment_checked_at: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -80,7 +328,7 @@ class SubtitleInspectionService:
 
         results: list[ExistingSubtitleInfo] = []
         for sub_path in subtitle_paths:
-            info = cls._inspect_single_subtitle(sub_path)
+            info = cls._inspect_single_subtitle(sub_path, session)
             results.append(info)
 
         return results
@@ -188,6 +436,8 @@ class SubtitleInspectionService:
             try:
                 for item in search_dir.iterdir():
                     if item.is_file() and item.suffix.lower() in SUBTITLE_EXTENSIONS:
+                        if item.stem.lower().endswith(".orig"):
+                            continue
                         if item.stem.lower().startswith(video_stem):
                             subtitles.append(item)
             except OSError:
@@ -196,7 +446,7 @@ class SubtitleInspectionService:
         return sorted(subtitles, key=lambda p: p.name)
 
     @classmethod
-    def _inspect_single_subtitle(cls, sub_path: Path) -> ExistingSubtitleInfo:
+    def _inspect_single_subtitle(cls, sub_path: Path, session: Optional[Session] = None) -> ExistingSubtitleInfo:
         """检查单个字幕文件的元数据和语言。"""
         stat = sub_path.stat()
         modified_at = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat()
@@ -205,6 +455,14 @@ class SubtitleInspectionService:
         is_binary = suffix == ".sup"
 
         analysis: LanguageAnalysisResult = SubtitleDetector.analyze_file(sub_path)
+        backup_path = sub_path.with_name(f"{sub_path.stem}.orig{sub_path.suffix}")
+        has_backup = backup_path.is_file()
+        backup_filename = backup_path.name if has_backup else None
+
+        if session is not None:
+            alignment = resolve_alignment_state(session, sub_path)
+        else:
+            alignment = AlignmentStateInfo()
 
         return ExistingSubtitleInfo(
             filename=sub_path.name,
@@ -224,4 +482,10 @@ class SubtitleInspectionService:
             sample_dialogues=analysis.sample_dialogues,
             confidence=analysis.confidence,
             details=analysis.details,
+            has_backup=has_backup,
+            backup_filename=backup_filename,
+            alignment_status=alignment.status,
+            alignment_max_shift_ms=alignment.max_shift_ms,
+            alignment_mean_shift_ms=alignment.mean_shift_ms,
+            alignment_checked_at=alignment.checked_at,
         )

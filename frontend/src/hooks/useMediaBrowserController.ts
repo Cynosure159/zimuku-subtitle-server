@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, startTransition } from 'react';
-import { useQueries } from '@tanstack/react-query';
+import { useEffect, useMemo, useRef, useState, startTransition } from 'react';
+import { useQueries, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import {
   fetchMediaMetadata,
@@ -9,7 +9,7 @@ import {
 } from '../api';
 import { useMediaGrouping, type MovieGroup, type TvGroup } from './useMediaGrouping';
 import { useMediaPolling } from './useMediaPolling';
-import { useTriggerMediaMatchMutation } from './queries';
+import { useMediaSubtitleSummaryQuery, useTriggerMediaMatchMutation } from './queries';
 import { queryKeys } from '../lib/queryKeys';
 import { useUIStore } from '../stores/useUIStore';
 import type { SidebarItem } from '../types/api';
@@ -18,12 +18,14 @@ import {
   findGroupByTitle,
   getCurrentSeasonFiles,
   getDefaultSortOrder,
+  getGroupSubtitleSummary,
   getNextSelectedSeason,
   getNextSelectedTitle,
   getSelectionFromUrl,
   getSortedSeasonNumbers,
   isMovieGroup,
   isSelectedSeasonMatching as getIsSelectedSeasonMatching,
+  isSelectedSeriesAligning as getIsSelectedSeriesAligning,
   orderSidebarEntries,
   type SidebarEntry,
   getTotalEpisodesCount,
@@ -64,6 +66,7 @@ interface BaseMediaBrowserController<TGroup extends MovieGroup | TvGroup> {
   setIsScanningOptimistic: ReturnType<typeof useMediaPolling>['setIsScanningOptimistic'];
   setMatchingFileOptimistic: ReturnType<typeof useMediaPolling>['setMatchingFileOptimistic'];
   setMatchingSeasonOptimistic: ReturnType<typeof useMediaPolling>['setMatchingSeasonOptimistic'];
+  setAligningSeriesOptimistic: ReturnType<typeof useMediaPolling>['setAligningSeriesOptimistic'];
 }
 
 interface MovieBrowserController extends BaseMediaBrowserController<MovieGroup> {
@@ -78,6 +81,7 @@ interface TvBrowserController extends BaseMediaBrowserController<TvGroup> {
   currentSeasonFiles: TvGroup['seasons'][number];
   totalEpisodesCount: number;
   isSelectedSeasonMatching: boolean;
+  isSelectedSeriesAligning: boolean;
 }
 
 function useKeepDesktopSidebarOpen(toggleSidebar: () => void) {
@@ -148,6 +152,7 @@ export function useMediaBrowserController(
     setIsScanningOptimistic,
     setMatchingFileOptimistic,
     setMatchingSeasonOptimistic,
+    setAligningSeriesOptimistic,
   } = useMediaPolling(type);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTitle, setSelectedTitle] = useState<string | null>(null);
@@ -195,9 +200,34 @@ export function useMediaBrowserController(
     [orderedGroupedItems, type]
   );
 
+  const isAnySeriesAligning = status.aligning_series.length > 0;
+  const { data: subtitleSummary } = useMediaSubtitleSummaryQuery(type, {
+    // 批量对齐进行中提高汇总刷新频率，让已完成集的对齐徽标及时更新。
+    refetchInterval: isAnySeriesAligning ? 10000 : false,
+  });
+
+  const queryClient = useQueryClient();
+  const wasAligningRef = useRef(false);
+  useEffect(() => {
+    // 批量对齐结束的瞬间补一次汇总刷新，避免停留在过期的对齐状态。
+    if (wasAligningRef.current && !isAnySeriesAligning) {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.media.subtitleSummary(type) });
+    }
+    wasAligningRef.current = isAnySeriesAligning;
+  }, [isAnySeriesAligning, queryClient, type]);
+
   const sidebarItems = useMemo(
-    () => orderedEntries.map(entry => entry.item),
-    [orderedEntries]
+    () =>
+      orderedEntries.map(entry => {
+        const summary = getGroupSubtitleSummary(entry.group, subtitleSummary);
+        return {
+          ...entry.item,
+          alignmentStatus: summary.alignmentStatus,
+          languages: summary.languages,
+          isAligning: status.aligning_series.includes(entry.group.title),
+        };
+      }),
+    [orderedEntries, subtitleSummary, status.aligning_series]
   );
 
   useEffect(() => {
@@ -296,6 +326,12 @@ export function useMediaBrowserController(
     return getIsSelectedSeasonMatching(status, selectedTvItem, selectedSeason);
   }, [selectedSeason, selectedTvItem, status, type]);
 
+  const isSelectedSeriesAligning = useMemo(() => {
+    if (type !== 'tv') return false;
+
+    return getIsSelectedSeriesAligning(status, selectedTvItem);
+  }, [selectedTvItem, status, type]);
+
   const handleSortChange = (option: SortOption) => {
     if (option === sortOption) {
       setSortOrder(current => (current === 'asc' ? 'desc' : 'asc'));
@@ -340,6 +376,7 @@ export function useMediaBrowserController(
       setIsScanningOptimistic,
       setMatchingFileOptimistic,
       setMatchingSeasonOptimistic,
+      setAligningSeriesOptimistic,
     };
   }
 
@@ -365,11 +402,13 @@ export function useMediaBrowserController(
     setIsScanningOptimistic,
     setMatchingFileOptimistic,
     setMatchingSeasonOptimistic,
+    setAligningSeriesOptimistic,
     selectedSeason,
     setSelectedSeason,
     availableSeasons,
     currentSeasonFiles,
     totalEpisodesCount,
     isSelectedSeasonMatching,
+    isSelectedSeriesAligning,
   };
 }

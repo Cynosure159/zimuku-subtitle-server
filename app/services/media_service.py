@@ -1,14 +1,18 @@
 import json
 import logging
+from pathlib import Path
 from typing import Any, List, Optional, Set, Tuple
 
 from sqlmodel import Session, col, or_, select
 
+from ..core.system_load import ensure_system_not_busy
 from ..db.models import MediaPath, ScannedFile
 from ..db.session import session_scope
-from .auto_match_workflow import AutoMatchWorkflow, SeasonMatchWorkflow
-from .errors import ConflictError
+from .auto_match_workflow import AutoMatchWorkflow, SeasonMatchWorkflow, normalize_media_title
+from .errors import ConflictError, SystemBusyError
 from .media_scan_pipeline import MediaScanPipeline
+from .subtitle_align_service import SubtitleAlignService
+from .subtitle_inspection_service import SubtitleInspectionService
 
 logger = logging.getLogger(__name__)
 
@@ -20,12 +24,16 @@ class MediaTaskStatus:
         self.is_scanning = False
         self.matching_files: Set[int] = set()
         self.matching_seasons: Set[Tuple[str, int]] = set()
+        self.aligning_series: Set[str] = set()
+        self.aligning_files: Set[int] = set()
 
     def to_dict(self):
         return {
             "is_scanning": self.is_scanning,
             "matching_files": list(self.matching_files),
             "matching_seasons": [{"title": t, "season": s} for t, s in self.matching_seasons],
+            "aligning_series": list(self.aligning_series),
+            "aligning_files": list(self.aligning_files),
         }
 
 
@@ -162,17 +170,24 @@ class MediaService:
                 item["path_ids"] = {file_record.path_id}
                 item["file_count"] = 1
                 item["subtitle_file_count"] = int(file_record.has_subtitle)
+                item["allow_no_subtitle"] = bool(file_record.allow_no_subtitle)
+                item["no_subtitle_allowed_file_count"] = int(file_record.allow_no_subtitle)
                 grouped[group_key] = item
                 continue
 
             existing["path_ids"].add(file_record.path_id)
             existing["file_count"] += 1
             existing["subtitle_file_count"] += int(file_record.has_subtitle)
+            existing["allow_no_subtitle"] = existing["allow_no_subtitle"] and bool(file_record.allow_no_subtitle)
+            existing["no_subtitle_allowed_file_count"] += int(file_record.allow_no_subtitle)
 
         items = []
         for item in grouped.values():
             item["path_ids"] = sorted(item["path_ids"])
-            item["missing_subtitle_file_count"] = item["file_count"] - item["subtitle_file_count"]
+            # 允许无字幕的文件不计入缺失：它们是有意不配字幕的
+            item["missing_subtitle_file_count"] = (
+                item["file_count"] - item["subtitle_file_count"] - item["no_subtitle_allowed_file_count"]
+            )
             items.append(item)
 
         items.sort(key=lambda item: (item["title"].casefold(), item["season"] or 0, item["episode"] or 0))
@@ -250,6 +265,30 @@ class MediaService:
         return session.get(ScannedFile, file_id)
 
     @staticmethod
+    def set_work_allow_no_subtitle(session: Session, media_type: str, title: str, allow: bool) -> int:
+        """按作品（电影/剧集，含去年份规范化标题匹配）设置「允许无字幕」标记。
+
+        标记作用于作品下的全部文件；批量/季补全跳过已标记作品。返回更新的文件数。
+        """
+        query_title = normalize_media_title(title)
+        statement = select(ScannedFile).where(
+            or_(
+                ScannedFile.extracted_title == query_title,
+                ScannedFile.extracted_title == title,
+            ),
+            ScannedFile.type == media_type,
+        )
+        files = session.exec(statement).all()
+        if not files:
+            raise LookupError(f"未找到作品: {title}")
+
+        for file_record in files:
+            file_record.allow_no_subtitle = allow
+            session.add(file_record)
+        session.commit()
+        return len(files)
+
+    @staticmethod
     async def run_media_scan_and_match(path_type: Optional[str] = None) -> None:
         """刷新媒体库文件记录，不执行字幕搜索、下载或移动。"""
         global_task_status.is_scanning = True
@@ -289,3 +328,88 @@ class MediaService:
             raise
         finally:
             global_task_status.matching_seasons.discard((title, season))
+
+    @staticmethod
+    def _load_series_file_ids(session: Session, title: str) -> List[int]:
+        """按剧集标题（含去年份规范化匹配）加载全部 TV 文件 ID，按季/集排序。"""
+        query_title = normalize_media_title(title)
+        statement = (
+            select(ScannedFile)
+            .where(
+                or_(
+                    ScannedFile.extracted_title == query_title,
+                    ScannedFile.extracted_title == title,
+                ),
+                ScannedFile.type == "tv",
+            )
+            .order_by(col(ScannedFile.season), col(ScannedFile.episode), col(ScannedFile.id))
+        )
+        files = session.exec(statement).all()
+        return [file_record.id for file_record in files if file_record.id is not None]
+
+    @staticmethod
+    async def run_series_align_process(title: str, force: bool = False) -> None:
+        """对指定剧集全部视频文件的所有关联字幕顺序执行音轨对齐（后台任务）。
+
+        单集/单条字幕失败仅记录日志，不中断整体流程；对齐前自动备份 .orig。
+        系统资源紧张时（force=False）拒绝启动并记录日志。
+        """
+        if not force:
+            try:
+                ensure_system_not_busy()
+            except SystemBusyError as exc:
+                logger.warning("剧集批量对齐被拒绝: title=%s, reason=%s", title, exc)
+                return
+
+        global_task_status.aligning_series.add(title)
+        stats = {"aligned": 0, "failed": 0, "skipped_files": 0}
+        try:
+            with session_scope() as session:
+                file_ids = MediaService._load_series_file_ids(session, title)
+
+            logger.info("剧集批量对齐开始: title=%s, files=%s", title, len(file_ids))
+            for file_id in file_ids:
+                global_task_status.aligning_files.add(file_id)
+                try:
+                    with session_scope() as session:
+                        media = session.get(ScannedFile, file_id)
+                        if media is None:
+                            continue
+                        subtitle_names = [
+                            p.name
+                            for p in SubtitleInspectionService._find_related_subtitle_files(Path(media.file_path))
+                        ]
+
+                    if not subtitle_names:
+                        stats["skipped_files"] += 1
+                        continue
+
+                    for subtitle_name in subtitle_names:
+                        try:
+                            with session_scope() as session:
+                                # 批量入口已做资源守卫，逐条执行不再重复检查，
+                                # 避免跑到一半系统变忙导致剩余条目批量失败。
+                                await SubtitleAlignService.align_media_subtitle(
+                                    session=session,
+                                    file_id=file_id,
+                                    filename=subtitle_name,
+                                    force=True,
+                                )
+                            stats["aligned"] += 1
+                        except Exception as exc:
+                            stats["failed"] += 1
+                            logger.warning(
+                                "剧集批量对齐单条失败: title=%s, file_id=%s, sub=%s, error=%s",
+                                title,
+                                file_id,
+                                subtitle_name,
+                                exc,
+                            )
+                finally:
+                    global_task_status.aligning_files.discard(file_id)
+            logger.info("剧集批量对齐完成: title=%s, stats=%s", title, stats)
+        except Exception as e:
+            logger.error(f"剧集批量对齐异常: title={title}, error={e}", exc_info=True)
+            raise
+        finally:
+            global_task_status.aligning_series.discard(title)
